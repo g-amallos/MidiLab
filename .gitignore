@@ -1,0 +1,6 @@
+*.o
+midilab
+midilab.exe
+err.txt
+
+tests/
