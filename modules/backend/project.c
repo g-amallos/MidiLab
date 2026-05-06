@@ -86,7 +86,32 @@ int createNewProject() {
 }
 
 
-char* projectGetCurrentTitle() {
+const char* projectGetCurrentTitle() {
     if (!globalProject) return NULL;
     return globalProject->title;
+}
+
+void projectSetCurrentTitle(const char* text) {
+    if (!globalProject) return;
+    int len = strlen(text);
+    char* new = malloc((len+1)*sizeof(char));
+    if (!new) return;
+
+    if (globalProject->title) free(globalProject->title);
+
+    globalProject->title = new;
+    strncpy(new, text, len+1);
+}
+
+int projectSetTempo(int tempo) {
+    if (!globalProject) return 0;
+    if (tempo>2400) tempo=2400;
+    if (tempo<30) tempo=30;
+    globalProject->tempo = tempo;
+    return tempo;
+}
+
+int projectGetTempo() {
+    if (!globalProject) return 0;
+    return globalProject->tempo;
 }

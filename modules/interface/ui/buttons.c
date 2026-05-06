@@ -20,7 +20,7 @@ typedef struct ui_button {
 
 void updateButtonEffect(Button btn) {
     btn->effect += (btn->state.effectTarget-btn->effect)/btn->effectSpeed;
-    if (btn->state.hovered || btn->state.dragging) SetMouseCursor(btn->cursorOnHover);
+    if (!(btn->state.disabled) && (btn->state.hovered || btn->state.dragging)) setNextMouseCursor(btn->cursorOnHover);
 }
 
 void buttonUpdate(Button btn, int effectTarget) {
@@ -83,7 +83,7 @@ Button buttonCreate(Rectangle rect, float roundness) {
     btn->state.pressed = 0;
     btn->state.effectTarget = 0;
     
-    btn->cursorOnHover = MOUSE_CURSOR_DEFAULT;
+    btn->cursorOnHover = MOUSE_CURSOR_POINTING_HAND;
     btn->roundness = roundness;
     btn->effectSpeed = 4;
     btn->effect = 0;

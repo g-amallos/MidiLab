@@ -51,3 +51,6 @@ void renderFontStringAlign(Font font, const char* string, Vector2 pos, Vector2 a
     DrawTextEx(font, string, final, size, spacing, color);
 }
 
+Vector2 textFontGetSize(Font font, const char* string, float size, float spacing) {
+    return MeasureTextEx(font, string, size, spacing);
+}

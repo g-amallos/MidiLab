@@ -6,7 +6,7 @@
 #include <images.h>
 
 
-#define APP_NAME "Midi Comp"
+#define APP_NAME "MidiLab"
 
 
 int AppInit() {
@@ -15,9 +15,10 @@ int AppInit() {
     SetWindowMinSize(450, 300);
     SetTargetFPS(60);
 
-    renderInit();
-    iconsInit();
     backendInit();
+    iconsInit();
+    renderInit();
+    
     return 0;
 }
 

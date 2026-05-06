@@ -17,9 +17,18 @@ struct mouse_handler globalMouseHandler = {
 };
 
 
+int nextMouseCursor = MOUSE_CURSOR_ARROW;
+
+void setNextMouseCursor(int cursor) {
+    nextMouseCursor = cursor;
+}
+
+void updateMouseCursor() {
+    SetMouseCursor(nextMouseCursor);
+}
 
 void updateMouseHandler() {
-    SetMouseCursor(MOUSE_CURSOR_ARROW);
+    setNextMouseCursor(MOUSE_CURSOR_ARROW);
     globalMouseHandler.pos = GetMousePosition();
     globalMouseHandler.dpos = GetMouseDelta();
     globalMouseHandler.pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);

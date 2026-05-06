@@ -15,6 +15,16 @@ struct texture icons[T_ICON_END] = {
     [T_ICON_RIGHT] = {.path="assets/icons/right.png", .texture={0}},
     [T_ICON_SETTINGS] = {.path="assets/icons/settings.png", .texture={0}},
     [T_ICON_EDIT] = {.path="assets/icons/edit.png", .texture={0}},
+    [T_ICON_MIDI] = {.path="assets/icons/midi.png", .texture={0}},
+    [T_ICON_LOOP] = {.path="assets/icons/loop.png", .texture={0}},
+    [T_ICON_NEXT] = {.path="assets/icons/next.png", .texture={0}},
+    [T_ICON_PREVIOUS] = {.path="assets/icons/previous.png", .texture={0}},
+    [T_ICON_PLAY] = {.path="assets/icons/play.png", .texture={0}},
+    [T_ICON_PAUSE] = {.path="assets/icons/pause.png", .texture={0}},
+    [T_ICON_UNDO] = {.path="assets/icons/undo.png", .texture={0}},
+    [T_ICON_REDO] = {.path="assets/icons/redo.png", .texture={0}},
+    [T_ICON_PIANO] = {.path="assets/icons/piano.png", .texture={0}},
+    [T_ICON_KEYBOARD] = {.path="assets/icons/keyboard.png", .texture={0}},
 
 };
 

@@ -61,9 +61,10 @@ extern ProjectData globalProject;               // The reference the whole progr
 int createNewProject();                         // Updates the global loaded project to a new one
 void freeProjectContents(ProjectData proj);     // Frees whatever can be freed from the ProjectData (Doesn't free self)
 
-char* projectGetCurrentTitle();                 // Hiding the implementation
-
-
+const char* projectGetCurrentTitle();           // Hiding the implementation
+void projectSetCurrentTitle(const char* text);  // Set/Update the title. Copies the text
+int projectSetTempo(int tempo);                 // Updates the tempo and returns the tempo that has been set
+int projectGetTempo();
 
 /* Track (backend/tracks.c) */
 

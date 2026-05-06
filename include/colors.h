@@ -15,7 +15,50 @@
 #define COLOR_TEXT_4 (Color){ 130, 134, 140, 255 }
 
 
+#define COLOR_THEME_BLUE_LIGHT_1 (Color){ 59, 113, 163, 255 }
+#define COLOR_THEME_BLUE_DARK_1 (Color){ 14, 46, 77, 255 }
 
+
+
+
+//  Palette 1
+#define COLOR_PALETTE_1_NUM_1 (Color){ 54, 33, 62, 255 }
+#define COLOR_PALETTE_1_NUM_2 (Color){ 85, 73, 113, 255 }
+#define COLOR_PALETTE_1_NUM_3 (Color){ 99, 118, 141, 255 }
+#define COLOR_PALETTE_1_NUM_4 (Color){ 138, 198, 208, 255 }
+#define COLOR_PALETTE_1_NUM_5 (Color){ 184, 243, 255, 255 }
+
+#define COLOR_PALETTE_1_P0 (Color){ 54, 33, 62, 255 }
+#define COLOR_PALETTE_1_P1 (Color){ 62, 43, 75, 255 }
+#define COLOR_PALETTE_1_P2 (Color){ 70, 53, 88, 255 }
+#define COLOR_PALETTE_1_P3 (Color){ 85, 73, 113, 255 }
+#define COLOR_PALETTE_1_P4 (Color){ 92, 96, 127, 255 }
+#define COLOR_PALETTE_1_P5 (Color){ 99, 118, 141, 255 }
+#define COLOR_PALETTE_1_P6 (Color){ 119, 158, 175, 255 }
+#define COLOR_PALETTE_1_P7 (Color){ 138, 198, 208, 255 }
+#define COLOR_PALETTE_1_P8 (Color){ 161, 221, 232, 255 }
+#define COLOR_PALETTE_1_P9 (Color){ 184, 243, 255, 255 }
+
+#define COLOR_PALETTE_1_BACKGROUND_3 (Color){ 45, 27, 51, 255}
+#define COLOR_PALETTE_1_BACKGROUND_2 (Color){ 30, 18, 32, 255}
+#define COLOR_PALETTE_1_BACKGROUND_1 (Color){ 18, 11, 20, 255}
+
+
+
+
+
+
+
+
+
+
+// Final Color Palette
+
+#define COLOR_THEME_LIGHT_1 COLOR_PALETTE_1_NUM_4
+#define COLOR_THEME_LIGHT_2 COLOR_PALETTE_1_NUM_5
+#define COLOR_THEME_MID COLOR_PALETTE_1_NUM_3
+#define COLOR_THEME_DARK_1 COLOR_PALETTE_1_NUM_1
+#define COLOR_THEME_DARK_2 COLOR_PALETTE_1_NUM_2
 
 
 #endif

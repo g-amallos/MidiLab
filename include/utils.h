@@ -15,4 +15,7 @@ double doubleMin(double a, double b);
 float floatMax(float a, float b);
 float floatMin(float a, float b);
 
+char* concatenateStrings(const char* s1, const char* s2);
+
+
 #endif

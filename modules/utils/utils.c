@@ -1,5 +1,8 @@
 #include <raylib.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 
 double lerp(double a, double b, double t) {
@@ -45,4 +48,15 @@ float floatMax(float a, float b) {
 
 float floatMin(float a, float b) {
     return (a<b)?a:b;
+}
+
+
+char* concatenateStrings(const char* s1, const char* s2) {
+    int l1=strlen(s1), l2=strlen(s2);
+    char* str = malloc((l1+l2+1)*sizeof(char));
+    if (!str) return NULL;
+    memcpy(str, s1, l1);
+    memcpy(str + l1, s2, l2);
+    str[l1+l2] = 0;
+    return str;
 }

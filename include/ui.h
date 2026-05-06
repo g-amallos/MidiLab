@@ -58,4 +58,41 @@ void buttonListUpdate(ButtonList btnList);
 int buttonListShouldDelete(ButtonList btnList);
 
 
+
+
+
+typedef struct ui_textbox *Textbox;
+enum textbox_input_type {
+    T_IN_STRING,
+    T_IN_POSITIVE_INTEGER
+};
+
+void textboxUpdate(Textbox tbx, int effectTarget);
+void textboxDisable(Textbox tbx);
+void textboxEnable(Textbox tbx);
+Textbox textboxCreate(Rectangle rect, float roundness, enum textbox_input_type inputType, int maxInputChars);
+const char* textboxGetText(Textbox tbx);
+void textboxLoadText(Textbox tbx, const char* text);
+void textboxFree(Textbox tbx);
+void textboxUpdateText(Textbox tbx);
+void textboxUpdateRectangle(Textbox tbx, Rectangle rect);
+void textboxUpdateCursorOnHover(Textbox tbx, int cursor);
+Rectangle textboxGetRectangle(Textbox tbx);
+void textboxUpdateRoundness(Textbox tbx, float roundness);
+float textboxGetRoundness(Textbox tbx);
+int isTextboxClicked(Textbox tbx);
+int isTextboxHovered(Textbox tbx);
+int isTextboxFocused(Textbox tbx);
+int isTextboxDragged(Textbox tbx);
+float textboxGetEffectValue(Textbox tbx);
+void textboxSetEffectTarget(Textbox tbx, int tar);
+int textboxGetCursorIdx(Textbox tbx);
+void textboxSetMaxChars(Textbox tbx, int maxChars);
+char* textboxGetTextBeforeCursor(Textbox tbx);                  // User's got to free this
+int textboxGetPositiveInt(Textbox tbx);
+int isTextboxJustUnfocused(Textbox tbx);
+void textboxLoadPositiveInt(Textbox tbx, int pint);
+
+
+
 #endif

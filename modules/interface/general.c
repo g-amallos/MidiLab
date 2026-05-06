@@ -39,7 +39,8 @@ int render() {
         renderMainBackground();
         renderControlLine();
 
-        //DrawFPS(10, 10);
     EndDrawing();
+    updateMouseCursor();
+
     return 0;
 }

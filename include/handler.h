@@ -29,6 +29,8 @@ struct mouse_handler {
 };
 
 extern struct mouse_handler globalMouseHandler;
+void setNextMouseCursor(int cursor);
+void updateMouseCursor();
 void updateMouseHandler();
 
 
