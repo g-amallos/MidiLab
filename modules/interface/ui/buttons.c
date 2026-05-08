@@ -9,7 +9,7 @@ typedef struct ui_button {
     Rectangle rect;
     struct ui_element_interaction_values state;
     uint8_t effectSpeed;
-    
+    uint8_t canBeShadowedByLayout;
     // Can add 2 bytes here
 
     int cursorOnHover;
@@ -33,9 +33,8 @@ void buttonUpdate(Button btn, int effectTarget) {
         updateButtonEffect(btn);
         return;
     }
-    btn->state.hovered = checkCollisionPointRoundedRect(globalMouseHandler.pos, btn->rect, btn->roundness);
+    btn->state.hovered = (!(btn->state.disableHover)) &&(!(btn->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, btn->rect, btn->roundness));
     
-
     if (globalMouseHandler.pressed) {
         if (btn->state.hovered) {
             btn->state.pressed = 1;
@@ -82,6 +81,9 @@ Button buttonCreate(Rectangle rect, float roundness) {
     btn->state.dragging = 0;
     btn->state.pressed = 0;
     btn->state.effectTarget = 0;
+    btn->state.disableHover = 0;
+
+    btn->canBeShadowedByLayout = 1;
     
     btn->cursorOnHover = MOUSE_CURSOR_POINTING_HAND;
     btn->roundness = roundness;
@@ -94,6 +96,26 @@ Button buttonCreate(Rectangle rect, float roundness) {
 void buttonFree(Button btn) {
     if (!btn) return;
     free(btn);
+}
+
+void buttonEnableLayoutShadowing(Button btn) {
+    if (!btn) return;
+    btn->canBeShadowedByLayout = 1;
+}
+
+void buttonDisableLayoutShadowing(Button btn) {
+    if (!btn) return;
+    btn->canBeShadowedByLayout = 0;
+}
+
+void buttonDisableHover(Button btn) {
+    if (!btn) return;
+    btn->state.disableHover = 1;
+}
+
+void buttonEnableHover(Button btn) {
+    if (!btn) return;
+    btn->state.disableHover = 0;
 }
 
 void buttonUpdateRectangle(Button btn, Rectangle rect) {

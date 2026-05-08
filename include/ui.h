@@ -7,6 +7,13 @@
 
 
 
+int UIisInTextInput();
+int UIisHoveringOverLayout();
+void UIiterationReset();
+
+
+
+
 enum ui_element_types {
     ELEMENT_BUTTON,
     ELEMENT_SLIDER,
@@ -35,7 +42,10 @@ Rectangle buttonGetRectangle(Button btn);
 float buttonGetRoundness(Button btn);
 void buttonUpdateCursorOnHover(Button btn, int cursor);
 void buttonSetEffectTarget(Button btn, int tar);
-
+void buttonEnableLayoutShadowing(Button btn);
+void buttonDisableLayoutShadowing(Button btn);
+void buttonDisableHover(Button btn);
+void buttonEnableHover(Button btn);
 
 
 
@@ -92,7 +102,41 @@ char* textboxGetTextBeforeCursor(Textbox tbx);                  // User's got to
 int textboxGetPositiveInt(Textbox tbx);
 int isTextboxJustUnfocused(Textbox tbx);
 void textboxLoadPositiveInt(Textbox tbx, int pint);
+void textboxEnableLayoutShadowing(Textbox tbx);
+void textboxDisableLayoutShadowing(Textbox tbx);
+void textboxDisableHover(Textbox tbx);
+void textboxEnableHover(Textbox tbx);
 
+
+
+typedef struct ui_slider *Slider;
+
+Slider sliderCreate(Rectangle rect, float roundness);
+void sliderFree(Slider sld);
+void sliderUpdate(Slider sld, int effectTarget);
+void sliderDisable(Slider sld);
+void sliderEnable(Slider sld);
+void sliderEnableLayoutShadowing(Slider sld);
+void sliderDisableLayoutShadowing(Slider sld);
+void sliderUpdateRectangle(Slider sld, Rectangle rect);
+void sliderUpdateCursorOnHover(Slider sld, int cursor);
+Rectangle sliderGetRectangle(Slider sld);
+void sliderUpdateRoundness(Slider sld, float roundness);
+float sliderGetRoundness(Slider sld);
+int isSliderClicked(Slider sld);
+int isSliderHovered(Slider sld);
+int isSliderDragged(Slider sld);
+float sliderGetEffectValue(Slider sld);
+void sliderSetEffectTarget(Slider sld, int tar);
+float sliderGetSlideValue(Slider sld);
+void sliderUpdateSlideValue(Slider sld, float val);
+float sliderHelperMinMaxToNormalizedLinear(float val, float min, float max);
+float sliderHelperNormalizedToMinMaxLinear(float normalized, float min, float max);
+float sliderUpdateValueCommonHorizontal(Slider sld);
+Rectangle sliderGetRectangleValueCommon(Slider sld);
+Vector2 sliderGetPosValueCommon(Slider sld);
+void sliderDisableHover(Slider sld);
+void sliderEnableHover(Slider sld);
 
 
 #endif

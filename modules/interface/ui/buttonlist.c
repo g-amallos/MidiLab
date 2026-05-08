@@ -36,6 +36,7 @@ ButtonList buttonListCreate(Rectangle rect, int num, float roundness, float spac
                 free(btnList);
                 return NULL;
             }
+            buttonDisableLayoutShadowing(btns[i]);
         }
     }
     btnList->toDelete = 0;
@@ -108,7 +109,9 @@ void buttonListUpdateButtonsRects(ButtonList btnList) {
 
 void buttonListUpdate(ButtonList btnList) {
     if (!btnList) return;
-    if (globalMouseHandler.pressed && !(btnList->ignoreDeletion)) btnList->toDelete |= !checkCollisionPointRoundedRect(globalMouseHandler.pos, btnList->rect, btnList->roundness);
+    int isTouchingBaseLayout = checkCollisionPointRoundedRect(globalMouseHandler.pos, btnList->rect, btnList->roundness);
+    if (isTouchingBaseLayout) UIhoveringOverLayout();
+    if (globalMouseHandler.pressed && !(btnList->ignoreDeletion)) btnList->toDelete |= !isTouchingBaseLayout;
     if (btnList->ignoreDeletion) btnList->ignoreDeletion = 0;
     buttonListUpdateButtonsRects(btnList);
     buttonListUpdateButtons(btnList);
@@ -132,6 +135,7 @@ void buttonListSetButtonAt(ButtonList btnList, Button btn, int index, int freeEx
     if (btnList->numButtons>index && index>=0) {
         if (freeExisting) buttonFree((btnList->buttonArr)[index]);
         (btnList->buttonArr)[index] = btn;
+        buttonDisableLayoutShadowing(btn);
     }
 }
 
@@ -149,6 +153,7 @@ void buttonListAppendButton(ButtonList btnList, Button btn) {
     if (!new) return;
     btnList->buttonArr = new;
     (btnList->buttonArr)[(btnList->numButtons)++]=btn;
+    buttonDisableLayoutShadowing(btn);
 }
 
 void buttonListFree(ButtonList btnList, int freeButtons) {

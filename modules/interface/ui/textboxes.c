@@ -19,6 +19,7 @@ typedef struct ui_textbox {
     struct ui_element_interaction_values state;
     uint8_t effectSpeed;
     uint8_t justUnfocused;
+    uint8_t canBeShadowedByLayout;
     
     char* text;
     int cursorIdx;
@@ -57,7 +58,7 @@ void textboxUpdate(Textbox tbx, int effectTarget) {
         updateTextboxEffect(tbx);
         return;
     }
-    tbx->state.hovered = checkCollisionPointRoundedRect(globalMouseHandler.pos, tbx->rect, tbx->roundness);
+    tbx->state.hovered = (!(tbx->state.disableHover)) && (!(tbx->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, tbx->rect, tbx->roundness));
     
     if (globalMouseHandler.pressed) {
         if (tbx->state.hovered) {
@@ -84,6 +85,7 @@ void textboxUpdate(Textbox tbx, int effectTarget) {
     else tbx->state.effectTarget = (!(tbx->state.disabled) && (((tbx->state.hovered || tbx->state.focused) && (!globalMouseHandler.down || globalMouseHandler.pressed)) || tbx->state.dragging || tbx->state.pressed));
 
     if (!(tbx->state.focused)) tbx->cursorIdx = -1;
+    if (tbx->state.focused) UIinTextInput();
 
     updateTextboxEffect(tbx);
 
@@ -95,6 +97,7 @@ void textboxDisable(Textbox tbx) {
     tbx->state.hovered = 0;
     tbx->state.dragging = 0;
     tbx->state.pressed = 0;
+    tbx->state.focused = 0;
     tbx->state.effectTarget = 0;
     tbx->cursorIdx = -1;
 }
@@ -102,6 +105,17 @@ void textboxDisable(Textbox tbx) {
 void textboxEnable(Textbox tbx) {
     if (!tbx) return;
     tbx->state.disabled = 0;
+}
+
+
+void textboxEnableLayoutShadowing(Textbox tbx) {
+    if (!tbx) return;
+    tbx->canBeShadowedByLayout = 1;
+}
+
+void textboxDisableLayoutShadowing(Textbox tbx) {
+    if (!tbx) return;
+    tbx->canBeShadowedByLayout = 0;
 }
 
 
@@ -135,7 +149,7 @@ Textbox textboxCreate(Rectangle rect, float roundness, enum textbox_input_type i
     _resetKeyPressState(&(tbx->left));
     _resetKeyPressState(&(tbx->right));
 
-
+    tbx->canBeShadowedByLayout = 1;
     tbx->rect = rect;
     
     tbx->state.disabled = 0;
@@ -144,6 +158,7 @@ Textbox textboxCreate(Rectangle rect, float roundness, enum textbox_input_type i
     tbx->state.pressed = 0;
     tbx->state.effectTarget = 0;
     tbx->state.focused = 0;
+    tbx->state.disableHover = 0;
     
     tbx->cursorOnHover = MOUSE_CURSOR_IBEAM;
     tbx->roundness = roundness;
@@ -154,6 +169,15 @@ Textbox textboxCreate(Rectangle rect, float roundness, enum textbox_input_type i
 }
 
 
+void textboxDisableHover(Textbox tbx) {
+    if (!tbx) return;
+    tbx->state.disableHover = 1;
+}
+
+void textboxEnableHover(Textbox tbx) {
+    if (!tbx) return;
+    tbx->state.disableHover = 0;
+}
 
 void textboxFree(Textbox tbx) {
     if (!tbx) return;

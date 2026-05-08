@@ -13,18 +13,23 @@
 #define PROJECT_TITLE_PLACEHOLDER "Project Title"
 
 
+float controlLineHeight=0, buttonList4x5ExampleSpacing=0;
+Rectangle buttonList4x5ExampleRect={0,0,0,0};
 
 Button openFileButton = NULL;
 ButtonList layoutButton = NULL;
 Textbox projectTitleTextbox=NULL, tempoTextbox=NULL;
-Button previousButton=NULL, playPauseButton=NULL, nextButton=NULL;
+Button previousButton=NULL, playPauseButton=NULL, nextButton=NULL, loopButton=NULL;
+
+
+
+float lineHeight = 0;
 
 
 void controlLineInit() {
     openFileButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
-    //buttonUpdateCursorOnHover(openFileButton, MOUSE_CURSOR_POINTING_HAND);
 
-    projectTitleTextbox = textboxCreate((Rectangle){20, 20, 80, 30}, 0.25, T_IN_STRING, 30);
+    projectTitleTextbox = textboxCreate((Rectangle){20, 20, 80, 30}, 0.25, T_IN_STRING, 40);
     textboxLoadText(projectTitleTextbox, projectGetCurrentTitle());
 
     tempoTextbox = textboxCreate((Rectangle){20, 20, 80, 30}, 0.25, T_IN_POSITIVE_INTEGER, 4);
@@ -33,6 +38,7 @@ void controlLineInit() {
     previousButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
     playPauseButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
     nextButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
+    loopButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
 }
 void destroyBaseLayout();
 
@@ -55,6 +61,8 @@ void controlLineClose() {
     playPauseButton=NULL;
     if (nextButton) buttonFree(nextButton);
     nextButton=NULL;
+    if (loopButton) buttonFree(loopButton);
+    loopButton=NULL;
 }
 
 
@@ -82,8 +90,8 @@ void renderProjectTextbox() {
     else if (!isFocused) renderFontStringAlign(GlobalFonts[1].font, PROJECT_TITLE_PLACEHOLDER, tarPos, (Vector2){0.5, 0.5}, rect.height*0.6, 0, COLOR_TEXT_3);
 
     if (effect>1e-3) {
-        Color c1=COLOR_TEXT_4; c1.a=(unsigned char)lerp(0, 150, effect);
-        iconRerder(T_ICON_EDIT, scaleRctangleFromCenter((Rectangle){rect.x+rect.width, rect.y, rect.height, rect.height}, 0.35), c1);
+        Color c1=COLOR_TEXT_4; c1.a=(unsigned char)lerp(0, 200, effect);
+        iconRerder(T_ICON_EDIT, scaleRctangleFromCenter((Rectangle){rect.x+rect.width-rect.height, rect.y, rect.height, rect.height}, 0.4), c1);
     }
 
     if (isFocused && cursorIdx>=0) {        
@@ -142,10 +150,18 @@ void renderTempoTextbox() {
     }
 }
 
+void clickedOnPlayPause() {
+    if (globalHandlerIsPlaying()) globalHandlerPause();
+    else globalHandlerPlay();
+}
+
 void renderPrevPlayPauseNext() {
-    Button btns[] = {previousButton, playPauseButton, nextButton};
-    enum icon_title btnIcons[] = {T_ICON_PREVIOUS, T_ICON_PLAY, T_ICON_NEXT};
-    float sizes[] = {0.85, 0.65, 0.85};
+    int isPlaying = globalHandlerIsPlaying(), isLoopEnabled = globalHandlerIsLoopEnabled();
+
+    OnClickFunc funcs[] = {NULL, clickedOnPlayPause, NULL, isLoopEnabled?globalHandlerDisableLoop:globalHandlerEnableLoop};
+    Button btns[] = {previousButton, playPauseButton, nextButton, loopButton};
+    enum icon_title btnIcons[] = {T_ICON_PREVIOUS, isPlaying?T_ICON_PAUSE:T_ICON_PLAY, T_ICON_NEXT, T_ICON_LOOP};
+    float sizes[] = {0.85, isPlaying?0.8:0.65, 0.85, 0.88};
     int btnNum = sizeof(btns)/sizeof(Button);
 
     Color col1 = {20, 21, 23, 0}, col2={28, 30, 34, 255};
@@ -157,19 +173,25 @@ void renderPrevPlayPauseNext() {
         float effect = buttonGetEffectValue(btn);
         float roundness = buttonGetRoundness(btn);
         Rectangle rect = buttonGetRectangle(btn);
+        Color tmp = col2;
+        if (btn==loopButton && isLoopEnabled) tmp = COLOR_THEME_DARK_1;
         
-        Color blendedCol = blendColors(col1, col2, effect);
+        Color blendedCol = blendColors(col1, tmp, effect);
         
-        DrawRectangleRounded(scaleRctangleFromCenter(rect, lerp(0.3, 1, effect)), roundness, 8, blendedCol);
+        if (effect>1e-3) DrawRectangleRounded(scaleRctangleFromCenter(rect, lerp(0.3, 1, effect)), roundness, 8, blendedCol);
         iconRerder(btnIcons[i], scaleRctangleFromCenter(rect, sizes[i]*lerp(0.9, 0.95, effect)), blendColors(COLOR_TEXT_1, COLOR_PALETTE_1_P9, effect));
-        //if (isButtonClicked(btn)) funcs[i]();
+        if (isButtonClicked(btn) && funcs[i]) actionDefer(funcs[i]);
+        else {
+            if (btn==playPauseButton && (!UIisInTextInput() && IsKeyPressed(KEY_SPACE))) actionDefer(funcs[i]);
+        }
     }
 }
 
 
-void updateControlLineButtons(float lineHeight) {
+void updateControlLineButtons() {
     float offsetXY = 0.1*lineHeight;
     float offsetXY_2 = 0.4*lineHeight;
+    interfaceSpace1 = offsetXY, interfaceSpace2 = offsetXY_2;
     Rectangle rect = {0.2*lineHeight, 0.2*lineHeight, 0.6*lineHeight, 0.6*lineHeight};
     buttonUpdateRectangle(openFileButton, rect);
     int target = (layoutButton)?1:-1;
@@ -177,18 +199,19 @@ void updateControlLineButtons(float lineHeight) {
 
     
     rect.x += 2*rect.x+rect.width;
-    Button btns[] = {previousButton, playPauseButton, nextButton};
+    Button btns[] = {previousButton, playPauseButton, nextButton, loopButton};
     int btnNum = sizeof(btns)/sizeof(Button);
     for (int i=0; i<btnNum; i++) {
         buttonUpdateRectangle(btns[i], rect);
-        buttonUpdate(btns[i], -1);
+        if (btns[i]==loopButton && globalHandlerIsLoopEnabled()) buttonUpdate(btns[i], 1);
+        else buttonUpdate(btns[i], -1);
         rect.x += offsetXY+rect.width;
     }
 
 
     rect.x += offsetXY_2-offsetXY;
     //rect.height = 0.75*lineHeight, rect.y=0.125*lineHeight;
-    rect.width = 2*lineHeight;
+    rect.width = floatMin(2*lineHeight, 0.1*screenSize.x);
     textboxUpdateRectangle(tempoTextbox, rect);
     textboxUpdate(tempoTextbox, -1);
     if (isTextboxFocused(tempoTextbox)) {
@@ -206,7 +229,8 @@ void updateControlLineButtons(float lineHeight) {
     
 
     Vector2 dims = textFontGetSize(GlobalFonts[0].font, projectTitle, 0.36*lineHeight, 0);
-    rect = centerRectangle((Vector2){0.5*screenSize.x, 0.5*lineHeight}, (Vector2){floatMax(floatMax(150, 4.5*lineHeight), dims.x+30), 0.6*lineHeight});
+    Vector2 centerX = {0.6*screenSize.x, 0.5*lineHeight}; float spacing=floatMax(60, 1.2*lineHeight);
+    rect = centerRectangle(centerX, (Vector2){floatMin(floatMax(floatMax(150, 5*lineHeight), dims.x+spacing), 0.5*screenSize.x), 0.6*lineHeight});
 
     textboxUpdateRectangle(projectTitleTextbox, rect);
     textboxUpdate(projectTitleTextbox, -1);
@@ -214,13 +238,12 @@ void updateControlLineButtons(float lineHeight) {
         textboxUpdateText(projectTitleTextbox);
 
         projectTitle = textboxGetText(projectTitleTextbox);
-        dims = textFontGetSize(GlobalFonts[0].font, projectTitle, 0.35*lineHeight, 0);
-        rect = centerRectangle((Vector2){0.5*screenSize.x, 0.5*lineHeight}, (Vector2){floatMax(floatMax(150, 4.5*lineHeight), dims.x+30), 0.6*lineHeight});
+        dims = textFontGetSize(GlobalFonts[0].font, projectTitle, 0.36*lineHeight, 0);
+        rect = centerRectangle(centerX, (Vector2){floatMin(floatMax(floatMax(150, 5*lineHeight), dims.x+spacing), 0.5*screenSize.x), 0.6*lineHeight});
         textboxUpdateRectangle(projectTitleTextbox, rect);
     }
     if (isTextboxJustUnfocused(projectTitleTextbox)) projectSetCurrentTitle(textboxGetText(projectTitleTextbox));
     
-
 }
 
 
@@ -242,11 +265,9 @@ void openFileButtonAction() {
     }
 }
 
-void createBaseLayout(float lineHeight) {
+void createBaseLayout() {
     if (layoutButton) buttonListFree(layoutButton, 1);
-    Rectangle brect = {0.2*lineHeight, 0.9*lineHeight, floatMax(2*lineHeight, 120), floatMax(3*lineHeight, 180)};
-    float spacing = floatMax(0.08*lineHeight, 4.8);
-    layoutButton = buttonListCreate(brect, 5, 0.18, spacing, 1);
+    layoutButton = buttonListCreate(buttonList4x5ExampleRect, 5, 0.18, buttonList4x5ExampleSpacing, 1);
     if (!layoutButton) return;
     int btns = buttonListGetNum(layoutButton);
     for (int i=0; i<btns; i++) {
@@ -260,12 +281,10 @@ void destroyBaseLayout() {
     layoutButton = NULL;
 }
 
-void updateBaseLayout(float lineHeight) {
+void updateBaseLayout() {
     if (!layoutButton) return;
-    Rectangle brect = {0.2*lineHeight, 0.9*lineHeight, floatMax(2*lineHeight, 120), floatMax(3*lineHeight, 180)};
-    float spacing = floatMax(0.08*lineHeight, 4.8);
-    buttonListUpdateRect(layoutButton, brect);
-    buttonListUpdateSpacing(layoutButton, spacing);
+    buttonListUpdateRect(layoutButton, buttonList4x5ExampleRect);
+    buttonListUpdateSpacing(layoutButton, buttonList4x5ExampleSpacing);
     buttonListUpdate(layoutButton);
     if (buttonListShouldDelete(layoutButton)) destroyBaseLayout();
 }
@@ -307,6 +326,7 @@ void renderBaseLayout() {
     Rectangle brect = buttonListGetRect(layoutButton);
     Color col1 = {20, 21, 23, 255};
     float roundness = buttonListGetRoundness(layoutButton);
+    DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
     DrawRectangleRounded(brect, roundness, 8, col1);
     const char* texts[] = {"Project", "Edit", "View", "Settings", "Export"};
     int num = buttonListGetNum(layoutButton);
@@ -315,19 +335,32 @@ void renderBaseLayout() {
 }
 
 
-void renderVerticalSeperator(float x, float lineHeight) {
+void renderVerticalSeperator(float x) {
     Color col = COLOR_TEXT_4; col.a=50;
     DrawLineEx((Vector2){x, 0.2*lineHeight}, (Vector2){x, 0.8*lineHeight}, floatMax(1, screenSize.x*0.002), col);
 }
 
 
-void renderControlLine() {
+void order1PrecomputeControlLine() {
+    float tl = screenSize.y;
+    if (screenSize.y/screenSize.x>0.666) tl = screenSize.x*0.666;
+    controlLineHeight = (lineHeight = floatMin(0.08*tl, 100));
 
-    float lineHeight = floatMin(0.08*screenSize.y, 100);
+    buttonList4x5ExampleRect = (Rectangle){0.2*lineHeight, 0.9*lineHeight, floatMax(2*lineHeight, 120), floatMax(3*lineHeight, 180)};
+    buttonList4x5ExampleSpacing = floatMax(0.08*lineHeight, 4.8);
+
     updateControlLineButtons(lineHeight);
 
+    if (!layoutButton && isButtonClicked(openFileButton)) actionDefer(createBaseLayout);
+    if (layoutButton) updateBaseLayout(lineHeight);
+}
 
+void order2PrecomputeControlLine() {
 
+}
+
+void renderControlLine() {
+    
     DrawRectangle(0, 0, (int)(screenSize.x+2), (int)(lineHeight), COLOR_CONTROL_LINE_BACKGROUND);
 
     renderProjectTextbox();
@@ -339,21 +372,20 @@ void renderControlLine() {
     Rectangle rect = buttonGetRectangle(openFileButton);
     DrawRectangleRounded(scaleRctangleFromCenter(rect, lerp(0.3, 1, effect)), buttonGetRoundness(openFileButton), 8, blendedCol);
     iconRerder(T_ICON_MENU, scaleRctangleFromCenter(rect, lerp(0.85, 1, effect)), blendColors(COLOR_TEXT_1, COLOR_PALETTE_1_P9, effect));
-    if (isButtonClicked(openFileButton)) createBaseLayout(lineHeight); //openFileButtonAction();
 
 
-    renderVerticalSeperator(2*rect.x+rect.width, lineHeight);
-    renderVerticalSeperator(textboxGetRectangle(tempoTextbox).x-rect.x, lineHeight);
+    renderVerticalSeperator(2*rect.x+rect.width);
+    renderVerticalSeperator(textboxGetRectangle(tempoTextbox).x-rect.x);
 
     renderPrevPlayPauseNext();
     renderTempoTextbox();
     
     
-    float gradientHeight = 0.1*lineHeight;
-    Color topCol = {120, 139, 179, 255}, bottomCol={160, 160, 160, 0};
-    DrawRectangleGradientV(0, (int)lineHeight, (int)(screenSize.x+2), (int)gradientHeight, topCol, bottomCol);
-    DrawLineEx((Vector2){0, lineHeight}, (Vector2){screenSize.x, lineHeight}, 2, COLOR_TEXT_4);
+    //float gradientHeight = 0.1*lineHeight;
+    //Color topCol = {120, 139, 179, 255}, bottomCol={160, 160, 160, 0};
+    //DrawRectangleGradientV(0, (int)lineHeight, (int)(screenSize.x+2), (int)gradientHeight, topCol, bottomCol);
+    DrawLineEx((Vector2){0, lineHeight-1}, (Vector2){screenSize.x, lineHeight}, 2, COLOR_TEXT_4);
 
-    if (layoutButton) updateBaseLayout(lineHeight);
+    
     if (layoutButton) renderBaseLayout(lineHeight);
 }

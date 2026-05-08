@@ -4,6 +4,7 @@
 
 
 #define COLOR_CONTROL_LINE_BACKGROUND (Color){ 10, 12, 14, 255 }
+#define COLOR_TRACK_C_LINE_BACKGROUND (Color){ 23, 27, 30, 255 }
 
 #define COLOR_BACKGROUND_1 (Color){ 14, 16, 20, 255 }
 #define COLOR_BACKGROUND_2 (Color){ 15, 19, 24, 255 }
@@ -19,6 +20,7 @@
 #define COLOR_THEME_BLUE_DARK_1 (Color){ 14, 46, 77, 255 }
 
 
+#define COLOR_RED_DELETE_1 (Color){ 253, 106, 106, 255}
 
 
 //  Palette 1
@@ -39,12 +41,19 @@
 #define COLOR_PALETTE_1_P8 (Color){ 161, 221, 232, 255 }
 #define COLOR_PALETTE_1_P9 (Color){ 184, 243, 255, 255 }
 
-#define COLOR_PALETTE_1_BACKGROUND_3 (Color){ 45, 27, 51, 255}
-#define COLOR_PALETTE_1_BACKGROUND_2 (Color){ 30, 18, 32, 255}
-#define COLOR_PALETTE_1_BACKGROUND_1 (Color){ 18, 11, 20, 255}
+#define COLOR_PALETTE_1_BACKGROUND_3 (Color){ 45, 27, 51, 255 }
+#define COLOR_PALETTE_1_BACKGROUND_2 (Color){ 30, 18, 32, 255 }
+#define COLOR_PALETTE_1_BACKGROUND_1 (Color){ 18, 11, 20, 255 }
 
 
 
+#define COLOR_TRACK_THEME_0 (Color){ 120, 176, 190, 255 }
+#define COLOR_TRACK_THEME_1 (Color){ 119, 160, 177, 255 }
+#define COLOR_TRACK_THEME_2 (Color){ 104, 140, 194, 255 }
+#define COLOR_TRACK_THEME_3 (Color){ 102, 125, 197, 255 }
+#define COLOR_TRACK_THEME_4 (Color){ 108, 114, 196, 255 }
+#define COLOR_TRACK_THEME_5 (Color){ 133, 108, 199, 255 }
+#define COLOR_TRACK_THEME_6 (Color){ 161, 115, 199, 255 }
 
 
 

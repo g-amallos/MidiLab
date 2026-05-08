@@ -1,24 +1,11 @@
-#include <backend.h>
+#include "backend_internal.h"
 #include <stdlib.h>
 #include <string.h>
 
 
 
 
-struct project_saved {
-    enum project_saved_state state;
-    char* filepath;
-    char* midipath;
-};
 
-typedef struct general_project_data {
-    char* title;
-    struct project_saved saveState;
-    uint16_t tempo;
-    struct time_signature timeSignature;
-    uint16_t trackNum;
-    Track tracks;
-} *ProjectData;
 
 struct general_project_data _globalProject = {
     .title = NULL,
@@ -32,7 +19,7 @@ struct general_project_data _globalProject = {
         .numerator = 4,
         .denominator = 4
     },
-    .trackNum = 0,
+    .tracksNum = 0,
     .tracks = NULL
 };
 ProjectData globalProject = &_globalProject;
@@ -40,28 +27,28 @@ ProjectData globalProject = &_globalProject;
 
 
 
-void freeProjectContents(ProjectData proj) {    // Doesn't free self
-    if (!proj) return;
-    if (proj->title) {
-        free(proj->title);
-        proj->title = NULL;
+void freeProjectContents() {
+    if (!globalProject) return;
+    if (globalProject->title) {
+        free(globalProject->title);
+        globalProject->title = NULL;
     }
 
-    if (proj->saveState.filepath) {
-        free(proj->saveState.filepath);
-        proj->saveState.filepath=NULL;
+    if (globalProject->saveState.filepath) {
+        free(globalProject->saveState.filepath);
+        globalProject->saveState.filepath=NULL;
     }
 
-    if (proj->saveState.midipath) {
-        free(proj->saveState.midipath);
-        proj->saveState.midipath=NULL;
+    if (globalProject->saveState.midipath) {
+        free(globalProject->saveState.midipath);
+        globalProject->saveState.midipath=NULL;
     }
 
-    if (proj->trackNum && proj->tracks) {
-        for (uint16_t i=0; i<proj->trackNum; i++) freeTrackContents(proj->tracks+i);
-        free(proj->tracks);
-        proj->tracks = NULL;
-        proj->trackNum = 0;
+    if (globalProject->tracksNum && globalProject->tracks) {
+        for (uint16_t i=0; i<globalProject->tracksNum; i++) freeTrackContents(globalProject->tracks+i);
+        free(globalProject->tracks);
+        globalProject->tracks = NULL;
+        globalProject->tracksNum = 0;
     }
 }
 
@@ -80,7 +67,7 @@ int createNewProject() {
     globalProject->tempo = 120;
     globalProject->timeSignature.numerator = 4;
     globalProject->timeSignature.denominator = 4;
-    globalProject->trackNum = 0;
+    globalProject->tracksNum = 0;
     globalProject->tracks = NULL;
     return 0;
 }
@@ -114,4 +101,9 @@ int projectSetTempo(int tempo) {
 int projectGetTempo() {
     if (!globalProject) return 0;
     return globalProject->tempo;
+}
+
+int projectGetTracksNum() {
+    if (!globalProject) return 0;
+    return globalProject->tracksNum;
 }

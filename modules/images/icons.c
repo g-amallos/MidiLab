@@ -25,6 +25,26 @@ struct texture icons[T_ICON_END] = {
     [T_ICON_REDO] = {.path="assets/icons/redo.png", .texture={0}},
     [T_ICON_PIANO] = {.path="assets/icons/piano.png", .texture={0}},
     [T_ICON_KEYBOARD] = {.path="assets/icons/keyboard.png", .texture={0}},
+    [T_ICON_VOLUME_NONE] = {.path="assets/icons/volume-none.png", .texture={0}},
+    [T_ICON_VOLUME_MIN] = {.path="assets/icons/volume-min.png", .texture={0}},
+    [T_ICON_VOLUME_MID] = {.path="assets/icons/volume-mid.png", .texture={0}},
+    [T_ICON_VOLUME_MAX] = {.path="assets/icons/volume-max.png", .texture={0}},
+    [T_ICON_SAVE] = {.path="assets/icons/save.png", .texture={0}},
+    [T_ICON_FOLDER] = {.path="assets/icons/folder.png", .texture={0}},
+    [T_ICON_ADD] = {.path="assets/icons/add.png", .texture={0}},
+
+    [T_ICON_OPTIONS] = {.path="assets/icons/options.png", .texture={0}},
+    [T_ICON_BASS] = {.path="assets/icons/bass.png", .texture={0}},
+    [T_ICON_BRASS] = {.path="assets/icons/brass.png", .texture={0}},
+    [T_ICON_CONTRABASS] = {.path="assets/icons/contrabass.png", .texture={0}},
+    [T_ICON_DRUMS] = {.path="assets/icons/drums.png", .texture={0}},
+    [T_ICON_ELECTRIC_GUITAR] = {.path="assets/icons/electric-guitar.png", .texture={0}},
+    [T_ICON_GUITAR] = {.path="assets/icons/guitar.png", .texture={0}},
+    [T_ICON_MICROPHONE] = {.path="assets/icons/microphone.png", .texture={0}},
+    [T_ICON_ORGAN] = {.path="assets/icons/organ.png", .texture={0}},
+    [T_ICON_PAD] = {.path="assets/icons/pad.png", .texture={0}},
+    [T_ICON_PERCUSSION] = {.path="assets/icons/percussion.png", .texture={0}},
+    [T_ICON_VIOLIN] = {.path="assets/icons/violin.png", .texture={0}},
 
 };
 

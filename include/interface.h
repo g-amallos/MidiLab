@@ -5,6 +5,9 @@
 
 
 
+extern float interfaceSpace1;
+extern float interfaceSpace2;
+
 
 /* General (interface/general.c) */
 
@@ -60,11 +63,46 @@ void renderMainBackground();        // Renders the main background
 
 /* Control Line (interface/render/controlLine.c) */
 
+extern float controlLineHeight;
+extern float buttonList4x5ExampleSpacing;
+extern Rectangle buttonList4x5ExampleRect;
 void controlLineInit();
 void controlLineClose();
 void renderControlLine();
+void order1PrecomputeControlLine();
+void order2PrecomputeControlLine();
 
 
+
+
+/* Tracks Left (interface/render/tracks.c) */
+
+extern float trackCLineHeight;
+extern float trackHeight;
+extern float trackLeftWidth;
+extern float trackDivTargetHeight;
+extern Color trackThemeColors[7];
+
+void renderTracksLeftInit();
+void renderTracksLeftClose();
+void renderTrackCreateNew();
+void renderTrackDeleteAtIdx(int idx);
+void renderTracksLeft();
+void order1PrecomputeTracksLeft();
+void order2PrecomputeTracksLeft();
+void renderTracksLeftLayoutsIfAny();
+
+
+
+
+
+/* Bottom Half Layout (interface/render/bottomHalfLayout.c) */
+
+extern float bottomHalfHeight;
+
+void order1PrecomputeBottomHalfLayout();
+void order2PrecomputeBottomHalfLayout();
+void renderBottomHalfLayout();
 
 /* Colors (here) */
 

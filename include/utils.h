@@ -2,6 +2,10 @@
 #define UTILITIES_H
 #include <raylib.h>
 
+
+
+
+
 double lerp(double a, double b, double t);
 double trigInterpolation(double a, double b, double t);
 
@@ -14,6 +18,7 @@ double doubleMax(double a, double b);
 double doubleMin(double a, double b);
 float floatMax(float a, float b);
 float floatMin(float a, float b);
+float floatClip(float val, float min, float max);
 
 char* concatenateStrings(const char* s1, const char* s2);
 

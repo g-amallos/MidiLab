@@ -50,6 +50,11 @@ float floatMin(float a, float b) {
     return (a<b)?a:b;
 }
 
+float floatClip(float val, float min, float max) {
+    if (val>max) return max;
+    if (val<min) return min;
+    return val;
+}
 
 char* concatenateStrings(const char* s1, const char* s2) {
     int l1=strlen(s1), l2=strlen(s2);

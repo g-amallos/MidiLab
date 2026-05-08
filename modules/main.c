@@ -44,6 +44,8 @@ int testIteration() {
     updateInactivityStruct();
 
     render();
+
+    actionExecuteAllDeferred();
     return 0;
 }
 
