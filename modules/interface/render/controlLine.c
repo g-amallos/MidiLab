@@ -151,6 +151,7 @@ void renderTempoTextbox() {
 }
 
 void clickedOnPlayPause() {
+    buttonSetCurrentEffect(playPauseButton, 1);
     if (globalHandlerIsPlaying()) globalHandlerPause();
     else globalHandlerPlay();
 }

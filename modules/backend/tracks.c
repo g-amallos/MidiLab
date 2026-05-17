@@ -39,7 +39,12 @@ Track trackCreateNew() {
 
     ret->channel = 0;
     ret->program = 0;
-    ret->velocity = 1;
+    ret->sustain = 0;
+
+
+    ret->velocity = 0.75;
+    ret->panning = 0.5;
+
     ret->internalElements = 32;
     ret->externalElements = 0;
     ret->notes = calloc((ret->internalElements), sizeof(struct note_data));     // Check if failed??
@@ -76,13 +81,33 @@ float trackGetVelocity(Track track) {
 }
 
 void trackSetVelocity(Track track, float velocity) {
-    if (!track) return;
+    if (!track || velocity<0 || velocity>1) return;
     track->velocity=velocity;
+}
+
+float trackGetPanning(Track track) {
+    if (!track) return 0;
+    return track->panning;
+}
+
+void trackSetPanning(Track track, float panning) {
+    if (!track || panning<0 || panning>1) return;
+    track->panning=panning;
+}
+
+int trackGetSustain(Track track) {
+    if (!track) return 0;
+    return (int)(track->sustain);
 }
 
 int trackGetProgram(Track track) {
     if (!track) return 0;
     return track->program;
+}
+
+void trackSetProgram(Track track, uint8_t program) {    // 0-127: regular midi programs, 128: drums (channel 9)
+    if (!track || program>128) return;
+    track->program = program;    
 }
 
 void trackDeleteAtIdx(int idx) {
@@ -101,6 +126,7 @@ void trackDeleteAtIdx(int idx) {
         free(globalProject->tracks);
         globalProject->tracks=NULL;
         globalProject->tracksNum = 0;
+        if (globalStateHandler) globalStateHandler->keys.type = T_KEYBOARD_NONE;
     }
     
 }

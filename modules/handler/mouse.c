@@ -9,6 +9,7 @@
 struct mouse_handler globalMouseHandler = {
     .pos = {0, 0},
     .dpos = {0, 0},
+    .clickPos ={0, 0},
     .down = 0,
     .pressed = 0,
     .released = 0,
@@ -32,6 +33,7 @@ void updateMouseHandler() {
     globalMouseHandler.pos = GetMousePosition();
     globalMouseHandler.dpos = GetMouseDelta();
     globalMouseHandler.pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (globalMouseHandler.pressed) globalMouseHandler.clickPos = globalMouseHandler.pos;
     globalMouseHandler.rightClickPressed = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
     globalMouseHandler.down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     globalMouseHandler.released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT);

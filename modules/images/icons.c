@@ -32,6 +32,9 @@ struct texture icons[T_ICON_END] = {
     [T_ICON_SAVE] = {.path="assets/icons/save.png", .texture={0}},
     [T_ICON_FOLDER] = {.path="assets/icons/folder.png", .texture={0}},
     [T_ICON_ADD] = {.path="assets/icons/add.png", .texture={0}},
+    [T_ICON_DELETE] = {.path="assets/icons/delete.png", .texture={0}},
+    [T_ICON_COPY] = {.path="assets/icons/copy.png", .texture={0}},
+    [T_ICON_PASTE] = {.path="assets/icons/paste.png", .texture={0}},
 
     [T_ICON_OPTIONS] = {.path="assets/icons/options.png", .texture={0}},
     [T_ICON_BASS] = {.path="assets/icons/bass.png", .texture={0}},
@@ -45,6 +48,8 @@ struct texture icons[T_ICON_END] = {
     [T_ICON_PAD] = {.path="assets/icons/pad.png", .texture={0}},
     [T_ICON_PERCUSSION] = {.path="assets/icons/percussion.png", .texture={0}},
     [T_ICON_VIOLIN] = {.path="assets/icons/violin.png", .texture={0}},
+    [T_ICON_FLUTE] = {.path="assets/icons/flute.png", .texture={0}},
+    [T_ICON_EFFECTS] = {.path="assets/icons/effects.png", .texture={0}},
 
 };
 

@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <images.h>
 #include <handler.h>
-
+#include <math.h>
 
 
 #define TRACK_TITLE_PLACEHOLDER "Track Title"
@@ -16,7 +16,7 @@
 
 float trackHeight=0, trackLeftWidth=0, trackCLineHeight=0, trackDivTargetHeight=0, trackScrollY=0, trackScrollYtarget=0, trackDivVisiblePosMin=0, trackDivVisiblePosMax=0;
 Rectangle trackDivLeftRect = {0,0,0,0};
-Color trackThemeColors[7];
+Color trackThemeColors[7], programTypeColors[MPT_END];
 Button addTrackButton=NULL;
 
 
@@ -24,6 +24,7 @@ typedef struct track_control_ui {
     Track track;
     Button base;
     Color theme;
+    int themeIdx;
     float effect;
     enum icon_title icon;
     Textbox textbox;
@@ -33,6 +34,40 @@ typedef struct track_control_ui {
 } *TrackUI;
 
 TrackUI tracks = NULL;
+
+
+
+float normalizeProgramTypeIcon(enum icon_title iconType) {
+    switch (iconType) {
+        case T_ICON_PIANO: return 0.65;
+        case T_ICON_PERCUSSION: return 1;
+        case T_ICON_ORGAN: return 0.93;
+        case T_ICON_GUITAR: return 1;
+        case T_ICON_BASS: return 1;
+        case T_ICON_VIOLIN: return 1;
+        case T_ICON_CONTRABASS: return 1;
+        case T_ICON_BRASS: return 0.85;
+        case T_ICON_FLUTE: return 0.9;
+        case T_ICON_KEYBOARD: return 1;
+        case T_ICON_PAD: return 0.98;
+        case T_ICON_EFFECTS: return 1;
+        case T_ICON_MIDI: return 0.8;
+        case T_ICON_DRUMS: return 1;
+        default: return 1;
+    }
+}
+
+
+
+void initProgramTypeColors() {
+    if (MPT_END<=0) return;
+    float startingHue=200;
+    float dh = 360.0/MPT_END;
+    for (int i = 0; i<MPT_END; i++) {
+        float hue = fmodf(dh*i+startingHue, 360.0);
+        programTypeColors[i] = ColorFromHSV(hue, 0.58, 0.57);
+    }
+}
 
 
 void renderTracksLeftInit() {
@@ -45,6 +80,7 @@ void renderTracksLeftInit() {
     trackThemeColors[6]=COLOR_TRACK_THEME_6;
 
     addTrackButton = buttonCreate((Rectangle){20,20,20,20}, 0.25);
+    initProgramTypeColors();
 }
 
 
@@ -52,7 +88,6 @@ void renderTracksLeftClose() {
     if (addTrackButton) buttonFree(addTrackButton);
     addTrackButton = NULL;
 
-    
     if (tracks) {
         int totalTracks = projectGetTracksNum();
         for (int i=0; i<totalTracks; i++) {
@@ -75,12 +110,14 @@ void customizeNewTrackUI(TrackUI tr) {
     Rectangle rect = (Rectangle){20, 20, 20, 20};
     tr->base = buttonCreate(rect, 0.2);
     int cols = sizeof(trackThemeColors)/sizeof(Color);
-    tr->theme = trackThemeColors[GetRandomValue(0, cols-1)];
+    tr->themeIdx = GetRandomValue(0, cols-1);
+    tr->theme = trackThemeColors[tr->themeIdx];
     tr->icon = T_ICON_PIANO;
     tr->textbox = textboxCreate(rect, 0.3, T_IN_STRING, 22);
     tr->optionsButton = buttonCreate(rect, 0.2);
     tr->btnList = NULL;
     tr->slider = sliderCreate(rect, 1);
+    sliderUpdateCursorOnHover(tr->slider, MOUSE_CURSOR_RESIZE_EW); 
     tr->effect = 0;
 }
 
@@ -181,16 +218,27 @@ void deleteSelectedTrack() {
     else globalHandlerSelectTrack(sel);
 }
 
+
+void changeSelectedTrackColorApproach1() {
+    int sel = globalHandlerGetSelectedTrack();
+    if (sel<0) return;
+
+    tracks[sel].themeIdx = (tracks[sel].themeIdx+1)%(sizeof(trackThemeColors)/sizeof(Color));
+    tracks[sel].theme = trackThemeColors[tracks[sel].themeIdx];
+}
+
 void precomputeTrackOptionLayout(TrackUI track) {
     if (!track || !(track->btnList)) return;
 
     Rectangle trect = buttonGetRectangle(track->optionsButton);
     Rectangle brect = {trect.x+trect.width+interfaceSpace1, trect.y, buttonList4x5ExampleRect.width, buttonList4x5ExampleRect.height};
+    float space = 10;
+    brect = rectangleMoveToFitInsideRect(brect, (Rectangle){0, trackDivVisiblePosMin+space, screenSize.x, trackDivVisiblePosMax-trackDivVisiblePosMin-2*space});
     buttonListUpdateRect(track->btnList, brect);
     buttonListUpdateSpacing(track->btnList, buttonList4x5ExampleSpacing);
     buttonListUpdate(track->btnList);
 
-    OnClickFunc funcs[] = {NULL, NULL, NULL, NULL, deleteSelectedTrack};
+    OnClickFunc funcs[] = {changeSelectedTrackColorApproach1, NULL, NULL, NULL, deleteSelectedTrack};
     int num = sizeof(funcs)/sizeof(OnClickFunc);
     for (int i=0; i<num; i++) {
         Button btn = buttonListGetButtonAt(track->btnList, i);
@@ -204,7 +252,7 @@ void renderTrackOptionLayoutButton(Button btn, const char* text, Vector2 textAli
     if (!btn) return;
     Color col={30, 32, 38, 255};
     float effect = buttonGetEffectValue(btn);
-    Color blend1 = blendColors(col, type?COLOR_RED_DELETE_1:theme, 0.35*effect);
+    Color blend1 = blendColors(col, type?COLOR_RED_DELETE_1:theme, type?(0.15+0.2*effect):(0.35*effect));
     Rectangle rect = buttonGetRectangle(btn);
     DrawRectangleRounded(rect, buttonGetRoundness(btn), 8, blend1);
     Vector2 tarPos = lerpVector2_vec((Vector2){rect.x, rect.y}, (Vector2){rect.x+rect.width, rect.y+rect.height}, textAlign);
@@ -230,6 +278,7 @@ void precomputeTrackLeft(int idx) {
     int isSelected=(globalHandlerGetSelectedTrack()==idx), disableHover=!CheckCollisionPointRec(globalMouseHandler.pos, trackDivLeftRect);
     TrackUI track = tracks+idx;
     Track trackAbstr = trackGetAtIdx(idx);
+    track->track = trackAbstr;
     
     float ypos = controlLineHeight+5+trackCLineHeight + idx*trackHeight-trackScrollY;
     Rectangle baseRect = {interfaceSpace1, ypos+interfaceSpace1*0.5, trackLeftWidth-2*interfaceSpace1, trackHeight-interfaceSpace1};
@@ -290,7 +339,10 @@ void precomputeTrackLeft(int idx) {
     if (isSelected && isSliderDragged(track->slider)) {
         float val=sliderUpdateValueCommonHorizontal(track->slider);
         trackSetVelocity(trackAbstr, val);
-    }
+    } else sliderUpdateSlideValue(track->slider, trackGetVelocity(trackAbstr));
+
+    // Icon (Program/Instrument)
+    track->icon = midiGetProgramTypeIcon(trackGetProgram(track->track));
 }
 
 
@@ -367,7 +419,7 @@ void renderTrackLeft(int idx) {
 
     if (track->icon != T_ICON_END) {
         Rectangle icRect = scaleRctangleFromCenter((Rectangle){baseRect.x-0.2*baseRect.height, baseRect.y, baseRect.height, baseRect.height}, 0.22);
-        iconRerder(track->icon, icRect, track->theme);
+        iconRerder(track->icon, scaleRctangleFromCenter(icRect, 2*normalizeProgramTypeIcon(track->icon)), track->theme);
     }
 
 
@@ -413,10 +465,10 @@ void order2PrecomputeTracksLeft() {
     int mouseInDiv = !UIisHoveringOverLayout() && !UIisInTextInput() && CheckCollisionPointRec(globalMouseHandler.pos, trackDivLeftRect);
     int totalTracks = projectGetTracksNum();
     float totalHeight = totalTracks*trackHeight+10;
-    if (mouseInDiv && totalHeight>trackDivTargetHeight && globalMouseHandler.scroll!=0) {
+    if (mouseInDiv && totalHeight>trackDivTargetHeight && globalMouseHandler.scroll!=0 && !UIexistsFrontLayoutOverlay()) {
         trackScrollYtarget -= 0.5*trackHeight*globalMouseHandler.scroll;
     }
-    if (totalHeight>trackDivTargetHeight && trackScrollYtarget>totalHeight-trackDivTargetHeight) trackScrollYtarget = totalHeight-trackDivTargetHeight;
+    if (trackScrollYtarget>totalHeight-trackDivTargetHeight) trackScrollYtarget = totalHeight-trackDivTargetHeight; // totalHeight>trackDivTargetHeight && 
     if (trackScrollYtarget<0) trackScrollYtarget=0;
 
     trackScrollY += 0.18*(trackScrollYtarget-trackScrollY);

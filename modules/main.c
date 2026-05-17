@@ -3,10 +3,14 @@
 #include <interface.h>
 #include <handler.h>
 #include <backend.h>
+#include <synth.h>
 #include <images.h>
 
 
 #define APP_NAME "MidiLab"
+
+
+AudioStream stream={.buffer=NULL, .channels=2, .sampleRate=44100};
 
 
 int AppInit() {
@@ -14,10 +18,18 @@ int AppInit() {
     InitWindow(1200, 800, APP_NAME);
     SetWindowMinSize(450, 300);
     SetTargetFPS(60);
+    InitAudioDevice();
 
     backendInit();
+    midiInit();
+    synthInit();
     iconsInit();
     renderInit();
+
+    stream = LoadAudioStream(44100, 32, 2);
+    SetAudioStreamCallback(stream, audioInputCallback);
+
+    PlayAudioStream(stream);
     
     return 0;
 }
@@ -27,7 +39,17 @@ int AppClose() {
     renderClose();
     iconsClose();
     backendClose();
+    
+
+    StopAudioStream(stream);
+    UnloadAudioStream(stream);
+    
+    synthClose();
+    midiClose();
+
+    CloseAudioDevice();
     CloseWindow();
+
     return 0;
 }
 

@@ -20,6 +20,7 @@ typedef struct ui_textbox {
     uint8_t effectSpeed;
     uint8_t justUnfocused;
     uint8_t canBeShadowedByLayout;
+    uint8_t disabledByFrontLayout;
     
     char* text;
     int cursorIdx;
@@ -58,7 +59,7 @@ void textboxUpdate(Textbox tbx, int effectTarget) {
         updateTextboxEffect(tbx);
         return;
     }
-    tbx->state.hovered = (!(tbx->state.disableHover)) && (!(tbx->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, tbx->rect, tbx->roundness));
+    tbx->state.hovered = (!(tbx->state.disableHover)) && (!(tbx->disabledByFrontLayout && UIexistsFrontLayoutOverlay())) && (!(tbx->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, tbx->rect, tbx->roundness));
     
     if (globalMouseHandler.pressed) {
         if (tbx->state.hovered) {
@@ -150,6 +151,7 @@ Textbox textboxCreate(Rectangle rect, float roundness, enum textbox_input_type i
     _resetKeyPressState(&(tbx->right));
 
     tbx->canBeShadowedByLayout = 1;
+    tbx->disabledByFrontLayout = 1;
     tbx->rect = rect;
     
     tbx->state.disabled = 0;
@@ -185,6 +187,15 @@ void textboxFree(Textbox tbx) {
     free(tbx);
 }
 
+void textboxEnableOnFrontLayout(Textbox tbx) {
+    if (!tbx) return;
+    tbx->disabledByFrontLayout = 0;
+}
+
+void textboxDisableOnFrontLayout(Textbox tbx) {
+    if (!tbx) return;
+    tbx->disabledByFrontLayout = 1;
+}
 
 void _halveTextBuffer(Textbox tbx) {
     int newSize = (tbx->textSize)>>1;

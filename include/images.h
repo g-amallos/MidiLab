@@ -26,6 +26,9 @@ enum icon_title {
     T_ICON_ADD,
     T_ICON_SAVE,
     T_ICON_FOLDER,
+    T_ICON_COPY,
+    T_ICON_PASTE,
+    T_ICON_DELETE,
 
     T_ICON_OPTIONS,
     T_ICON_BASS,
@@ -39,6 +42,8 @@ enum icon_title {
     T_ICON_PAD,
     T_ICON_PERCUSSION,
     T_ICON_VIOLIN,
+    T_ICON_FLUTE,
+    T_ICON_EFFECTS,
 
     T_ICON_END
 };

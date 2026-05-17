@@ -27,8 +27,10 @@ typedef struct track_data {
     char* title;
     uint8_t program;
     uint8_t channel;
-    uint8_t idk;
+    uint8_t sustain;
+    
     float velocity;
+    float panning;
 
     uint32_t internalElements;      // Allocating more than needed, for fewer realloc calls
     uint32_t externalElements;      // Number of actual saved note data (the first n in the array)
@@ -56,11 +58,7 @@ struct backend_time_handler {
     double loopEnd;
 };
 
-enum keyboard_render_types {
-    T_KEYBOARD_HORIZONTAL,
-    T_KEYBOARD_VERTICAL,
-    T_KEYBOARD_NONE
-};
+
 
 struct key_state {
     uint8_t velocity;
@@ -83,7 +81,7 @@ typedef struct backend_state_handler {
 
 } *StateHandler;
 
-
+extern StateHandler globalStateHandler;
 
 struct project_saved {
     enum project_saved_state state;
@@ -100,9 +98,23 @@ typedef struct general_project_data {
     Track tracks;
 } *ProjectData;
 
-
-
 extern struct general_project_data _globalProject;
+
+
+
+
+
+
+typedef struct midi_program {
+    char* name;
+    enum midi_program_type type;
+    int icon;
+
+} *MidiProgram;
+
+
+extern struct midi_program _midiPrograms[129];
+
 
 
 #endif

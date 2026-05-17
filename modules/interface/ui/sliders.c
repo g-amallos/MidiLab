@@ -12,6 +12,7 @@ typedef struct ui_slider {
     struct ui_element_interaction_values state;
     uint8_t effectSpeed;
     uint8_t canBeShadowedByLayout;
+    uint8_t disabledByFrontLayout;
     
     float value;
 
@@ -34,6 +35,7 @@ Slider sliderCreate(Rectangle rect, float roundness) {
     sld->state.disableHover = 0;
 
     sld->canBeShadowedByLayout = 1;
+    sld->disabledByFrontLayout = 1;
     sld->value = 0;
     
     sld->cursorOnHover = MOUSE_CURSOR_POINTING_HAND;
@@ -64,7 +66,7 @@ void sliderUpdate(Slider sld, int effectTarget) {
         updateSliderEffect(sld);
         return;
     }
-    sld->state.hovered = (!(sld->state.disableHover)) && (!(sld->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, sld->rect, sld->roundness));
+    sld->state.hovered = (!(sld->state.disableHover)) && (!(sld->disabledByFrontLayout && UIexistsFrontLayoutOverlay())) && (!(sld->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, sld->rect, sld->roundness));
     
 
     if (globalMouseHandler.pressed) {
@@ -103,6 +105,16 @@ void sliderEnable(Slider sld) {
     sld->state.disabled = 0;
 }
 
+
+void sliderEnableOnFrontLayout(Slider sld) {
+    if (!sld) return;
+    sld->disabledByFrontLayout = 0;
+}
+
+void sliderDisableOnFrontLayout(Slider sld) {
+    if (!sld) return;
+    sld->disabledByFrontLayout = 1;
+}
 
 void sliderDisableHover(Slider sld) {
     if (!sld) return;

@@ -2,7 +2,7 @@
 #define INTERFACE_H
 
 #include <raylib.h>
-
+#include <backend.h>
 
 
 extern float interfaceSpace1;
@@ -43,6 +43,8 @@ Vector2 getRectangleCenter(Rectangle rect);
 Rectangle scaleRctangleFromCenter(Rectangle rect, float scale);
 Rectangle scaleRctangleFromCenterV(Rectangle rect, Vector2 scale);
 Rectangle alignRectangle(Vector2 pos, Vector2 dim, Vector2 align);
+Rectangle rectangleMoveToFitInsideRect(Rectangle interior, Rectangle exterior);
+Rectangle rectangleScaleToFitInCenter(Vector2 originalDimensions, Rectangle toFit);
 void renderRectangleCentered(Vector2 pos, Vector2 dim, Color col);
 void renderRoundedRectangleCentered(Vector2 pos, Vector2 dim, Color col, float roundness, int segments);
 void renderRoundedRectangleLinesCentered(Vector2 pos, Vector2 dim, Color col, float roundness, int segments, float thickness);
@@ -82,6 +84,9 @@ extern float trackHeight;
 extern float trackLeftWidth;
 extern float trackDivTargetHeight;
 extern Color trackThemeColors[7];
+extern Color programTypeColors[MPT_END];
+
+float normalizeProgramTypeIcon(enum icon_title iconType);
 
 void renderTracksLeftInit();
 void renderTracksLeftClose();
@@ -99,10 +104,44 @@ void renderTracksLeftLayoutsIfAny();
 /* Bottom Half Layout (interface/render/bottomHalfLayout.c) */
 
 extern float bottomHalfHeight;
+extern float bottomHalfUsefulHeight;
+extern float bottomHalfLayoutTopPadding;
 
+void bottomHalfLayoutInit();
+void bottomHalfLayoutClose();
 void order1PrecomputeBottomHalfLayout();
 void order2PrecomputeBottomHalfLayout();
 void renderBottomHalfLayout();
+void updateBottomHalfSizeOnResize(Vector2 oldScreen, Vector2 newScreen);
+
+
+
+
+/* Horizontal Keyboard (interface/render/horizontalKeyboard.c) */
+
+extern float horizontalKeyboardHeight;
+
+void horizontalKeyboardInit();
+void horizontalKeyboardClose();
+void precalculateSizesHorizontalKeyboard();
+void renderHorizontalKeyboard();                // Must have already ran `precalculateSizesHorizontalKeyboard()`
+void precalculateJustHorizontalKeyboard();
+
+
+
+/* Layout (interface/render/layout.c)  (More of a test) */
+
+void renderLayoutLines();
+
+
+
+
+/* Instrument Picker (interface/render/instrumentPicker.c) */
+
+void createInstrumentPicker();
+void destroyInstrumentPicker();
+void precalculateInstrumentPicker();
+void renderInstrumentPicker();
 
 /* Colors (here) */
 

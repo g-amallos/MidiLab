@@ -10,6 +10,10 @@
 int UIisInTextInput();
 int UIisHoveringOverLayout();
 void UIiterationReset();
+void UIcreateFrontLayoutOverlay();
+void UIdestroyFrontLayoutOverlay();
+int UIexistsFrontLayoutOverlay();
+void UIupdateTransparentOverlay();
 
 
 
@@ -46,6 +50,13 @@ void buttonEnableLayoutShadowing(Button btn);
 void buttonDisableLayoutShadowing(Button btn);
 void buttonDisableHover(Button btn);
 void buttonEnableHover(Button btn);
+void buttonUpdateCustomHover(Button btn, int hover);
+int isButtonReleased(Button btn);
+void buttonUpdateCustomHoverEffect(Button btn, int hover, int effectTarget);
+void buttonSetEffectSpeed(Button btn, float effectSpeed);
+void buttonSetCurrentEffect(Button btn, float effect);
+void buttonEnableOnFrontLayout(Button btn);
+void buttonDisableOnFrontLayout(Button btn);
 
 
 
@@ -106,7 +117,8 @@ void textboxEnableLayoutShadowing(Textbox tbx);
 void textboxDisableLayoutShadowing(Textbox tbx);
 void textboxDisableHover(Textbox tbx);
 void textboxEnableHover(Textbox tbx);
-
+void textboxEnableOnFrontLayout(Textbox tbx);
+void textboxDisableOnFrontLayout(Textbox tbx);
 
 
 typedef struct ui_slider *Slider;
@@ -137,6 +149,10 @@ Rectangle sliderGetRectangleValueCommon(Slider sld);
 Vector2 sliderGetPosValueCommon(Slider sld);
 void sliderDisableHover(Slider sld);
 void sliderEnableHover(Slider sld);
+void sliderEnableOnFrontLayout(Slider sld);
+void sliderDisableOnFrontLayout(Slider sld);
+
+
 
 
 #endif

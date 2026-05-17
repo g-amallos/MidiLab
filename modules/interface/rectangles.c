@@ -26,6 +26,26 @@ Rectangle alignRectangle(Vector2 pos, Vector2 dim, Vector2 align) {
     return (Rectangle){.x=pos.x-align.x*dim.x, .y=pos.y-align.y*dim.y, .width=dim.x, .height=dim.y};
 }
 
+Rectangle rectangleMoveToFitInsideRect(Rectangle interior, Rectangle exterior) {
+    if (interior.width>exterior.width || interior.height>exterior.height) return interior;
+    if (interior.y<exterior.y) interior.y=exterior.y;
+    if (interior.y+interior.height>exterior.y+exterior.height) interior.y=exterior.y+exterior.height-interior.height;
+    if (interior.x<exterior.x) interior.x=exterior.x;
+    if (interior.x+interior.width>exterior.x+exterior.width) interior.x=exterior.x+exterior.width-interior.width;
+    return interior;
+}
+
+Rectangle rectangleScaleToFitInCenter(Vector2 originalDimensions, Rectangle toFit) {
+    if (originalDimensions.x<=0 || originalDimensions.y<=0) return (Rectangle){0,0,0,0};
+    if (toFit.height/originalDimensions.y<toFit.width/originalDimensions.x) {
+        float w2 = originalDimensions.x/originalDimensions.y*toFit.height;
+        return (Rectangle){toFit.x+0.5*(toFit.width-w2), toFit.y, w2, toFit.height};
+    } else {
+        float h2 = originalDimensions.y/originalDimensions.x*toFit.width;
+        return (Rectangle){toFit.x, toFit.y+0.5*(toFit.height-h2), toFit.width, h2};
+    }
+}
+
 void renderRectangleCentered(Vector2 pos, Vector2 dim, Color col) {
     Vector2 newPos = Vector2Add(pos, Vector2Scale(dim, -0.5));
     DrawRectangleV(newPos, dim, col);

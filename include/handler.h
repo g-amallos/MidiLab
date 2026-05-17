@@ -21,6 +21,7 @@ void updateInactivityStruct();
 struct mouse_handler {
     Vector2 pos;
     Vector2 dpos;
+    Vector2 clickPos;
     uint8_t pressed;
     uint8_t released;
     uint8_t down;

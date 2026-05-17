@@ -9,9 +9,14 @@ float interfaceSpace1=0, interfaceSpace2=0;
 Vector2 screenSize = {.x=0, .y=0};
 
 int renderInit() {
+    updateRenderGlobalVariables();
+
     textFontInit();
+    bottomHalfLayoutInit();
     controlLineInit();
     renderTracksLeftInit();
+    horizontalKeyboardInit();
+    
     return 0;
 }
 
@@ -19,14 +24,21 @@ int renderClose() {
     textFontClose();
     controlLineClose();
     renderTracksLeftClose();
+    bottomHalfLayoutClose();
+    horizontalKeyboardClose();
     return 0;
 }
 
 
 
 int updateRenderGlobalVariables() {
-    screenSize.x = GetScreenWidth();
-    screenSize.y = GetScreenHeight();
+    int newX = GetScreenWidth();
+    int newY = GetScreenHeight();
+
+    if (screenSize.y>0) updateBottomHalfSizeOnResize(screenSize, (Vector2){newX, newY});
+
+    screenSize.x = newX;
+    screenSize.y = newY;
 
     updateMouseHandler();
 
@@ -34,6 +46,7 @@ int updateRenderGlobalVariables() {
 }
 
 void order1Precompute() {
+    precalculateInstrumentPicker();
     order1PrecomputeControlLine();
     order1PrecomputeTracksLeft();
     order1PrecomputeBottomHalfLayout();
@@ -58,7 +71,13 @@ int render() {
         renderTracksLeft();
         renderBottomHalfLayout();
         renderControlLine();
+        
+        renderLayoutLines();
+        
         renderTracksLeftLayoutsIfAny();
+
+        UIupdateTransparentOverlay();
+        renderInstrumentPicker();
 
     EndDrawing();
     updateMouseCursor();

@@ -8,33 +8,35 @@
 typedef struct ui_button {
     Rectangle rect;
     struct ui_element_interaction_values state;
-    uint8_t effectSpeed;
     uint8_t canBeShadowedByLayout;
+    uint8_t disabledByFrontLayout;
     // Can add 2 bytes here
 
     int cursorOnHover;
     float roundness;
     float effect;
+    float effectSpeed;
 } *Button;
 
 
 void updateButtonEffect(Button btn) {
-    btn->effect += (btn->state.effectTarget-btn->effect)/btn->effectSpeed;
+    btn->effect += (btn->state.effectTarget-btn->effect)*(btn->effectSpeed);
     if (!(btn->state.disabled) && (btn->state.hovered || btn->state.dragging)) setNextMouseCursor(btn->cursorOnHover);
 }
 
-void buttonUpdate(Button btn, int effectTarget) {
+
+void _updateButtonDisabled(Button btn) {
     if (!btn) return;
-    if (btn->state.disabled) {
-        btn->state.effectTarget = 0;
-        btn->state.hovered = 0;
-        btn->state.pressed = 0;
-        btn->state.dragging = 0;
-        updateButtonEffect(btn);
-        return;
-    }
-    btn->state.hovered = (!(btn->state.disableHover)) &&(!(btn->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, btn->rect, btn->roundness));
-    
+    btn->state.effectTarget = 0;
+    btn->state.hovered = 0;
+    btn->state.pressed = 0;
+    btn->state.dragging = 0;
+    btn->state.released = 0;
+    updateButtonEffect(btn);
+}
+
+void _updateButtonState(Button btn) {
+    btn->state.released = 0;
     if (globalMouseHandler.pressed) {
         if (btn->state.hovered) {
             btn->state.pressed = 1;
@@ -46,8 +48,20 @@ void buttonUpdate(Button btn, int effectTarget) {
     } else btn->state.pressed = 0;
     
     if (globalMouseHandler.released || !globalMouseHandler.down) {
+        btn->state.released = btn->state.dragging;
         btn->state.dragging = 0;
     }
+}
+
+void buttonUpdate(Button btn, int effectTarget) {
+    if (!btn) return;
+    if (btn->state.disabled) {
+        _updateButtonDisabled(btn);
+        return;
+    }
+    btn->state.hovered = (!(btn->state.disableHover)) && (!(btn->disabledByFrontLayout && UIexistsFrontLayoutOverlay())) &&(!(btn->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, btn->rect, btn->roundness));
+    
+    _updateButtonState(btn);
 
     if (effectTarget==1) btn->state.effectTarget=1;
     else if (effectTarget==0) btn->state.effectTarget=0;
@@ -57,10 +71,45 @@ void buttonUpdate(Button btn, int effectTarget) {
 
 }
 
+
+void buttonUpdateCustomHover(Button btn, int hover) {
+    if (!btn) return;
+    if (btn->state.disabled) {
+        _updateButtonDisabled(btn);
+        return;
+    }
+    btn->state.hovered = hover;
+    _updateButtonState(btn);
+
+    btn->state.effectTarget = (!(btn->state.disabled) && ((btn->state.hovered && (!globalMouseHandler.down || globalMouseHandler.pressed)) || btn->state.dragging || btn->state.pressed));
+    updateButtonEffect(btn);
+}
+
+void buttonUpdateCustomHoverEffect(Button btn, int hover, int effectTarget) {
+    if (!btn) return;
+    if (btn->state.disabled) {
+        _updateButtonDisabled(btn);
+        return;
+    }
+    btn->state.hovered = hover;
+    _updateButtonState(btn);
+
+    if (effectTarget==1) btn->state.effectTarget=1;
+    else if (effectTarget==0) btn->state.effectTarget=0;
+    else btn->state.effectTarget = (!(btn->state.disabled) && ((btn->state.hovered && (!globalMouseHandler.down || globalMouseHandler.pressed)) || btn->state.dragging || btn->state.pressed));
+    updateButtonEffect(btn);
+}
+
+void buttonSetCurrentEffect(Button btn, float effect) {
+    if (!btn || effect<0 || effect>1) return;
+    btn->effect = effect;
+}
+
 void buttonDisable(Button btn) {
     if (!btn) return;
     btn->state.disabled = 1;
     btn->state.hovered = 0;
+    btn->state.released = (btn->state.dragging);
     btn->state.dragging = 0;
     btn->state.pressed = 0;
     btn->state.effectTarget = 0;
@@ -82,12 +131,14 @@ Button buttonCreate(Rectangle rect, float roundness) {
     btn->state.pressed = 0;
     btn->state.effectTarget = 0;
     btn->state.disableHover = 0;
+    btn->state.released = 0;
 
     btn->canBeShadowedByLayout = 1;
+    btn->disabledByFrontLayout = 1;
     
     btn->cursorOnHover = MOUSE_CURSOR_POINTING_HAND;
     btn->roundness = roundness;
-    btn->effectSpeed = 4;
+    btn->effectSpeed = 0.25;
     btn->effect = 0;
 
     return btn;
@@ -98,6 +149,11 @@ void buttonFree(Button btn) {
     free(btn);
 }
 
+void buttonSetEffectSpeed(Button btn, float effectSpeed) {
+    if (effectSpeed<=0 || effectSpeed>1 || !btn) return;
+    btn->effectSpeed = effectSpeed;
+}
+
 void buttonEnableLayoutShadowing(Button btn) {
     if (!btn) return;
     btn->canBeShadowedByLayout = 1;
@@ -106,6 +162,16 @@ void buttonEnableLayoutShadowing(Button btn) {
 void buttonDisableLayoutShadowing(Button btn) {
     if (!btn) return;
     btn->canBeShadowedByLayout = 0;
+}
+
+void buttonEnableOnFrontLayout(Button btn) {
+    if (!btn) return;
+    btn->disabledByFrontLayout = 0;
+}
+
+void buttonDisableOnFrontLayout(Button btn) {
+    if (!btn) return;
+    btn->disabledByFrontLayout = 1;
 }
 
 void buttonDisableHover(Button btn) {
@@ -156,6 +222,11 @@ int isButtonHovered(Button btn) {
 int isButtonDragged(Button btn) {
     if (!btn) return 0;
     return btn->state.dragging;
+}
+
+int isButtonReleased(Button btn) { 
+    if (!btn) return 0;
+    return btn->state.released;
 }
 
 float buttonGetEffectValue(Button btn) {
