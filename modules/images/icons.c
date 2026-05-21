@@ -51,6 +51,9 @@ struct texture icons[T_ICON_END] = {
     [T_ICON_FLUTE] = {.path="assets/icons/flute.png", .texture={0}},
     [T_ICON_EFFECTS] = {.path="assets/icons/effects.png", .texture={0}},
 
+    [T_ICON_VIEW_NONE] = {.path="assets/icons/none.png", .texture={0}},
+    [T_ICON_VIEW_ROLL] = {.path="assets/icons/notes.png", .texture={0}},
+
 };
 
 void _loadTexture(struct texture* txtr) {

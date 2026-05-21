@@ -70,11 +70,13 @@ int render() {
         renderMainBackground();
         renderTracksLeft();
         renderBottomHalfLayout();
-        renderControlLine();
+        
         
         renderLayoutLines();
         
         renderTracksLeftLayoutsIfAny();
+
+        renderControlLine();
 
         UIupdateTransparentOverlay();
         renderInstrumentPicker();

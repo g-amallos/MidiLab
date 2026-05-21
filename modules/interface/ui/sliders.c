@@ -161,6 +161,11 @@ float sliderGetRoundness(Slider sld) {
     return sld->roundness;
 }
 
+int isSliderDisabled(Slider sld) {
+    if (!sld) return 0;
+    return sld->state.disabled;
+}
+
 int isSliderClicked(Slider sld) {
     if (!sld) return 0;
     return sld->state.pressed;
@@ -208,6 +213,13 @@ float sliderHelperNormalizedToMinMaxLinear(float normalized, float min, float ma
 float sliderUpdateValueCommonHorizontal(Slider sld) {
     if (!sld) return 0;
     float val = sliderHelperMinMaxToNormalizedLinear(globalMouseHandler.pos.x, sld->rect.x, sld->rect.x+sld->rect.width);
+    sliderUpdateSlideValue(sld, val);
+    return val;
+}
+
+float sliderUpdateValueCommonVertical(Slider sld) {
+    if (!sld) return 0;
+    float val = 1-sliderHelperMinMaxToNormalizedLinear(globalMouseHandler.pos.y, sld->rect.y, sld->rect.y+sld->rect.height);
     sliderUpdateSlideValue(sld, val);
     return val;
 }

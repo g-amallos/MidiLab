@@ -45,6 +45,9 @@ enum icon_title {
     T_ICON_FLUTE,
     T_ICON_EFFECTS,
 
+    T_ICON_VIEW_NONE,
+    T_ICON_VIEW_ROLL,
+
     T_ICON_END
 };
 

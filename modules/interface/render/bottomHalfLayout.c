@@ -14,11 +14,12 @@
 
 float bottomHalfHeight=0, bottomHalfUsefulHeight=0, resizeButtonHitboxSize=10, bottomHalfLayoutTopPadding=10;
 Button bottomResizeButton = NULL;
+Color bottomHalfBackgroundColor={0,0,0,0};
 
 
 void updateBottomHalfSize(float newSize) {
     enum keyboard_render_types rtype = globalStateHandlerGetKeyboardType();
-    float maxH = (rtype==T_KEYBOARD_HORIZONTAL)?horizontalKeyboardHeight:((rtype==T_KEYBOARD_NONE)?0:(0.8*screenSize.y-controlLineHeight));
+    float maxH = (rtype==T_KEYBOARD_HORIZONTAL)?(horizontalKeyboardHeight+bottomHalfLayoutTopPadding):((rtype==T_KEYBOARD_NONE)?0:(0.8*screenSize.y-controlLineHeight+bottomHalfLayoutTopPadding));
     bottomHalfHeight = floatClip(newSize, floatMin(resizeButtonHitboxSize, maxH), maxH);
     bottomHalfUsefulHeight = bottomHalfHeight-bottomHalfLayoutTopPadding;
     //printf("Tried: %f | Got: %f\n", newSize, bottomHalfHeight);
@@ -28,6 +29,8 @@ void updateBottomHalfSize(float newSize) {
 void bottomHalfLayoutInit() {
     bottomResizeButton = buttonCreate((Rectangle){20,20,20,20}, 0);
     buttonUpdateCursorOnHover(bottomResizeButton, MOUSE_CURSOR_RESIZE_NS);
+
+    bottomHalfBackgroundColor=(Color){20, 20, 24, 255};
 
     updateBottomHalfSize(0);
 }
@@ -90,7 +93,11 @@ void renderBottomHalfLayout() {
     enum keyboard_render_types kbType = globalStateHandlerGetKeyboardType();
     if (kbType==T_KEYBOARD_NONE) return;
 
-    DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfHeight, screenSize.x, bottomHalfHeight}, (Color){20, 20, 24, 255});
+
+    float ypos = screenSize.y-bottomHalfHeight-interfaceSpace1;
+    DrawRectangleGradientV(0, ypos, screenSize.x, interfaceSpace1, (Color){5,5,5,0}, (Color){5,5,5,160});
+
+    DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfHeight, screenSize.x, bottomHalfHeight}, bottomHalfBackgroundColor);
     DrawRectangleRounded(scaleRctangleFromCenterV(buttonGetRectangle(bottomResizeButton), (Vector2){0.08, 0.3}), 1, 5, (Color){120, 125, 132, 255});
     if (kbType==T_KEYBOARD_HORIZONTAL) renderHorizontalKeyboard();
 }

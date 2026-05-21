@@ -12,8 +12,12 @@ struct backend_state_handler _globalHandler = {
         .playing = 0,
         .tempo = 120,
         .measureDuration = 0,
+        .visibleDuration = 30,
+
         .timeSignature.numerator = 4,
         .timeSignature.denominator = 4,
+        
+        .timeShown = 0,
         .loopEnabled = 0,
         .loopStart = 0,
         .loopEnd = 0
@@ -68,6 +72,19 @@ int globalHandlerIsLoopEnabled() {
     return globalStateHandler->time.loopEnabled;
 }
 
+struct time_signature globalHandlerGetTimeSignature() {
+    if (!globalStateHandler || !globalProject) return (struct time_signature){4,4};
+    return globalStateHandler->time.timeSignature;
+}
+
+void globalHandlerSetTimeSignature(struct time_signature tsign) {
+    if (!globalStateHandler || !globalProject) return;
+    if (tsign.numerator>0 && tsign.numerator<7 && (tsign.denominator==1 || tsign.denominator==2 || tsign.denominator==4 || tsign.denominator==8)) {
+        globalStateHandler->time.timeSignature = tsign;
+        globalProject->timeSignature = tsign;
+    }
+}
+
 void globalHandlerSelectTrack(int idx) {
     if (idx<0 || !globalStateHandler || !globalProject || !(globalProject->tracks) || idx>=globalProject->tracksNum) {
         globalStateHandler->selectedTrack = -1;
@@ -88,6 +105,16 @@ int globalHandlerGetSelectedTrack() {
 enum keyboard_render_types globalStateHandlerGetKeyboardType() {
     if (!globalStateHandler) return T_KEYBOARD_NONE;
     return globalStateHandler->keys.type;
+}
+
+void globalHandlerSetKeyboardType(enum keyboard_render_types view) {
+    if (view!=T_KEYBOARD_NONE && view!=T_KEYBOARD_HORIZONTAL && view!=T_KEYBOARD_VERTICAL) return;
+    int trn=globalStateHandler->project->tracksNum, trs=globalStateHandler->selectedTrack;
+    if ((trs>=0 && trs<trn) && (view==T_KEYBOARD_HORIZONTAL || view==T_KEYBOARD_VERTICAL)) globalStateHandler->keys.type=view;
+    else {
+        globalStateHandler->keys.type = T_KEYBOARD_NONE;
+        globalStateHandler->selectedTrack = -1;
+    }
 }
 
 void globalHandlerUpdateKey(int key, uint8_t velocity) {

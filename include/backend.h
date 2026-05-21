@@ -14,7 +14,10 @@ typedef struct backend_state_handler *StateHandler;
 typedef struct track_data *Track;
 typedef struct note_data *Note;
 
-
+struct time_signature {
+    uint8_t numerator;
+    uint8_t denominator;
+};
 
 
 
@@ -74,8 +77,11 @@ void globalHandlerEnableLoop();
 void globalHandlerDisableLoop();
 int globalHandlerIsLoopEnabled();
 void globalHandlerSelectTrack(int idx);
+struct time_signature globalHandlerGetTimeSignature();
+void globalHandlerSetTimeSignature(struct time_signature tsign);
 int globalHandlerGetSelectedTrack();
 enum keyboard_render_types globalStateHandlerGetKeyboardType();
+void globalHandlerSetKeyboardType(enum keyboard_render_types view);
 void globalHandlerUpdateKey(int key, uint8_t velocity);
 void globalHandlerUpdateKeyAndPlaySynth(int key, uint8_t velocity);
 

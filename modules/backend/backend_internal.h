@@ -38,11 +38,6 @@ typedef struct track_data {
 } *Track;
 
 
-struct time_signature {
-    uint8_t numerator;
-    uint8_t denominator;
-};
-
 
 
 struct backend_time_handler {
@@ -51,9 +46,12 @@ struct backend_time_handler {
     uint16_t tempo;
     struct time_signature timeSignature;
     double measureDuration;
+    double visibleDuration;
 
     uint8_t playing ;
     uint8_t loopEnabled;
+    uint8_t timeShown;
+    
     double loopStart;
     double loopEnd;
 };

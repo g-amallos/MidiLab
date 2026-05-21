@@ -16,7 +16,7 @@
 float horizontalKeyboardHeight=0;
 
 static Button changeProgramButton=NULL;
-static Slider panningSlider=NULL, volumeSlider=NULL;
+static Slider panningSlider=NULL, volumeSlider=NULL, octaveSlider=NULL, keyRangeSlider=NULL;
 static Button keyButtons[keyboardRangeShown] = {NULL};
 static int keyboardShownStartOffset=36, keyboardInputStartOffset=12;
 
@@ -36,6 +36,11 @@ void horizontalKeyboardInit() {
     volumeSlider=sliderCreate((Rectangle){20,20,20,20},1);
     sliderUpdateCursorOnHover(volumeSlider, MOUSE_CURSOR_RESIZE_NS);
 
+    octaveSlider=sliderCreate((Rectangle){20,20,20,20},1);
+    sliderUpdateCursorOnHover(octaveSlider, MOUSE_CURSOR_RESIZE_NS);
+    keyRangeSlider=sliderCreate((Rectangle){20,20,20,20},1);
+    sliderUpdateCursorOnHover(keyRangeSlider, MOUSE_CURSOR_RESIZE_NS);
+
     for (int i=0; i<keyboardRangeShown; i++) {
         keyButtons[i]=buttonCreate((Rectangle){20,20,20,20},0);
         buttonSetEffectSpeed(keyButtons[i], 0.35);
@@ -52,6 +57,12 @@ void horizontalKeyboardClose() {
 
     if (volumeSlider) sliderFree(volumeSlider);
     volumeSlider=NULL;
+
+    if (octaveSlider) sliderFree(octaveSlider);
+    octaveSlider=NULL;
+
+    if (keyRangeSlider) sliderFree(keyRangeSlider);
+    keyRangeSlider=NULL;
 
     for (int i=0; i<keyboardRangeShown; i++) {
         if (keyButtons[i]) buttonFree(keyButtons[i]);
@@ -167,12 +178,29 @@ void precalculateSizesHorizontalKeyboard() {
     hkTopPadding = 150;
 
     offsetY = floatMax(hkTopPadding, bottomHalfUsefulHeight-hkHeight-interfaceSpace1);
-    posY = floatMax(leftRect.y+leftRect.height+interfaceSpace1+space, screenSize.y-hkHeight-interfaceSpace1);
+    posY = leftRect.y+leftRect.height+interfaceSpace1+space; //floatMax(leftRect.y+leftRect.height+interfaceSpace1+space, screenSize.y-hkHeight-interfaceSpace1);
 
     rect = (Rectangle){interfaceSpace1, posY, screenSize.x-2*interfaceSpace1, hkHeight};
 
-    horizontalKeyboardHeight=hkHeight+leftRect.height+3*(interfaceSpace1+space);
+    horizontalKeyboardHeight=hkHeight+leftRect.height+3*(interfaceSpace1+space)-space;
 }
+
+
+int getVirtualKeyboardOffsetFromIndex(int n) {
+    if (n<0 || n>28) return 0;
+    char ret[] = {0,2,4,5,7,9,11,12,14,16,17,19,21,23,24,26,28,29,31,33,35,36,38,40,41,43,45,47,48};
+    return (int)(ret[n]);
+}
+
+
+int getIndexFromVirtulKeyboardOffset(int n) {
+    char ret[] = {0,2,4,5,7,9,11,12,14,16,17,19,21,23,24,26,28,29,31,33,35,36,38,40,41,43,45,47,48};
+    int size=sizeof(ret)/sizeof(char);
+    for (int i=0; i<size; i++) {
+        if ((int)(ret[i])==n) return i;
+    } return 0;
+}
+
 
 void precalculateJustHorizontalKeyboard() {
     // Must have already ran `precalculateSizesHorizontalKeyboard()`
@@ -181,8 +209,8 @@ void precalculateJustHorizontalKeyboard() {
     Track curTrack = trackGetAtIdx(globalHandlerGetSelectedTrack());
 
     if (panningSlider) {
-        float tsize = 0.55*floatMin(leftRect.height, leftRect.width*0.5);
-        Rectangle trect = centerRectangle((Vector2){leftRect.x+leftRect.width*0.25, leftRect.y+leftRect.height*0.5+0.15*tsize}, (Vector2){tsize, tsize});
+        float tsize = 0.55*floatMin(rightRect.height, rightRect.width*0.5);
+        Rectangle trect = centerRectangle((Vector2){rightRect.x+rightRect.width*0.25, rightRect.y+rightRect.height*0.5+0.15*tsize}, (Vector2){tsize, tsize});
         sliderUpdateRectangle(panningSlider, trect);
         sliderUpdate(panningSlider, -1);
 
@@ -195,8 +223,8 @@ void precalculateJustHorizontalKeyboard() {
     }
 
     if (volumeSlider) {
-        float tsize = 0.55*floatMin(leftRect.height, leftRect.width*0.5);
-        Rectangle trect = centerRectangle((Vector2){leftRect.x+leftRect.width*0.75, leftRect.y+leftRect.height*0.5+0.15*tsize}, (Vector2){tsize, tsize});
+        float tsize = 0.55*floatMin(rightRect.height, rightRect.width*0.5);
+        Rectangle trect = centerRectangle((Vector2){rightRect.x+rightRect.width*0.75, rightRect.y+rightRect.height*0.5+0.15*tsize}, (Vector2){tsize, tsize});
         sliderUpdateRectangle(volumeSlider, trect);
         sliderUpdate(volumeSlider, -1);
 
@@ -210,22 +238,51 @@ void precalculateJustHorizontalKeyboard() {
 
 
 
+    if (octaveSlider) {
+        float tw = floatMax(10, 0.01*leftRect.width), th=leftRect.height*0.7-2*interfaceSpace1;
+        Rectangle trect = (Rectangle){leftRect.x+leftRect.width*0.25-0.5*tw, leftRect.y+leftRect.height-th-2*interfaceSpace1, tw, th};
+        sliderUpdateRectangle(octaveSlider, trect);
+        sliderUpdate(octaveSlider, -1);
+
+        if (isSliderDragged(octaveSlider)) {
+            synthPanic();
+                    
+            float nval = ((int)(sliderUpdateValueCommonVertical(octaveSlider)*6))/6.0;
+            sliderUpdateSlideValue(octaveSlider, nval);
+            keyboardShownStartOffset=(int)(nval*6*12);
+        } else sliderUpdateSlideValue(octaveSlider, keyboardShownStartOffset/(6.0*12.0));
+    }
+
+    if (keyRangeSlider) {
+        float tw = floatMax(10, 0.01*leftRect.width), th=leftRect.height*0.7-2*interfaceSpace1;
+        Rectangle trect = (Rectangle){leftRect.x+leftRect.width*0.75-0.5*tw, leftRect.y+leftRect.height-th-2*interfaceSpace1, tw, th};
+        sliderUpdateRectangle(keyRangeSlider, trect);
+        sliderUpdate(keyRangeSlider, -1);
+
+        if (isSliderDragged(keyRangeSlider)) {
+            synthPanic();
+            int maxOffset=numOfWhiteKeys-12;            
+            float nval = ((int)(sliderUpdateValueCommonVertical(keyRangeSlider)*maxOffset))/(float)maxOffset;
+            sliderUpdateSlideValue(keyRangeSlider, nval);
+            keyboardInputStartOffset=getVirtualKeyboardOffsetFromIndex((int)(nval*maxOffset));
+        } else sliderUpdateSlideValue(keyRangeSlider, getIndexFromVirtulKeyboardOffset(keyboardInputStartOffset)/(numOfWhiteKeys-12.0));
+    }
+
+
     Rectangle brect={0,0,0,0};
 
     if (changeProgramButton) {
         float th = floatMax(40, 0.06*screenSize.y);
         brect = centerRectangle((Vector2){screenSize.x*0.5, leftRect.y+leftRect.height-0.5*th}, (Vector2){floatMax(300, 0.22*screenSize.x), th});
+        float tmp = (leftRect.height-2*brect.height)/3.0;
+        brect.y = leftRect.y+leftRect.height-brect.height-2*tmp;
         buttonUpdateRectangle(changeProgramButton, brect);
         buttonUpdate(changeProgramButton, -1);
 
         if (isButtonClicked(changeProgramButton)) actionDefer(createInstrumentPicker);
     }
 
-    
-
-
-
-    
+    bottomHalfBackgroundColor = (Color){19,18,23,255};
     
 }
 
@@ -233,9 +290,15 @@ void precalculateJustHorizontalKeyboard() {
 
 
 void renderJustHorizontalKeyboard() {
+    static int oldKeyboardInputEnabled=0;
     int clickingAllowed = !UIexistsFrontLayoutOverlay();
     int keyboardInputEnabled = !UIisInTextInput() && clickingAllowed;
     if (keyboardInputEnabled) moveVirtualKeyboardIfNeeded();
+
+    if (keyboardInputEnabled!=oldKeyboardInputEnabled) {
+        if (!keyboardInputEnabled) synthPanic();
+        oldKeyboardInputEnabled=keyboardInputEnabled;
+    }
 
     keyStart=keyboardShownStartOffset;
     keyEnd=keyStart+keyboardRangeShown-1;
@@ -276,7 +339,9 @@ void renderJustHorizontalKeyboard() {
             int mod = i%12;
             if (keyTypes[mod]!=type) continue;
              
-            char txt[3]={txt1[mod], (type)?'#':(mod?0:('0'+(i+1)/12)), 0};
+            char txt[4]={txt1[mod], (type)?'#':(mod?0:('0'+(i+1)/12)), 0, 0};
+            if ((i+1)/12>=10) txt[1]='1', txt[2]='0'+(((i+1)/12)%10);
+            
             Button btn = keyButtons[i-keyStart];
             int isInInput = isKeyInInputKeyboard(i), effect=0, clicked=0, released=0, hover=0;
 
@@ -321,6 +386,7 @@ void renderJustHorizontalKeyboard() {
                 }
 
                 if (!mod) renderFontStringAlign(GlobalFonts[0].font, txt, (Vector2){posX+0.5*wkWidth, rect.y+wkHeight-interfaceSpace1}, (Vector2){0.5, 1}, txtSize, 0, keyBlack);
+                
                 //renderFontStringAlign(GlobalFonts[0].font, txt, (Vector2){posX+0.5*wkWidth, rect.y+(0.75*wkHeight+0.25*bkHeight)-interfaceSpace1}, (Vector2){0.5, 1}, txtSize, 0, keyBlack);
 
                 posX+=wkWidth+space;
@@ -357,6 +423,10 @@ void renderJustHorizontalKeyboard() {
 
 
 void renderChangeInstrumentButton() {
+    //Color col= {27,28,30,255};
+    //Rectangle trect = leftRect; trect.x=0.5*(leftRect.x+rightRect.x);
+    //DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(leftRect, 2*space), 8, col);
+
     if (changeProgramButton) {
         Rectangle brect = buttonGetRectangle(changeProgramButton);
         float roundness = buttonGetRoundness(changeProgramButton);
@@ -376,7 +446,7 @@ void renderChangeInstrumentButton() {
         //DrawRectangleRoundedLinesEx(irect, getRoundnessForRoundedRectangle(irect, getRadiusForRoundedRectangle(rect, roundness)), 8, thickness, blendColors((Color){20, 20, 20, 255}, typeTheme, lerp(0.3, 0.6, effect)));
         
         DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, (Color){200, 200, 200, 255});
-        renderFontStringAlign(GlobalFonts[0].font, midiGetProgramTypeString(programIdx), (Vector2){brect.x+brect.width*0.5, brect.y-brect.height*0.5}, (Vector2){0.5,0.5}, 0.08*brect.width, 0, (Color){200, 200, 200, 255});
+        renderFontStringAlign(GlobalFonts[0].font, TextFormat("Type: %s", midiGetProgramTypeString(programIdx)), (Vector2){brect.x+brect.width*0.5, brect.y-brect.height*0.5}, (Vector2){0.5,0.5}, 0.08*brect.width, 0, (Color){200, 200, 200, 255});
     }
 }
 
@@ -385,6 +455,7 @@ void renderSoundPanelEffects() {
     Color col= {27,28,30,255};
     DrawRectangleRounded(leftRect, getRoundnessForRoundedRectangle(leftRect, 2*space), 8, col);
     DrawRectangleRounded(rightRect, getRoundnessForRoundedRectangle(leftRect, 2*space), 8, col);
+    float textSize = 0.18*leftRect.height;
 
     Color col1={51,59,62,255}, col2={122,176,190,255}, col3={180,182,184,255};  //col2={122,147,154,255}
 
@@ -403,9 +474,10 @@ void renderSoundPanelEffects() {
 
         float ty=center.y-(r2+2*interfaceSpace1)*sinf(PI*(-2.1/3.0)), tx=(r2+2*interfaceSpace1)*cosf(PI*(-2.1/3.0));
         
-        renderFontStringAlign(GlobalFonts[0].font, "L", (Vector2){center.x+tx, ty}, (Vector2){0.5,0.5}, 0.7*r2, 0, col4);
-        renderFontStringAlign(GlobalFonts[0].font, "R", (Vector2){center.x-tx, ty}, (Vector2){0.5,0.5}, 0.7*r2, 0, col4);
-        renderFontStringAlign(GlobalFonts[0].font, "Panning", (Vector2){center.x, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, 0.7*r2, 0, col3);
+        renderFontStringAlign(GlobalFonts[0].font, "L", (Vector2){center.x+tx, ty}, (Vector2){0.5,0.5}, textSize, 0, col4);
+        renderFontStringAlign(GlobalFonts[0].font, "R", (Vector2){center.x-tx, ty}, (Vector2){0.5,0.5}, textSize, 0, col4);
+        //renderFontStringAlign(GlobalFonts[0].font, TextFormat("%.2f", panVal), (Vector2){center.x, center.y-(r2+2*interfaceSpace1)*sinf(PI*(-2.1/3.0))}, (Vector2){0.5,0.5}, 0.6*r2, 0, col4);
+        renderFontStringAlign(GlobalFonts[0].font, "Panning", (Vector2){center.x, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, textSize, 0, col3);
     }
 
     if (volumeSlider) {
@@ -422,12 +494,39 @@ void renderSoundPanelEffects() {
         DrawLineEx(center, (Vector2){center.x+(r1-2*interfaceSpace1)*cosf(angle), center.y+(r1-2*interfaceSpace1)*sinf(angle)}, floatMax(2, tsize*0.03), col3);
 
         renderFontStringAlign(GlobalFonts[0].font, TextFormat("%.2f", volVal), (Vector2){center.x, center.y-(r2+2*interfaceSpace1)*sinf(PI*(-2.1/3.0))}, (Vector2){0.5,0.5}, 0.6*r2, 0, col4);
-        renderFontStringAlign(GlobalFonts[0].font, "Volume", (Vector2){center.x, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, 0.7*r2, 0, col3);
+        renderFontStringAlign(GlobalFonts[0].font, "Volume", (Vector2){center.x, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, textSize, 0, col3);
+    }
+
+
+    // Left side
+    //renderFontStringAlign(GlobalFonts[0].font, "Some Other Effects", (Vector2){leftRect.x+0.5*leftRect.width, leftRect.y+0.5*leftRect.height}, (Vector2){0.5,0.5}, 0.2*leftRect.height, 0, col3);
+
+    if (octaveSlider) {
+        Rectangle trect = sliderGetRectangle(octaveSlider);        
+        float val=sliderGetSlideValue(octaveSlider);
+        DrawRectangleRounded(trect, 0.5, 4, col1);
+        DrawRectangleRounded((Rectangle){trect.x, trect.y+(1-val)*trect.height, trect.width, trect.height*val}, 0.5, 4, col2);
+        DrawRectangleRounded((Rectangle){trect.x-trect.width*1.2, trect.y+(1-val)*trect.height-0.75*trect.width, 3.4*trect.width, 1.5*trect.width}, 0.5, 4, (Color){55, 64, 71, 255});
+        DrawRectangleRounded((Rectangle){trect.x-trect.width*1, trect.y+(1-val)*trect.height-0.15*trect.width, 3*trect.width, 0.3*trect.width}, 1, 4, (Color){209, 223, 230, 255});
+
+        renderFontStringAlign(GlobalFonts[0].font, "Octave", (Vector2){trect.x+0.5*trect.width, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, textSize, 0, col3);
+    }
+
+    if (keyRangeSlider) {
+        Rectangle trect = sliderGetRectangle(keyRangeSlider);        
+        float val=sliderGetSlideValue(keyRangeSlider);
+        DrawRectangleRounded(trect, 0.5, 4, col1);
+        DrawRectangleRounded((Rectangle){trect.x, trect.y+(1-val)*trect.height, trect.width, trect.height*val}, 0.5, 4, col2);
+        DrawRectangleRounded((Rectangle){trect.x-trect.width*1.2, trect.y+(1-val)*trect.height-0.75*trect.width, 3.4*trect.width, 1.5*trect.width}, 0.5, 4, (Color){55, 64, 71, 255});
+        DrawRectangleRounded((Rectangle){trect.x-trect.width*1, trect.y+(1-val)*trect.height-0.15*trect.width, 3*trect.width, 0.3*trect.width}, 1, 4, (Color){209, 223, 230, 255});
+
+        renderFontStringAlign(GlobalFonts[0].font, "Position", (Vector2){trect.x+0.5*trect.width, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, textSize, 0, col3);
     }
 }
 
 
 void renderHorizontalKeyboard() {
+    // Color backgroundCol={19,18,23,255};
     renderJustHorizontalKeyboard();
     renderChangeInstrumentButton();
     renderSoundPanelEffects();

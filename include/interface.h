@@ -92,6 +92,7 @@ void renderTracksLeftInit();
 void renderTracksLeftClose();
 void renderTrackCreateNew();
 void renderTrackDeleteAtIdx(int idx);
+Color getTrackThemeColor(int i);
 void renderTracksLeft();
 void order1PrecomputeTracksLeft();
 void order2PrecomputeTracksLeft();
@@ -106,6 +107,7 @@ void renderTracksLeftLayoutsIfAny();
 extern float bottomHalfHeight;
 extern float bottomHalfUsefulHeight;
 extern float bottomHalfLayoutTopPadding;
+extern Color bottomHalfBackgroundColor;
 
 void bottomHalfLayoutInit();
 void bottomHalfLayoutClose();

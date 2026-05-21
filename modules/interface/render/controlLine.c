@@ -13,13 +13,14 @@
 #define PROJECT_TITLE_PLACEHOLDER "Project Title"
 
 
-float controlLineHeight=0, buttonList4x5ExampleSpacing=0;
-Rectangle buttonList4x5ExampleRect={0,0,0,0};
+float controlLineHeight=0, buttonList4x5ExampleSpacing=0, buttonListTSExampleSpacing=0;
+Rectangle buttonList4x5ExampleRect={0,0,0,0}, buttonList1x4ExampleRect={0,0,0,0}, buttonList1x6ExampleRect={0,0,0,0};
 
 Button openFileButton = NULL;
-ButtonList layoutButton = NULL;
+ButtonList layoutButton = NULL, tsignNumBList=NULL, tsignDenBList=NULL;
 Textbox projectTitleTextbox=NULL, tempoTextbox=NULL;
-Button previousButton=NULL, playPauseButton=NULL, nextButton=NULL, loopButton=NULL;
+Button previousButton=NULL, playPauseButton=NULL, nextButton=NULL, loopButton=NULL, tsignatureNumButton=NULL, tsignatureDenButton=NULL;
+Rectangle timeRect={0,0,0,0};
 
 
 
@@ -27,20 +28,26 @@ float lineHeight = 0;
 
 
 void controlLineInit() {
-    openFileButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
+    Rectangle rect = {20, 20, 80, 30};
+    openFileButton = buttonCreate(rect, 0.25);
 
-    projectTitleTextbox = textboxCreate((Rectangle){20, 20, 80, 30}, 0.25, T_IN_STRING, 40);
+    projectTitleTextbox = textboxCreate(rect, 0.25, T_IN_STRING, 40);
     textboxLoadText(projectTitleTextbox, projectGetCurrentTitle());
 
-    tempoTextbox = textboxCreate((Rectangle){20, 20, 80, 30}, 0.25, T_IN_POSITIVE_INTEGER, 4);
+    tempoTextbox = textboxCreate(rect, 0.25, T_IN_POSITIVE_INTEGER, 4);
     textboxLoadText(tempoTextbox, "120");
 
-    previousButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
-    playPauseButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
-    nextButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
-    loopButton = buttonCreate((Rectangle){20, 20, 80, 30}, 0.25);
+    tsignatureNumButton = buttonCreate(rect, 0.25);
+    tsignatureDenButton = buttonCreate(rect, 0.25);
+
+    previousButton = buttonCreate(rect, 0.25);
+    playPauseButton = buttonCreate(rect, 0.25);
+    nextButton = buttonCreate(rect, 0.25);
+    loopButton = buttonCreate(rect, 0.25);
 }
+
 void destroyBaseLayout();
+void updateTSbuttonLists();
 
 void controlLineClose() {
     if (openFileButton) buttonFree(openFileButton);
@@ -63,8 +70,32 @@ void controlLineClose() {
     nextButton=NULL;
     if (loopButton) buttonFree(loopButton);
     loopButton=NULL;
+
+    if (tsignatureNumButton) buttonFree(tsignatureNumButton);
+    tsignatureNumButton=NULL;
+    if (tsignatureDenButton) buttonFree(tsignatureDenButton);
+    tsignatureDenButton=NULL;
+
+    if (tsignNumBList) buttonListFree(tsignNumBList, 1);
+    tsignNumBList=NULL;
+    if (tsignDenBList) buttonListFree(tsignDenBList, 1);
+    tsignDenBList=NULL;
 }
 
+
+void createTimeSignatureNumeratorLayout() {
+    if (tsignNumBList) buttonListFree(tsignNumBList, 1);
+    Rectangle rect = buttonGetRectangle(tsignatureNumButton);
+    buttonList1x6ExampleRect.x = rect.x;
+    tsignNumBList = buttonListCreate(buttonList1x6ExampleRect, 6, 0.35, buttonListTSExampleSpacing, 1);
+}
+
+void createTimeSignatureDenominatorLayout() {
+    if (tsignDenBList) buttonListFree(tsignDenBList, 1);
+    Rectangle rect = buttonGetRectangle(tsignatureDenButton);
+    buttonList1x4ExampleRect.x = rect.x;
+    tsignDenBList = buttonListCreate(buttonList1x4ExampleRect, 4, 0.35, buttonListTSExampleSpacing, 1);
+}
 
 
 void renderProjectTextbox() {
@@ -150,6 +181,45 @@ void renderTempoTextbox() {
     }
 }
 
+void renderTime() {
+    Color bg={28, 30, 37, 255};
+    DrawRectangleRounded(timeRect, 0.25, 8, bg);
+    double ctime = globalHandlerGetTime();
+    if (ctime<=999.999) renderFontStringAlign(GlobalFonts[0].font, TextFormat("%7.3lf", ctime), getRectangleCenter(timeRect), (Vector2){0.5, 0.5}, timeRect.height*0.5, 0, COLOR_TEXT_1);
+    else renderFontStringAlign(GlobalFonts[0].font, TextFormat("%7.2lf", ctime), getRectangleCenter(timeRect), (Vector2){0.5, 0.5}, timeRect.height*0.5, 0, COLOR_TEXT_1);
+}
+
+void renderTimeSignature() {
+    struct time_signature tsign = globalHandlerGetTimeSignature();
+
+
+    Rectangle rect = buttonGetRectangle(tsignatureNumButton);
+    float roundness = buttonGetRoundness(tsignatureNumButton), effect = buttonGetEffectValue(tsignatureNumButton);
+    Color col1 = {20, 21, 23, 0}, col2={28, 30, 34, 255};
+    Color bgcol = blendColors(col1, col2, effect);
+    Color fgcol = blendColors(COLOR_PALETTE_1_P9, COLOR_TEXT_1, effect);
+
+    DrawRectangleRounded(rect, roundness, 4, bgcol);
+    renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d", tsign.numerator), getRectangleCenter(rect), (Vector2){0.5,0.5}, rect.width, 0, fgcol);
+
+    Vector2 cntr = {rect.x, rect.y+0.5*rect.height};
+
+    rect = buttonGetRectangle(tsignatureDenButton);
+    roundness = buttonGetRoundness(tsignatureDenButton), effect=buttonGetEffectValue(tsignatureDenButton);
+    bgcol = blendColors(col1, col2, effect);
+    fgcol = blendColors(COLOR_PALETTE_1_P9, COLOR_TEXT_1, effect);
+
+    DrawRectangleRounded(rect, roundness, 4, bgcol);
+    renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d", tsign.denominator), getRectangleCenter(rect), (Vector2){0.5,0.5}, rect.width, 0, fgcol);
+
+
+    cntr.x = 0.5*(cntr.x+rect.x+rect.width);
+    renderFontStringAlign(GlobalFonts[0].font, "/", cntr, (Vector2){0.5,0.5}, rect.width, 0, COLOR_TEXT_1);
+
+
+}
+
+
 void clickedOnPlayPause() {
     buttonSetCurrentEffect(playPauseButton, 1);
     if (globalHandlerIsPlaying()) globalHandlerPause();
@@ -209,8 +279,12 @@ void updateControlLineButtons() {
         rect.x += offsetXY+rect.width;
     }
 
+    rect.x+=offsetXY_2-offsetXY;
+    rect.width = floatMin(2*lineHeight, 0.08*screenSize.x);
+    timeRect = rect;
 
-    rect.x += offsetXY_2-offsetXY;
+
+    rect.x += offsetXY_2+rect.width;
     //rect.height = 0.75*lineHeight, rect.y=0.125*lineHeight;
     rect.width = floatMin(2*lineHeight, 0.1*screenSize.x);
     textboxUpdateRectangle(tempoTextbox, rect);
@@ -225,12 +299,30 @@ void updateControlLineButtons() {
     }
 
 
+    rect.x += offsetXY_2+rect.width;
+    rect.width = 0.4*lineHeight;
+    buttonUpdateRectangle(tsignatureNumButton, rect);
+    buttonUpdate(tsignatureNumButton, tsignNumBList?1:-1);
+    if (!tsignNumBList && isButtonClicked(tsignatureNumButton)) actionDefer(createTimeSignatureNumeratorLayout);
+
+
+    rect.x += offsetXY+rect.width;
+    buttonUpdateRectangle(tsignatureDenButton, rect);
+    buttonUpdate(tsignatureDenButton, tsignDenBList?1:-1);
+    if (!tsignDenBList && isButtonClicked(tsignatureDenButton)) actionDefer(createTimeSignatureDenominatorLayout);
+
+
+    updateTSbuttonLists();
+
+
+
     const char* projectTitle = isTextboxFocused(projectTitleTextbox)?textboxGetText(projectTitleTextbox):projectGetCurrentTitle();
     if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
     
-
+    rect.x += offsetXY_2+rect.width;
+    float endX=screenSize.x-interfaceSpace1;
     Vector2 dims = textFontGetSize(GlobalFonts[0].font, projectTitle, 0.36*lineHeight, 0);
-    Vector2 centerX = {0.6*screenSize.x, 0.5*lineHeight}; float spacing=floatMax(60, 1.2*lineHeight);
+    Vector2 centerX = {0.5*(rect.x+endX), 0.5*lineHeight}; float spacing=floatMax(60, 1.2*lineHeight);
     rect = centerRectangle(centerX, (Vector2){floatMin(floatMax(floatMax(150, 5*lineHeight), dims.x+spacing), 0.5*screenSize.x), 0.6*lineHeight});
 
     textboxUpdateRectangle(projectTitleTextbox, rect);
@@ -282,12 +374,44 @@ void destroyBaseLayout() {
     layoutButton = NULL;
 }
 
+void destroyTSignNumBL() {
+    if (!tsignNumBList) return;
+    buttonListFree(tsignNumBList, 1);
+    tsignNumBList = NULL;
+}
+
+void destroyTSignDenBL() {
+    if (!tsignDenBList) return;
+    buttonListFree(tsignDenBList, 1);
+    tsignDenBList = NULL;
+}
+
 void updateBaseLayout() {
     if (!layoutButton) return;
     buttonListUpdateRect(layoutButton, buttonList4x5ExampleRect);
     buttonListUpdateSpacing(layoutButton, buttonList4x5ExampleSpacing);
     buttonListUpdate(layoutButton);
     if (buttonListShouldDelete(layoutButton)) destroyBaseLayout();
+}
+
+void updateTSbuttonLists() {
+    if (tsignNumBList) {
+        Rectangle rect = buttonGetRectangle(tsignatureNumButton);
+        buttonList1x6ExampleRect.x = rect.x;
+        buttonListUpdateRect(tsignNumBList, buttonList1x6ExampleRect);
+        buttonListUpdateSpacing(tsignNumBList, buttonList4x5ExampleSpacing);
+        buttonListUpdate(tsignNumBList);
+        if (buttonListShouldDelete(tsignNumBList)) destroyTSignNumBL();
+    }
+
+    if (tsignDenBList) {
+        Rectangle rect = buttonGetRectangle(tsignatureDenButton);
+        buttonList1x4ExampleRect.x = rect.x;
+        buttonListUpdateRect(tsignDenBList, buttonList1x4ExampleRect);
+        buttonListUpdateSpacing(tsignDenBList, buttonList4x5ExampleSpacing);
+        buttonListUpdate(tsignDenBList);
+        if (buttonListShouldDelete(tsignDenBList)) destroyTSignDenBL();
+    }
 }
 
 void renderClickableButton(Button btn, const char* text, Vector2 textAlign, Vector2 textOffset, float textSize) {
@@ -301,6 +425,16 @@ void renderClickableButton(Button btn, const char* text, Vector2 textAlign, Vect
     DrawRectangleRoundedLinesEx(rect, buttonGetRoundness(btn), 8, lerp(1, 2, effect), blend2);
     Vector2 tarPos = lerpVector2_vec((Vector2){rect.x, rect.y}, (Vector2){rect.x+rect.width, rect.y+rect.height}, textAlign);
     renderFontStringAlign(GlobalFonts[0].font, text, Vector2Add(tarPos, textOffset), textAlign, textSize, 0, COLOR_TEXT_1);
+}
+
+void renderTSlayoutButton(Button btn, const char* text, float textSize, int selected) {
+    if (!btn) return;
+    Color col={30, 32, 38, 255};
+    float effect = floatMax(0.5*buttonGetEffectValue(btn), selected);
+    Color blend1 = blendColors(col, COLOR_PALETTE_1_P1, effect);
+    Rectangle rect = buttonGetRectangle(btn);
+    DrawRectangleRounded(rect, buttonGetRoundness(btn), 8, blend1);
+    renderFontStringAlign(GlobalFonts[0].font, text, getRectangleCenter(rect), (Vector2){0.5,0.5}, textSize, 0, COLOR_TEXT_1);
 }
 
 
@@ -335,6 +469,43 @@ void renderBaseLayout() {
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);  //COLOR_TEXT_4
 }
 
+void renderNumBlist() {
+    //printf("%p\n", (void*)tsignNumBList);
+    if (!tsignNumBList) return;
+    struct time_signature tsign = globalHandlerGetTimeSignature();
+    Rectangle brect = buttonListGetRect(tsignNumBList);
+    Color col1 = {20, 21, 23, 255};
+    float roundness = buttonListGetRoundness(tsignNumBList);
+    DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
+    DrawRectangleRounded(brect, roundness, 8, col1);
+    const char* texts[] = {"1", "2", "3", "4", "5", "6"};
+    int num = buttonListGetNum(tsignNumBList);
+    for (int i=0; i<num; i++) {
+        Button btn = buttonListGetButtonAt(tsignNumBList, i);
+        renderTSlayoutButton(btn, texts[i], brect.width*0.4, tsign.numerator==i+1);
+        if (tsign.numerator!=i+1 && isButtonClicked(btn)) globalHandlerSetTimeSignature((struct time_signature){i+1, tsign.denominator});
+    }
+    DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);  //COLOR_TEXT_4
+}
+
+void renderDenBlist() {
+    if (!tsignDenBList) return;
+    struct time_signature tsign = globalHandlerGetTimeSignature();
+    Rectangle brect = buttonListGetRect(tsignDenBList);
+    Color col1 = {20, 21, 23, 255};
+    float roundness = buttonListGetRoundness(tsignDenBList);
+    DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
+    DrawRectangleRounded(brect, roundness, 8, col1);
+    const char* texts[] = {"1", "2", "4", "8"};
+    int num = buttonListGetNum(tsignDenBList);
+    for (int i=0; i<num; i++) {
+        Button btn = buttonListGetButtonAt(tsignDenBList, i);
+        renderTSlayoutButton(btn, texts[i], brect.width*0.4, tsign.denominator==(1<<i));
+        if (tsign.denominator!=(1<<i) && isButtonClicked(btn)) globalHandlerSetTimeSignature((struct time_signature){tsign.numerator, (1<<i)});
+    }
+    DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);  //COLOR_TEXT_4
+}
+
 
 void renderVerticalSeperator(float x) {
     Color col = COLOR_TEXT_4; col.a=50;
@@ -349,6 +520,10 @@ void order1PrecomputeControlLine() {
 
     buttonList4x5ExampleRect = (Rectangle){0.2*lineHeight, 0.9*lineHeight, floatMax(2*lineHeight, 120), floatMax(3*lineHeight, 180)};
     buttonList4x5ExampleSpacing = floatMax(0.08*lineHeight, 4.8);
+
+    buttonList1x6ExampleRect = (Rectangle){0, 0.9*lineHeight, floatMax(0.8*lineHeight, 30), floatMax(3.6*lineHeight, 216)};
+    buttonList1x4ExampleRect = (Rectangle){0, 0.9*lineHeight, floatMax(0.8*lineHeight, 30), floatMax(2.4*lineHeight, 144)};
+    buttonListTSExampleSpacing = floatMax(0.032*lineHeight, 4.8);
 
     updateControlLineButtons(lineHeight);
 
@@ -376,17 +551,25 @@ void renderControlLine() {
 
 
     renderVerticalSeperator(2*rect.x+rect.width);
+    renderVerticalSeperator(timeRect.x-rect.x);
     renderVerticalSeperator(textboxGetRectangle(tempoTextbox).x-rect.x);
+    renderVerticalSeperator(buttonGetRectangle(tsignatureNumButton).x-rect.x);
+    Rectangle dnmRect = buttonGetRectangle(tsignatureDenButton);
+    renderVerticalSeperator(dnmRect.x+dnmRect.width+interfaceSpace2-rect.x);
+    
 
     renderPrevPlayPauseNext();
     renderTempoTextbox();
+    renderTimeSignature();
+    renderTime();
     
     
     //float gradientHeight = 0.1*lineHeight;
     //Color topCol = {120, 139, 179, 255}, bottomCol={160, 160, 160, 0};
     //DrawRectangleGradientV(0, (int)lineHeight, (int)(screenSize.x+2), (int)gradientHeight, topCol, bottomCol);
-    DrawLineEx((Vector2){0, lineHeight-1}, (Vector2){screenSize.x, lineHeight}, 2, COLOR_TEXT_4);
+    DrawLineEx((Vector2){0, lineHeight-1}, (Vector2){screenSize.x, lineHeight-1}, 2, COLOR_TEXT_4);
 
-    
+    if (tsignNumBList) renderNumBlist();
+    if (tsignDenBList) renderDenBlist();
     if (layoutButton) renderBaseLayout(lineHeight);
 }
