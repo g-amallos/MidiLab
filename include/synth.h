@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 
+typedef struct midi_event* MidiEvent;
+
 
 int synthInit();
 int synthClose();
@@ -17,6 +19,8 @@ void synthNoteOn(uint8_t key, float velocity, uint8_t channel);
 void synthProgramNoteOn(uint8_t key, float velocity, uint8_t program);
 void synthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, float panning);
 
+
+void synthExecuteEvent(MidiEvent event);
 
 
 

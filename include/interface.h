@@ -5,6 +5,11 @@
 #include <backend.h>
 
 
+
+typedef struct ui_button *Button;
+
+
+
 extern float interfaceSpace1;
 extern float interfaceSpace2;
 
@@ -51,6 +56,7 @@ void renderRoundedRectangleLinesCentered(Vector2 pos, Vector2 dim, Color col, fl
 int checkCollisionPointRoundedRect(Vector2 point, Rectangle rect, float roundness);
 float getRadiusForRoundedRectangle(Rectangle rect, float roundness);
 float getRoundnessForRoundedRectangle(Rectangle rect, float radius);
+Rectangle rectangleClip(Rectangle source, Rectangle clip);
 
 
 
@@ -85,6 +91,8 @@ extern float trackLeftWidth;
 extern float trackDivTargetHeight;
 extern Color trackThemeColors[7];
 extern Color programTypeColors[MPT_END];
+extern int timelineMeasureSkipsTop, timelineMeasureSkipsBottom, timelineBeatsSkipsTop, timelineBeatsSkipsBottom;
+extern Button timeLineDragButton;
 
 float normalizeProgramTypeIcon(enum icon_title iconType);
 
@@ -93,6 +101,7 @@ void renderTracksLeftClose();
 void renderTrackCreateNew();
 void renderTrackDeleteAtIdx(int idx);
 Color getTrackThemeColor(int i);
+Color getSelectedTrackThemeColor();
 void renderTracksLeft();
 void order1PrecomputeTracksLeft();
 void order2PrecomputeTracksLeft();
@@ -129,6 +138,17 @@ void precalculateSizesHorizontalKeyboard();
 void renderHorizontalKeyboard();                // Must have already ran `precalculateSizesHorizontalKeyboard()`
 void precalculateJustHorizontalKeyboard();
 
+
+
+
+/* Vertical Keyboard (interface/render/verticalKeyboard.c) */
+
+void verticalKeyboardInit();
+void verticalKeyboardClose();
+void preCalculateNecessaryVerticalKeyboard();
+void preCalculateVerticalKeyboard();
+void renderVerticalKeyboard();
+void renderWholeBottomLayoutTypeVertical();
 
 
 /* Layout (interface/render/layout.c)  (More of a test) */

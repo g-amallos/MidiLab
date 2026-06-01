@@ -21,19 +21,27 @@ CFLAGS = -I$(INCLUDE) $(WARNINGS)
 modules/tinyfiledialogs/tinyfiledialogs.o: CFLAGS += -Wno-pedantic -Wno-cast-function-type
 
 # Platform specific flags
-FLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 OUT = $(TARGET)
 
 ifeq ($(os), win)
     CC = x86_64-w64-mingw32-gcc
-    FLAGS = libs/libraylib_win.a -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -static
+    LDFLAGS = libs/libraylib_win.a -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -static
     OUT = $(TARGET).exe
 endif
+
+ifneq ($(filter mem,$(MAKECMDGOALS)),)
+    ifneq ($(os), win)
+        CFLAGS += -fsanitize=address -g
+        LDFLAGS += -fsanitize=address
+    endif
+endif
+
 
 all: $(OUT)
 
 $(OUT): $(OBJS)
-	$(CC) $(OBJS) -o $(OUT) $(CFLAGS) $(FLAGS)
+	$(CC) $(OBJS) -o $(OUT) $(CFLAGS) $(LDFLAGS)
 
 
 %.o: %.c
@@ -45,4 +53,7 @@ clean:
 run: $(OUT)
 	./$(OUT)
 
-.PHONY: all clean run
+
+mem: run
+
+.PHONY: all clean run mem

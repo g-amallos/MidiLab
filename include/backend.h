@@ -70,6 +70,7 @@ enum keyboard_render_types {
 
 extern StateHandler globalStateHandler;         // Another reference the whole program will use for the project
 double globalHandlerGetTime();
+void globalHandlerSetTime(double time);
 int globalHandlerIsPlaying();
 void globalHandlerPlay();
 void globalHandlerPause();
@@ -84,7 +85,18 @@ enum keyboard_render_types globalStateHandlerGetKeyboardType();
 void globalHandlerSetKeyboardType(enum keyboard_render_types view);
 void globalHandlerUpdateKey(int key, uint8_t velocity);
 void globalHandlerUpdateKeyAndPlaySynth(int key, uint8_t velocity);
+double globalHandlerGetVisibleDuration();
+double globalHandlerDurationToMeasures(double seconds);
+double globalHandlerMeasuresToDuration(double measures);
+int globalHandlerGetBeatsInMeasure();
+double globalHandlerGetMeasureDuration();
+double globalHandlerGetBeatDuration();
+void globalHandlerSetVisibleDuration(double duration);
+int globalHandlerIsTimeLineShown();
+double globalHandlerGetLineTime();
+void globalHandlerSetLineTime(double time);
 
+void globalHandlerUpdateTick();
 
 
 /* Actions (backend/actions.c) */
@@ -130,6 +142,9 @@ struct midi_programs_array {
 };
 
 
+typedef struct midi_event* MidiEvent;
+
+
 void midiInit();
 void midiClose();
 const char* midiGetProgramTypeString(int program);
@@ -146,6 +161,9 @@ enum midi_program_type midiProgramGetType(MidiProgram program);
 int midiProgramGetProgramNum(MidiProgram program);
 struct midi_programs_array midiGetProgramsByType(enum midi_program_type type);
 void midiFreeMidiProgramArray(struct midi_programs_array* mpa);
+
+
+void midiEventFree(MidiEvent event);
 
 
 #endif

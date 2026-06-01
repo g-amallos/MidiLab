@@ -62,6 +62,8 @@ int gameLoop(int (*func)()) {
 
 
 int testIteration() {
+    globalHandlerUpdateTick();
+    
     updateRenderGlobalVariables();      // First update global values
     updateInactivityStruct();
 

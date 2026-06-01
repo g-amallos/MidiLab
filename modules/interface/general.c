@@ -16,6 +16,7 @@ int renderInit() {
     controlLineInit();
     renderTracksLeftInit();
     horizontalKeyboardInit();
+    verticalKeyboardInit();
     
     return 0;
 }
@@ -26,6 +27,8 @@ int renderClose() {
     renderTracksLeftClose();
     bottomHalfLayoutClose();
     horizontalKeyboardClose();
+    verticalKeyboardClose();
+    
     return 0;
 }
 
@@ -58,6 +61,12 @@ void order2Precompute() {
     order2PrecomputeBottomHalfLayout();
 }
 
+void renderFPS() {
+    int fps = GetFPS();
+    Color c1={200,100,120,255}, c2={180,120,120,255}, c3={100,200,120,255};
+    renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d", fps), (Vector2){screenSize.x-5, 5}, (Vector2){1, 0}, 30, 0, (fps>55?c3:(fps>40?c2:c1)));
+}
+
 int render() {
     
     SetWindowOpacity(1-0.5*GlobalInactivityHandler.opacity);
@@ -80,6 +89,8 @@ int render() {
 
         UIupdateTransparentOverlay();
         renderInstrumentPicker();
+
+        renderFPS();
 
     EndDrawing();
     updateMouseCursor();

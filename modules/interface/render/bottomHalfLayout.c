@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <images.h>
-
+#include <synth.h>
 
 
 
@@ -83,9 +83,22 @@ void order2PrecomputeBottomHalfLayout() {
     buttonUpdateRectangle(bottomResizeButton, rect);
 
     precalculateSizesHorizontalKeyboard();
+    preCalculateNecessaryVerticalKeyboard();
 
     enum keyboard_render_types kbType = globalStateHandlerGetKeyboardType();
-    if (kbType==T_KEYBOARD_HORIZONTAL) precalculateJustHorizontalKeyboard();
+    if (kbType==T_KEYBOARD_HORIZONTAL) {
+        bottomHalfBackgroundColor=(Color){20, 20, 24, 255};
+        precalculateJustHorizontalKeyboard();
+    } else if (kbType==T_KEYBOARD_VERTICAL) {
+        bottomHalfBackgroundColor=(Color){20, 20, 24, 255};
+        preCalculateVerticalKeyboard();
+    }
+
+
+    int allowedKeyboardShortcuts = (!UIisInTextInput() && !UIexistsFrontLayoutOverlay());
+    if (allowedKeyboardShortcuts) {
+        if (IsKeyPressed(KEY_M)) synthPanic();
+    }
 }
 
 
@@ -98,6 +111,12 @@ void renderBottomHalfLayout() {
     DrawRectangleGradientV(0, ypos, screenSize.x, interfaceSpace1, (Color){5,5,5,0}, (Color){5,5,5,160});
 
     DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfHeight, screenSize.x, bottomHalfHeight}, bottomHalfBackgroundColor);
-    DrawRectangleRounded(scaleRctangleFromCenterV(buttonGetRectangle(bottomResizeButton), (Vector2){0.08, 0.3}), 1, 5, (Color){120, 125, 132, 255});
+    
     if (kbType==T_KEYBOARD_HORIZONTAL) renderHorizontalKeyboard();
+    else if (kbType==T_KEYBOARD_VERTICAL) {
+        renderWholeBottomLayoutTypeVertical();
+    }
+
+    DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfHeight, screenSize.x, bottomHalfLayoutTopPadding}, bottomHalfBackgroundColor);
+    DrawRectangleRounded(scaleRctangleFromCenterV(buttonGetRectangle(bottomResizeButton), (Vector2){0.08, 0.3}), 1, 5, (Color){120, 125, 132, 255});
 }

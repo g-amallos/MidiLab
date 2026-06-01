@@ -55,3 +55,9 @@ void synthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, flo
         tsf_channel_note_on(synthSF, program, key, velocity);
     }
 }
+
+
+
+void synthExecuteEvent(MidiEvent event) {
+    if (!event) return;
+}

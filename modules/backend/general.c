@@ -4,6 +4,7 @@
 
 int backendInit() {
     int ret = createNewProject();
+    globalStateHandlerInit();
     return ret;
 }
 

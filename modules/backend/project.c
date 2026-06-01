@@ -95,6 +95,8 @@ int projectSetTempo(int tempo) {
     if (tempo>2400) tempo=2400;
     if (tempo<30) tempo=30;
     globalProject->tempo = tempo;
+    _globalStateHandlerUpdateTempo(tempo);
+    _globalHandlerUpdateDurations();
     return tempo;
 }
 

@@ -150,7 +150,7 @@ void renderTempoTextbox() {
     Rectangle rect = textboxGetRectangle(tempoTextbox);
     int cursorIdx = textboxGetCursorIdx(tempoTextbox);
 
-    const char* tempoTxtShown=tempoTxt;
+    char* tempoTxtShown=NULL;
     if (!isFocused) tempoTxtShown=concatenateStrings(tempoTxt, " BPM");
 
     Vector2 tarPos = lerpVector2_vec((Vector2){rect.x, rect.y}, (Vector2){rect.x+rect.width, rect.y+rect.height}, (Vector2){0.5, 0.5});
@@ -162,7 +162,9 @@ void renderTempoTextbox() {
     //if (isFocused) DrawRectangleRoundedLinesEx(rect, roundness, 8, lerp(0, floatMin(1+3*isFocused, 0.05*rect.height), effect), blend2);
     
     Color blend3 = blendColors(COLOR_PALETTE_1_P9, COLOR_TEXT_1, 1);
-    renderFontStringAlign(GlobalFonts[0].font, tempoTxtShown, tarPos, (Vector2){0.5, 0.5}, rect.height*0.5, 0, blend3);
+    renderFontStringAlign(GlobalFonts[0].font, isFocused?tempoTxt:tempoTxtShown, tarPos, (Vector2){0.5, 0.5}, rect.height*0.5, 0, blend3);
+
+    if (!isFocused) free(tempoTxtShown);
 
     if (isFocused && cursorIdx>=0) {        
         Color col = COLOR_TEXT_1;
@@ -184,9 +186,9 @@ void renderTempoTextbox() {
 void renderTime() {
     Color bg={28, 30, 37, 255};
     DrawRectangleRounded(timeRect, 0.25, 8, bg);
-    double ctime = globalHandlerGetTime();
-    if (ctime<=999.999) renderFontStringAlign(GlobalFonts[0].font, TextFormat("%7.3lf", ctime), getRectangleCenter(timeRect), (Vector2){0.5, 0.5}, timeRect.height*0.5, 0, COLOR_TEXT_1);
-    else renderFontStringAlign(GlobalFonts[0].font, TextFormat("%7.2lf", ctime), getRectangleCenter(timeRect), (Vector2){0.5, 0.5}, timeRect.height*0.5, 0, COLOR_TEXT_1);
+    double ctime = globalHandlerGetLineTime();
+    if (ctime<=999.999) renderFontStringAlign(GlobalFonts[0].font, TextFormat("%.3lf", ctime), getRectangleCenter(timeRect), (Vector2){0.5, 0.5}, timeRect.height*0.5, 0, COLOR_TEXT_1);
+    else renderFontStringAlign(GlobalFonts[0].font, TextFormat("%.2lf", ctime), getRectangleCenter(timeRect), (Vector2){0.5, 0.5}, timeRect.height*0.5, 0, COLOR_TEXT_1);
 }
 
 void renderTimeSignature() {

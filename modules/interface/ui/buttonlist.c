@@ -159,10 +159,13 @@ void buttonListAppendButton(ButtonList btnList, Button btn) {
 void buttonListFree(ButtonList btnList, int freeButtons) {
     if (!btnList) return;
     if (freeButtons && btnList->buttonArr) {
-        free(btnList->buttonArr);
-        btnList->buttonArr = NULL;
-        btnList->numButtons = 0;
+        for (int i=0; i<btnList->numButtons; i++) {
+            if (btnList->buttonArr[i]) buttonFree(btnList->buttonArr[i]);
+        }
     }
+    free(btnList->buttonArr);
+    btnList->buttonArr = NULL;
+    btnList->numButtons = 0;
     free(btnList);
 }
 

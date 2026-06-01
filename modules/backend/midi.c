@@ -192,3 +192,8 @@ void midiFreeMidiProgramArray(struct midi_programs_array* mpa) {
     mpa->num = 0;
     mpa->array = NULL;
 }
+
+
+void midiEventFree(MidiEvent event) {
+    if (!event) return;
+}

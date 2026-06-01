@@ -21,7 +21,10 @@ typedef struct note_data {
     uint8_t track;          // Not needed field, so we can change that in the future
     uint32_t timestamp;     // Relative
     uint32_t duration;      // Relative
+    double ftimestamp;
+    double fduration;
 } *Note;
+
 
 typedef struct track_data {
     char* title;
@@ -32,28 +35,41 @@ typedef struct track_data {
     float velocity;
     float panning;
 
-    uint32_t internalElements;      // Allocating more than needed, for fewer realloc calls
-    uint32_t externalElements;      // Number of actual saved note data (the first n in the array)
-    Note notes;
+    uint32_t capacity;      // Allocating more than needed, for fewer realloc calls
+    uint32_t numElements;      // Number of actual saved note data (the first n in the array)
+    Note* notes;
+
 } *Track;
 
 
 
-
-struct backend_time_handler {
-    double time;
-
-    uint16_t tempo;
-    struct time_signature timeSignature;
-    double measureDuration;
-    double visibleDuration;
-
-    uint8_t playing ;
+struct time_line {
+    uint8_t playing;
     uint8_t loopEnabled;
     uint8_t timeShown;
-    
+
+    double time;    // The vertical line that shows the time
+    double prePlayTime;
+
     double loopStart;
     double loopEnd;
+};
+
+
+struct backend_time_handler {
+    double time;    // Start of the div has this timestamp
+    uint64_t ticks;
+
+    uint16_t tempo;
+    uint16_t ppqn;  // Pulses per quarter note
+    uint16_t ticksPerBeat;
+
+    struct time_signature timeSignature;
+    double measureDuration;
+    double beatDuration;
+    double visibleDuration;
+
+    struct time_line timeline;
 };
 
 
@@ -113,6 +129,10 @@ typedef struct midi_program {
 
 extern struct midi_program _midiPrograms[129];
 
+
+void globalStateHandlerInit();
+void _globalHandlerUpdateDurations();
+void _globalStateHandlerUpdateTempo(double tempo);
 
 
 #endif

@@ -87,3 +87,14 @@ float getRoundnessForRoundedRectangle(Rectangle rect, float radius) {
     if (md<=0) return 0;
     return 2*radius/md;
 }
+
+
+Rectangle rectangleClip(Rectangle source, Rectangle clip) {
+    float x1=clip.x, x2=clip.x+clip.width, y1=clip.y, y2=clip.y+clip.height;
+    float nx1=floatClip(source.x, x1, x2);
+    float nx2=floatClip(source.x+source.width, x1, x2);
+    float ny1=floatClip(source.y, y1, y2);
+    float ny2=floatClip(source.y+source.height, y1, y2);
+
+    return (Rectangle){nx1, ny1, nx2-nx1, ny2-ny1};
+}

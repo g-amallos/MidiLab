@@ -17,9 +17,12 @@
 
 float trackHeight=0, trackLeftWidth=0, trackCLineHeight=0, trackDivTargetHeight=0, trackScrollY=0, trackScrollYtarget=0, trackDivVisiblePosMin=0, trackDivVisiblePosMax=0;
 int openLayout=0;
+int timelineMeasureSkipsTop=1, timelineMeasureSkipsBottom=1, timelineBeatsSkipsTop=1, timelineBeatsSkipsBottom=1;
+
+
 Rectangle trackDivLeftRect={0,0,0,0}, trackDivRightRect={0,0,0,0}, trackDivFullRect={0,0,0,0};
 Color trackThemeColors[7], programTypeColors[MPT_END];
-Button addTrackButton=NULL;
+Button addTrackButton=NULL, timeLineDragButton=NULL;
 Button bottomViewButtons[3]={NULL};
 Slider trackSlider=NULL;
 
@@ -86,6 +89,7 @@ void renderTracksLeftInit() {
 
     Rectangle rect = (Rectangle){20,20,20,20};
     addTrackButton = buttonCreate(rect, 0.25);
+    timeLineDragButton = buttonCreate(rect, 0);
     trackSlider = sliderCreate(rect, 1);
     sliderUpdateCursorOnHover(trackSlider, MOUSE_CURSOR_RESIZE_NS);
 
@@ -98,6 +102,9 @@ void renderTracksLeftInit() {
 void renderTracksLeftClose() {
     if (addTrackButton) buttonFree(addTrackButton);
     addTrackButton = NULL;
+
+    if (timeLineDragButton) buttonFree(timeLineDragButton);
+    timeLineDragButton = NULL;
 
     if (trackSlider) sliderFree(trackSlider);
     trackSlider=NULL;
@@ -144,6 +151,14 @@ Color getTrackThemeColor(int i) {
     int totalTracks = projectGetTracksNum();
     if (i<0 || i>=totalTracks) return (Color){0,0,0,0};
     return tracks[i].theme;
+}
+
+Color getSelectedTrackThemeColor() {
+    int sel = globalHandlerGetSelectedTrack();
+    if (sel<0) return (Color){0,0,0,0};
+    int totalTracks = projectGetTracksNum();
+    if (sel>=totalTracks) return (Color){0,0,0,0};
+    return tracks[sel].theme;
 }
 
 void renderTrackCreateNew() {
@@ -203,8 +218,77 @@ void selectBottomViewVertical() {
     globalHandlerSetKeyboardType(T_KEYBOARD_VERTICAL);
 }
 
-void renderTrackCLine() {
+
+void renderTrackCLineBackground() {
     DrawRectangleV((Vector2){0, controlLineHeight}, (Vector2){screenSize.x+2, trackCLineHeight}, COLOR_TRACK_C_LINE_BACKGROUND);
+    //float ypos = controlLineHeight+trackCLineHeight;
+    //DrawLineEx((Vector2){0, ypos}, (Vector2){screenSize.x+2, ypos}, 2, COLOR_TEXT_4);
+}
+
+
+void quantizeLineAction();
+
+void dragTimeLineAction() {
+    Rectangle rect = buttonGetRectangle(timeLineDragButton);
+    float mx = globalMouseHandler.pos.x-5;
+    float tval = floatClip((mx-rect.x)/rect.width, 0, 1);
+
+    double edges=0.2;
+
+    double ctime = globalHandlerGetTime();
+    double cdur = globalHandlerGetVisibleDuration();
+    //double ltime = globalHandlerGetLineTime();
+
+    
+    globalHandlerSetLineTime(ctime+cdur*tval);
+
+    if (tval<edges) {
+        if (ctime>0) {
+            double speed = 1+(rect.x-mx)/(edges*rect.width);
+            double offset = -0.05*cdur*speed;
+            //globalHandlerSetLineTime(ltime+offset);
+            globalHandlerSetTime(ctime+offset);
+        } else {
+            globalHandlerSetLineTime(ctime+cdur*tval);
+        }
+
+    } else if (tval>1-edges) {
+        double speed = (mx-rect.x-(1-edges)*rect.width)/((1-edges)*rect.width);
+        double offset = 0.05*cdur*speed;
+        //globalHandlerSetLineTime(ltime+offset);
+        globalHandlerSetTime(ctime+offset);
+    }
+    
+    quantizeLineAction();
+}
+
+
+
+void quantizeLineAction() {
+    double ltime = globalHandlerGetLineTime();
+    double cdur = globalHandlerGetVisibleDuration();
+    double bdur = globalHandlerGetBeatDuration();
+    double mdur = globalHandlerGetMeasureDuration();
+
+    if (cdur/mdur>5) {
+        double measures = ltime/mdur;
+        double quantized = round(measures)*mdur;
+        double rem = fabs(ltime-quantized);
+
+        if (rem/cdur<0.02) globalHandlerSetLineTime(quantized);
+
+    } else {
+        double beats = ltime/bdur;
+        double quantized = round(beats)*bdur;
+        double rem = fabs(ltime-quantized);
+
+        if (rem/cdur<0.02) globalHandlerSetLineTime(quantized);
+    }
+}
+
+
+void renderTrackCLine() {
+    DrawRectangleV((Vector2){0, controlLineHeight}, (Vector2){trackLeftWidth, trackCLineHeight}, COLOR_TRACK_C_LINE_BACKGROUND);
 
     float buttonHeight = 0.7*trackCLineHeight, ypos=controlLineHeight+0.15*trackCLineHeight;
     float space = floatMax(interfaceSpace1, 0.25*trackLeftWidth);
@@ -223,6 +307,15 @@ void renderTrackCLine() {
     iconRerder(T_ICON_ADD, icRect, COLOR_TEXT_1);
     
     if (isButtonClicked(addTrackButton)) actionDefer(renderTrackCreateNew);
+
+
+
+    rect = (Rectangle){trackLeftWidth, controlLineHeight,  screenSize.x-trackLeftWidth, trackCLineHeight};
+    buttonUpdateRectangle(timeLineDragButton, rect);
+    buttonUpdate(timeLineDragButton, -1);
+    if (!globalHandlerIsPlaying() && isButtonDragged(timeLineDragButton)) actionDefer(dragTimeLineAction);
+    else if (!globalHandlerIsPlaying() && isButtonReleased(timeLineDragButton)) actionDefer(quantizeLineAction);
+
 
 
     int tracksNum = projectGetTracksNum(), trackSel=globalHandlerGetSelectedTrack();
@@ -252,8 +345,11 @@ void renderTrackCLine() {
     }
 
     ypos = controlLineHeight+trackCLineHeight;
-    DrawRectangleGradientV(0, ypos, trackLeftWidth, interfaceSpace1, (Color){5,5,5,160}, (Color){5,5,5,0});
-    DrawLineEx((Vector2){0, ypos}, (Vector2){trackLeftWidth, ypos}, 2, COLOR_TEXT_4);
+    //DrawRectangleGradientV(0, ypos, trackLeftWidth, interfaceSpace1, (Color){5,5,5,160}, (Color){5,5,5,0});
+    //DrawLineEx((Vector2){0, ypos}, (Vector2){trackLeftWidth, ypos}, 2, COLOR_TEXT_4);
+
+    DrawRectangleGradientV(0, ypos, screenSize.x+2, interfaceSpace1, (Color){5,5,5,160}, (Color){5,5,5,0});
+    DrawLineEx((Vector2){0, ypos}, (Vector2){screenSize.x+2, ypos}, 2, COLOR_TEXT_4);
 
 }
 
@@ -624,12 +720,38 @@ void order2PrecomputeTracksLeft() {
     trackDivRightRect = (Rectangle){trackLeftWidth, trackDivVisiblePosMin, screenSize.x-trackLeftWidth, trackDivTargetHeight};
     trackDivFullRect = (Rectangle){0, trackDivVisiblePosMin, screenSize.x, trackDivTargetHeight};
 
-    int mouseInDiv = !UIisHoveringOverLayout() && !UIisInTextInput() && CheckCollisionPointRec(globalMouseHandler.pos, trackDivFullRect);
+    enum keyboard_render_types kbType = globalStateHandlerGetKeyboardType();
+    Rectangle zoomDivRect = (Rectangle){trackLeftWidth, controlLineHeight, screenSize.x-trackLeftWidth, (kbType==T_KEYBOARD_VERTICAL)?(screenSize.y-controlLineHeight):trackDivTargetHeight+trackCLineHeight};
+
+    //int mouseInDiv = !UIisHoveringOverLayout() && !UIisInTextInput() && CheckCollisionPointRec(globalMouseHandler.pos, trackDivFullRect);
     int totalTracks = projectGetTracksNum();
+    int scrolled =  !UIisHoveringOverLayout() && !UIisInTextInput() && globalMouseHandler.scroll!=0;
     float totalHeight = totalTracks*trackHeight+10;
-    if (mouseInDiv && totalHeight>trackDivTargetHeight && globalMouseHandler.scroll!=0 && !UIexistsFrontLayoutOverlay()) {
-        trackScrollYtarget -= 0.5*trackHeight*globalMouseHandler.scroll;
+
+    if (scrolled) {
+        if (IsKeyDown(KEY_LEFT_CONTROL)) {
+            if (CheckCollisionPointRec(globalMouseHandler.pos, zoomDivRect)) {
+                double visDur = globalHandlerGetVisibleDuration();
+                visDur *= pow(2, -0.075*globalMouseHandler.scroll);
+                globalHandlerSetVisibleDuration(visDur);
+            }
+        } else {
+            if (CheckCollisionPointRec(globalMouseHandler.pos, trackDivFullRect)) {
+                trackScrollYtarget -= 0.5*trackHeight*globalMouseHandler.scroll;
+            }
+        }
     }
+    /*
+    if (mouseInDiv && globalMouseHandler.scroll!=0 && !UIexistsFrontLayoutOverlay()) {
+        if (IsKeyDown(KEY_LEFT_CONTROL)) {
+            double visDur = globalHandlerGetVisibleDuration();
+            visDur *= pow(2, -0.075*globalMouseHandler.scroll);
+            globalHandlerSetVisibleDuration(visDur);
+        } else if (totalHeight>trackDivTargetHeight) {
+            trackScrollYtarget -= 0.5*trackHeight*globalMouseHandler.scroll;
+        }
+        
+    }*/
     if (trackScrollYtarget>totalHeight-trackDivTargetHeight) trackScrollYtarget = totalHeight-trackDivTargetHeight; // totalHeight>trackDivTargetHeight && 
     if (trackScrollYtarget<0) trackScrollYtarget=0;
 
@@ -649,14 +771,173 @@ void renderTracksLeftLayoutsIfAny() {
 }
 
 
+
+
+
+
+void renderMeasuresTCLine() {
+    double visDur = globalHandlerGetVisibleDuration();
+    double ctime = globalHandlerGetTime();
+    double beatDur = globalHandlerGetBeatDuration();
+    double measureDur = globalHandlerGetMeasureDuration();
+    int beatsInMeasure = globalHandlerGetBeatsInMeasure();
+
+    double targetMeasures = globalHandlerDurationToMeasures(visDur);
+
+    float startX=trackLeftWidth+interfaceSpace1, totalWidth=screenSize.x-trackLeftWidth-interfaceSpace1; float measureWidth=totalWidth/targetMeasures;
+    float beatWidth = measureWidth/beatsInMeasure, clipErrorRange=50;
+    int measureTextSkips=1, measureSkips=1, beatSkips=1, subBeats=0, beatTextSkips=1;
+
+    float minMeasuresTextNSkipped=120, minMeasuresNSkipped=10, minBeatNSkipped=10, minBeatsTextNSkipped=100;
+
+    
+    if (measureWidth<minMeasuresNSkipped) measureSkips = ceil(minMeasuresNSkipped/measureWidth);
+    if (measureWidth<minMeasuresTextNSkipped) {
+        measureTextSkips = ceil(minMeasuresTextNSkipped/measureWidth);
+
+        for (int i=measureTextSkips; i>=1; i--) {
+            if (i%measureSkips==0) {measureTextSkips=i; break;}
+        }
+    }
+
+    if (beatWidth<minBeatNSkipped) {
+        beatSkips = ceil(minBeatNSkipped/beatWidth);
+        if (beatSkips>=beatsInMeasure) beatSkips=beatsInMeasure;
+        else {
+            int least=0, most=0;
+            for (int i=beatSkips; i>=1; i--) {
+                if (beatsInMeasure%i==0) {least=i; break;}
+            }
+            for (int i=beatSkips; i<=beatsInMeasure; i++) {
+                if (beatsInMeasure%i==0) {most=i; break;}
+            }
+
+            if (most-beatSkips<beatSkips-least) beatSkips=most;
+            else beatSkips=least;
+            beatSkips=least;
+        }
+    }
+    if (beatWidth<minBeatsTextNSkipped) {
+        beatTextSkips = ceil(minBeatsTextNSkipped/beatWidth);
+        if (beatTextSkips>=beatsInMeasure) beatTextSkips=beatsInMeasure;
+        else {
+            for (int i=beatTextSkips; i>=1; i--) {
+                if (beatsInMeasure%i==0 && i%beatSkips==0) {beatTextSkips=i; break;}
+            }
+        }
+    }
+
+    if (beatSkips==1) {
+        subBeats=(int)round(log2(beatWidth/minBeatNSkipped));
+        if (subBeats<0) subBeats=0;
+        else subBeats=(1<<subBeats);
+    }
+    
+    
+    timelineMeasureSkipsTop=measureSkips;
+    timelineMeasureSkipsBottom=measureTextSkips;
+    timelineBeatsSkipsTop=beatSkips;
+    
+
+    
+    float y1 = controlLineHeight+0.35*trackCLineHeight;
+    float y2 = controlLineHeight+0.7*trackCLineHeight;
+    float y3 = controlLineHeight+trackCLineHeight;
+    float y4 = controlLineHeight+0.77*trackCLineHeight;
+    float y5 = controlLineHeight+0.84*trackCLineHeight;
+
+    int startMeasure = floor(globalHandlerDurationToMeasures(ctime));
+    startMeasure = startMeasure/measureTextSkips; startMeasure=measureTextSkips*startMeasure;
+    double start = globalHandlerMeasuresToDuration(startMeasure)-ctime;
+    for (int i=0; i<targetMeasures+measureTextSkips+1; i+=measureTextSkips) {
+        float posX = startX+totalWidth*(start+measureDur*i)/visDur;
+        
+        if (startX+totalWidth*(start+measureDur*(i+measureTextSkips))/visDur<startX-clipErrorRange || posX>=screenSize.x+clipErrorRange) continue;
+
+        DrawLineEx((Vector2){posX-1, y2}, (Vector2){posX-1, y3}, 2.0, COLOR_TEXT_1);
+        renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d", startMeasure+i+1), (Vector2){posX, y1}, (Vector2){0.5, 0.5}, 0.4*trackCLineHeight, 0, COLOR_TEXT_1);
+
+
+        if (subBeats) {
+            int totalSubBeats = measureTextSkips*beatsInMeasure*subBeats;
+            for (int j=1; j<totalSubBeats; j++) {
+                posX = startX+totalWidth*(start+beatDur*(beatsInMeasure*i+j/(float)subBeats))/visDur;
+                if (posX<startX-clipErrorRange || posX>=screenSize.x+clipErrorRange) continue;
+                if (j%(beatsInMeasure*subBeats)==0) {
+                    // Measure
+                    DrawLineEx((Vector2){posX-1, y4}, (Vector2){posX-1, y3}, 2.0, COLOR_TEXT_3);
+                    
+                } else if (j%subBeats==0) {
+                    // Beat
+                    if ((j/subBeats)%beatTextSkips==0) renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d.%d", startMeasure+i+1, (j/subBeats)%beatsInMeasure), (Vector2){posX, y1}, (Vector2){0.5, 0.5}, 0.35*trackCLineHeight, 0, COLOR_TEXT_3);
+                    DrawLineEx((Vector2){posX, y4}, (Vector2){posX, y3}, 1.0, COLOR_TEXT_4);
+                } else {
+                    // SubBeat
+                    DrawLineEx((Vector2){posX, y5}, (Vector2){posX, y3}, 1.0, COLOR_TEXT_4);
+                }
+            }
+        } else {
+            for (int j=beatSkips; j<measureTextSkips*beatsInMeasure; j+=beatSkips) {
+                posX = startX+totalWidth*(start+beatDur*(beatsInMeasure*i+j))/visDur;
+                if (posX<startX-clipErrorRange || posX>=screenSize.x+clipErrorRange) continue;
+                if (j%beatsInMeasure) {
+                    // Beat
+                    if (j%beatTextSkips==0) renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d.%d", startMeasure+i+1, j%beatsInMeasure), (Vector2){posX, y1}, (Vector2){0.5, 0.5}, 0.35*trackCLineHeight, 0, COLOR_TEXT_3);
+                    DrawLineEx((Vector2){posX, y4}, (Vector2){posX, y3}, 1.0, COLOR_TEXT_4);
+                } else if ((j/beatsInMeasure)%measureSkips==0) {
+                    // Measure
+                    DrawLineEx((Vector2){posX-1, y4}, (Vector2){posX-1, y3}, 2.0, COLOR_TEXT_3);
+                }
+            }
+        }
+    }
+
+
+}
+
+
+
+
+void renderTracksTimeLine() {
+    if (!globalHandlerIsTimeLineShown()) return;
+
+    double visDur = globalHandlerGetVisibleDuration();
+    double ctime = globalHandlerGetTime();
+    double ltime = globalHandlerGetLineTime();
+
+    float startX = trackLeftWidth+interfaceSpace1, totalWidth=screenSize.x-trackLeftWidth-interfaceSpace1, y1=trackCLineHeight+controlLineHeight, y2=screenSize.y, radius=0.08*trackCLineHeight;
+    float x = startX+totalWidth/visDur*(ltime-ctime);
+    y1-=radius;
+
+    if (x<screenSize.x+radius+5 && x>startX-radius-5) {
+        Color tc = COLOR_TEXT_1;
+        tc.a = 120;
+        float sz = 1+0.001*screenSize.x;
+
+        float effect = buttonGetEffectValue(timeLineDragButton);
+
+        DrawLineEx((Vector2){x, y1}, (Vector2){x, y2}, 1+sz*effect, tc);
+        DrawCircleV((Vector2){x, y1}, radius-1+sz*effect, tc);
+
+        Color col = blendColors(COLOR_TEXT_1, COLOR_KEYBOARD_H_KEY_SELECTED_WHITE_HOVERED, effect);
+
+        DrawLineEx((Vector2){x, y1}, (Vector2){x, y2}, 2, col);
+        DrawCircleV((Vector2){x, y1}, radius, col);
+    }
+}
+
+
+
 void renderTracksLeft() {
     
 
     
     renderActualTracksLeft();
     renderTrackSlider();
+    renderTrackCLineBackground();
+    renderMeasuresTCLine();
     renderTrackCLine();
-    
+    renderTracksTimeLine();
     
 }
 
