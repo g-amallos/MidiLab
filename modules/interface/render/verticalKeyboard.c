@@ -53,6 +53,18 @@ struct piano_roll_key {
 static struct piano_roll_key pianoRollKeys[128]={{0,0,0,0,0,0,0,0,0,0,0}};
 
 
+struct mouse_in_piano_roll {
+    uint8_t inRoll;
+    
+    uint8_t key;
+    uint8_t beat;
+
+    uint32_t measure;
+    double timestamp;
+
+};
+
+
 
 void verticalKeyboardInit() {
     float trelw = 0.5;
@@ -418,12 +430,14 @@ void renderMeasureLinesBackground() {
     float beatWidth = measureWidth/beatsInMeasure, clipErrorRange=1;
     int measureSkips=1, beatSkips=1, subBeats=0;
 
-    float minMeasuresNSkipped=80, minBeatNSkipped=40;
+    float minMeasuresNSkipped=50, minBeatNSkipped=25;
 
     
     if (measureWidth<minMeasuresNSkipped) measureSkips = ceil(minMeasuresNSkipped/measureWidth);
-
-    measureSkips = timelineMeasureSkipsBottom;
+    if (measureSkips>timelineMeasureSkipsBottom) measureSkips = timelineMeasureSkipsBottom;
+    else {
+        while (timelineMeasureSkipsBottom%measureSkips) measureSkips++;
+    }
 
     if (measureSkips>1) beatSkips=beatsInMeasure*measureSkips;
     else if (beatWidth<minBeatNSkipped) {
