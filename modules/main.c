@@ -15,7 +15,7 @@ AudioStream stream={.buffer=NULL, .channels=2, .sampleRate=44100};
 
 int AppInit() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_ALWAYS_RUN);    // FLAG_WINDOW_UNDECORATED
-    InitWindow(1200, 800, APP_NAME);
+    InitWindow(800, 600, APP_NAME);
     SetWindowMinSize(450, 300);
     SetTargetFPS(60);
     InitAudioDevice();
@@ -46,6 +46,8 @@ int AppClose() {
     
     synthClose();
     midiClose();
+    actionClose();
+    midiActionClose();
 
     CloseAudioDevice();
     CloseWindow();
@@ -70,6 +72,7 @@ int testIteration() {
     render();
 
     actionExecuteAllDeferred();
+    midiActionExecuteFrame();
     return 0;
 }
 

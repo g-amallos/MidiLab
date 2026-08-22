@@ -1,10 +1,10 @@
 #include "backend_internal.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 
-
-
+void updateTempoTextbox();      // modules/interface/render/controlLine.c
 
 
 struct general_project_data _globalProject = {
@@ -108,4 +108,19 @@ int projectGetTempo() {
 int projectGetTracksNum() {
     if (!globalProject) return 0;
     return globalProject->tracksNum;
+}
+
+void projectLoadTmpProject(ProjectData newProject) {
+    globalHandlerPause();
+
+    uint16_t tempo = newProject->tempo;
+    struct time_signature ts = newProject->timeSignature;
+
+    freeProjectContents();
+    *globalProject = *newProject;
+
+    globalHandlerSetTimeSignature(ts);
+    projectSetTempo(tempo);
+
+    updateTempoTextbox();
 }

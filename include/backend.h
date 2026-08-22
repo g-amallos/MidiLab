@@ -6,7 +6,7 @@
 
 
 typedef void (*OnClickFunc)(void);
-
+typedef struct midi_event* MidiEvent;
 
 
 typedef struct general_project_data *ProjectData;
@@ -42,9 +42,24 @@ int projectGetTracksNum();
 
 /* Track (backend/tracks.c) */
 
+
+typedef struct note_data {
+    uint8_t key;
+    uint8_t velocity;
+    uint8_t channel;
+    uint8_t track;          // Not needed field, so we can change that in the future
+    uint32_t timestamp;     // Relative
+    uint32_t duration;      // Relative
+    double ftimestamp;
+    double fduration;
+} *Note;
+
+
+
 void freeTrackContents(Track track);            // Frees whatever can be freed from the Track (Doesn't free self)
 Track trackCreateNew();
 Track trackGetAtIdx(int idx);
+Track trackGetSelectedTrack();
 const char* trackGetTitle(Track track);
 void trackSetTitle(Track track, const char* title);
 float trackGetVelocity(Track track);
@@ -56,7 +71,12 @@ float trackGetPanning(Track track);
 void trackSetPanning(Track track, float panning);
 int trackGetSustain(Track track);
 int trackGetProgram(Track track);
-
+void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration);
+void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx);
+void trackDeleteNoteInTrack(Track track, Note note);
+uint32_t trackPiecesInBeat();
+uint32_t trackGetNumOfNotes(Track track);
+Note* trackGetNotes(Track track);
 
 
 /* Handler (backend/stateHandler.c) */
@@ -95,9 +115,11 @@ void globalHandlerSetVisibleDuration(double duration);
 int globalHandlerIsTimeLineShown();
 double globalHandlerGetLineTime();
 void globalHandlerSetLineTime(double time);
-
+uint32_t globalHandlerGetLineTimestamp();
 void globalHandlerUpdateTick();
 
+void globalHandlerSetToNextMeasure();
+void globalHandlerSetToPreviousMeasure();
 
 /* Actions (backend/actions.c) */
 
@@ -105,6 +127,12 @@ void actionExecuteAllDeferred();
 void actionExecuteAndRemoveFirst();
 int actionIsQueueEmpty();
 void actionDefer(OnClickFunc func);
+void actionClose();
+
+void midiActionAdd(MidiEvent event, double time);
+void midiActionExecuteFrame();
+void midiActionRemoveAll();         // Doesn't execute anything, only deletes all registered events
+void midiActionClose();
 
 
 
@@ -164,6 +192,8 @@ void midiFreeMidiProgramArray(struct midi_programs_array* mpa);
 
 
 void midiEventFree(MidiEvent event);
+MidiEvent midiCreateEventForNoteOn(Note note, float volume);
+MidiEvent midiCreateEventForNoteOff(Note note);
 
 
 #endif

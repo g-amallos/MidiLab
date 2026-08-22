@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <tinyfiledialogs.h>
 #include <images.h>
+#include <synth.h>
+#include <export.h>
+
 
 #define DEFAULT_PROJECT_TITLE "Untitled Project (1)"
 #define PROJECT_TITLE_PLACEHOLDER "Project Title"
@@ -142,6 +145,12 @@ void renderProjectTextbox() {
     }
 }
 
+void updateTempoTextbox() {
+    if (tempoTextbox) {
+        textboxLoadPositiveInt(tempoTextbox, projectGetTempo());
+    }
+}
+
 void renderTempoTextbox() {
     const char* tempoTxt = textboxGetText(tempoTextbox);
     int isFocused = isTextboxFocused(tempoTextbox);
@@ -224,7 +233,10 @@ void renderTimeSignature() {
 
 void clickedOnPlayPause() {
     buttonSetCurrentEffect(playPauseButton, 1);
-    if (globalHandlerIsPlaying()) globalHandlerPause();
+    if (globalHandlerIsPlaying()) {
+        globalHandlerPause();
+        synthPanic();
+    }
     else globalHandlerPlay();
 }
 
@@ -458,6 +470,35 @@ void renderBaseLayoutButton(Button btn, const char* text, Vector2 textAlign, Vec
     }
 }
 
+void exportProject() {
+    globalHandlerPause();
+    synthPanic();
+
+    const char* projectTitle = projectGetCurrentTitle();
+    if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
+
+    char* title = stringToFileName(projectTitle, 20);
+    char* conct = concatenateStrings(title, ".mlb");
+    free(title);
+
+    const char* path = tinyfd_saveFileDialog("Export MidiLab Project", conct, 1, (const char *[]){"*.mlb"}, "MidiLab Project");
+    free(conct);
+
+    if (path) {
+        //printf("Export to: %s\n", path);
+        exportProjectTo(path);
+    }
+}
+
+void importProject() {
+    const char *path = tinyfd_openFileDialog("Import MidiLab Project", "", 1, (const char *[]){"*.mlb"}, "MidiLab Project", 0);
+    if (path) {
+        //printf("Trying to open: %s\n", path);
+        importProjectFrom(path);
+        //printf("Function ended??\n");
+    }
+}
+
 void renderBaseLayout() {
     if (!layoutButton) return;
     Rectangle brect = buttonListGetRect(layoutButton);
@@ -466,8 +507,15 @@ void renderBaseLayout() {
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
     DrawRectangleRounded(brect, roundness, 8, col1);
     const char* texts[] = {"Project", "Edit", "View", "Settings", "Export"};
+    OnClickFunc actions[] = {importProject, NULL, NULL, NULL, exportProject};   // For now, to test the new code
     int num = buttonListGetNum(layoutButton);
-    for (int i=0; i<num; i++) renderBaseLayoutButton(buttonListGetButtonAt(layoutButton, i), texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.08, T_ICON_RIGHT);
+    for (int i=0; i<num; i++) {
+        Button btn = buttonListGetButtonAt(layoutButton, i);
+        renderBaseLayoutButton(btn, texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.08, T_ICON_RIGHT);
+        if (actions[i] && isButtonClicked(btn)) {
+            actionDefer(actions[i]);
+        }
+    }
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);  //COLOR_TEXT_4
 }
 

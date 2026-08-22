@@ -3,6 +3,8 @@
 #include <tsf.h>
 #include <stdlib.h>
 #include <synth.h>
+#include "backend_internal.h"
+#include <backend.h>
 
 
 tsf* synthSF=NULL;
@@ -50,9 +52,17 @@ void synthProgramNoteOn(uint8_t key, float velocity, uint8_t program) {
 void synthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, float panning) {
     if (synthSF) {
         // basically channel=program (not standard midi)
+        //printf("Key=%u, Velocity=%f, Program=%u, Panning=%f\n", key, velocity, program, panning);
         tsf_channel_set_presetindex(synthSF, program, program);
         tsf_channel_set_pan(synthSF, program, panning);
         tsf_channel_note_on(synthSF, program, key, velocity);
+    }
+}
+
+void synthProgramNoteOffPanning(uint8_t key, uint8_t program) {
+    if (synthSF) {
+        tsf_channel_set_presetindex(synthSF, program, program);
+        tsf_channel_note_on(synthSF, program, key, 0);
     }
 }
 
@@ -60,4 +70,19 @@ void synthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, flo
 
 void synthExecuteEvent(MidiEvent event) {
     if (!event) return;
+    
+    switch (event->type) {
+        case MM_NOTE_ON: {
+            synthProgramNoteOnPanning(event->note_on.key, 0.007874*event->note_on.velocity, event->channel, 0.5);
+            break;
+        };
+
+        case MM_NOTE_OFF: {
+            //printf("Note Off executed\n");
+            synthProgramNoteOffPanning(event->note_off.key, event->channel);
+            break;
+        };
+
+        default: return;
+    }
 }

@@ -46,6 +46,10 @@ Rectangle rectangleScaleToFitInCenter(Vector2 originalDimensions, Rectangle toFi
     }
 }
 
+Rectangle rectangleAnd(Rectangle rec1, Rectangle rec2) {
+    return GetCollisionRec(rec1, rec2);
+}
+
 void renderRectangleCentered(Vector2 pos, Vector2 dim, Color col) {
     Vector2 newPos = Vector2Add(pos, Vector2Scale(dim, -0.5));
     DrawRectangleV(newPos, dim, col);

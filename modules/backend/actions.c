@@ -21,6 +21,7 @@ struct midi_action_node {
     MidiEvent event;
     double time;
     struct midi_action_node* next;
+    struct midi_action_node* previous;
 };
 
 typedef struct midi_actions {
@@ -78,6 +79,20 @@ void actionExecuteAllDeferred() {
     while (actions->actions) actionExecuteAndRemoveFirst();
 }
 
+void actionClose() {
+    struct action_node* toFree;
+    struct action_node* node = actions->actions;
+    while (node) {
+        toFree = node;
+        node = node->next;
+        free(toFree);
+    }
+
+    actions->actions = NULL;
+    actions->last = NULL;
+    actions->size = 0;
+}
+
 
 
 
@@ -90,9 +105,9 @@ void midiActionAdd(MidiEvent event, double time) {
     node->event = event;
     node->time = time;
     node->next = NULL;
-
+    node->previous = midiActions->last;
     if (midiActions->last) midiActions->last->next = node;
-    else midiActions->events = node;
+    if (!(midiActions->events)) midiActions->events = node;
 
     midiActions->last = node;
     (midiActions->size)++;
@@ -112,16 +127,57 @@ void _midiActionExecuteNext(struct midi_action_node* prev) {
 }
 
 
+void _midiActionRemoveNode(struct midi_action_node* node) {
+    if (!node) return;
+
+    if (node->next) node->next->previous = node->previous;
+    if (node->previous) node->previous->next = node->next;
+
+    if (midiActions->events == node) midiActions->events = node->next;
+    if (midiActions->last == node) midiActions->last = node->previous;
+
+    (midiActions->size)--;
+
+    midiEventFree(node->event);
+    free(node);
+}
+
+void _midiActionExecute(struct midi_action_node* node) {
+    if (!node) return;
+
+    synthExecuteEvent(node->event);
+    _midiActionRemoveNode(node);
+}
+
+
 void midiActionExecuteFrame() {
     double time = GetTime();
-
-    int size=midiActions->size;
-    struct midi_action_node* prev = midiActions->events;
-    for (int i=0; i<size && prev; i++) {
-        if (prev->next) {
-            struct midi_action_node* cur = prev->next;
-            if (cur->time<=time) _midiActionExecuteNext(prev);
-        }
-        prev = prev->next;
+    
+    struct midi_action_node* node=midiActions->events, *tmp;
+    while (node) {
+        if (node->time<=time) {
+            tmp = node;
+            node = node->next;
+            _midiActionExecute(tmp);
+        } else node = node->next;
     }
+}
+
+
+void midiActionRemoveAll() {    // Doesn't execute anything, only deletes all registered events
+    struct midi_action_node* toFree;
+    struct midi_action_node* node = midiActions->events;
+    while (node) {
+        toFree = node;
+        node = node->next;
+        midiEventFree(toFree->event);
+        free(toFree);
+    }
+    midiActions->events = NULL;
+    midiActions->size = 0;
+    midiActions->last = NULL;
+}
+
+void midiActionClose() {
+    midiActionRemoveAll();
 }

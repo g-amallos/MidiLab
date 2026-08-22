@@ -3,7 +3,7 @@
 #include <string.h>
 #include <synth.h>
 #include <utils.h>
-
+#include <stdio.h>
 
 
 
@@ -18,7 +18,7 @@ struct backend_state_handler _globalHandler = {
         .ticksPerBeat = 440,
         .measureDuration = 0,
         .beatDuration = 0,
-        .visibleDuration = 30,
+        .visibleDuration = 10,
 
         .timeSignature = {
             .numerator = 4,
@@ -30,6 +30,8 @@ struct backend_state_handler _globalHandler = {
             .timeShown = 1,
             .loopEnabled = 0,
 
+            .timestamp = 0,
+            .prePlayTimestamp = 0,
             .time = 0,
             .prePlayTime = 0,
             .loopStart = 0,
@@ -90,8 +92,13 @@ void globalHandlerSetLineTime(double time) {
     if (!globalStateHandler) return;
     time = floatMax(time, 0);
     globalStateHandler->time.timeline.time = time;
+    globalStateHandler->time.timeline.timestamp = (uint32_t)(trackPiecesInBeat()*time/globalStateHandler->time.beatDuration);
 }
 
+
+double timestampPiecesToSeconds(uint32_t pieces) {
+    return pieces*globalStateHandler->time.beatDuration/trackPiecesInBeat();
+}
 
 double globalHandlerGetTime() {
     if (!globalStateHandler) return 0;
@@ -108,6 +115,11 @@ void globalHandlerSetTime(double time) {
 double globalHandlerGetLineTime() {
     if (!globalStateHandler) return 0;
     return globalStateHandler->time.timeline.time;
+}
+
+uint32_t globalHandlerGetLineTimestamp() {
+    if (!globalStateHandler) return 0;
+    return globalStateHandler->time.timeline.timestamp;
 }
 
 double globalHandlerDurationToMeasures(double seconds) {
@@ -149,12 +161,14 @@ void globalHandlerPlay() {
     if (!globalStateHandler) return;
     globalStateHandler->time.timeline.playing = 1;
     globalStateHandler->time.timeline.prePlayTime = globalStateHandler->time.timeline.time;
+    globalStateHandler->time.timeline.prePlayTimestamp = globalStateHandler->time.timeline.timestamp;
 }
 
 void globalHandlerPause() {
     if (!globalStateHandler) return;
     globalStateHandler->time.timeline.playing = 0;
     globalStateHandler->time.timeline.time = globalStateHandler->time.timeline.prePlayTime;
+    globalStateHandler->time.timeline.timestamp = globalStateHandler->time.timeline.prePlayTimestamp;
 }
 
 void globalHandlerEnableLoop() {
@@ -232,6 +246,103 @@ void globalHandlerUpdateKeyAndPlaySynth(int key, uint8_t velocity) {
 }
 
 
+struct array_indices {
+    int foundElements;
+    uint32_t start;     // Inclusive if foundElements
+    uint32_t end;       // Inclusive if foundElements
+};
+
+static struct array_indices getArrayIndicesOfTrack(Track track, uint32_t start, uint32_t end) {
+    struct array_indices ret = {0,0,0};
+    if (!track || start>end || track->numElements<=0) return ret;
+
+
+    uint32_t left=0;
+    uint32_t right=track->numElements;  // Exclusive
+
+    while (right>left) {
+        uint32_t center = left+((right-left)>>1);
+        if ((track->notes)[center]->timestamp<start) left=center+1;
+        else right=center;
+    }
+
+    ret.start = left;
+    right = track->numElements;  // Exclusive
+
+    while (right>left) {
+        uint32_t center = left+((right-left)>>1);
+        if ((track->notes)[center]->timestamp>end) right=center;
+        else left=center+1;
+    }
+
+    ret.end = right-1;
+    if (right==0 || right<=ret.start) ret.foundElements=0;
+    else ret.foundElements=1;
+    
+    return ret;
+
+
+    /*
+    uint32_t left=0, right=0;
+
+    uint32_t startLeft=0, endRight=track->numElements-1;
+    left=endRight;
+    while (1) {
+        if (track->notes[left]->timestamp<start) break;
+
+        uint32_t tmp = (startLeft+left)>>1;
+        if (track->notes[tmp]->timestamp>=start) left=tmp;
+        else if (track->notes[tmp]->timestamp<start) startLeft=tmp;
+
+        if (left==startLeft) break;
+    }
+
+    while (1) {
+        if (track->notes[right]->timestamp>end) break;
+
+        uint32_t tmp = (endRight+right)>>1;
+        if (track->notes[tmp]->timestamp<=end) right=tmp;
+        else if (track->notes[tmp]->timestamp>end) endRight=tmp;
+
+        if (right==endRight) break;
+    }
+
+    ret.start = left;
+    ret.end = right;
+    if (left>right || track->notes[right]->timestamp>end || track->notes[left]->timestamp<start) ret.foundElements=0;
+    else ret.foundElements = 1;
+
+    return ret;*/
+}
+
+
+static void registerMidiEventsToActionsFrom(uint32_t timestampStart, uint32_t timestampEnd) {
+    if (timestampEnd<=timestampStart) return;
+
+    double now=GetTime();
+
+    //fprintf(stderr, "`registerMidiEventsToActionsFrom`: Entered\n");
+
+    uint16_t tracki = 0;
+    for (; tracki<globalProject->tracksNum; tracki++) {
+        //fprintf(stderr, "`registerMidiEventsToActionsFrom`: Loop #1 (%u)\n", tracki);
+        struct array_indices indices = getArrayIndicesOfTrack(globalProject->tracks+tracki, timestampStart, timestampEnd); //NOT FINISHED! CONTINUE FROM THIS POINT
+        
+        if (indices.foundElements) {
+            //fprintf(stderr, "`registerMidiEventsToActionsFrom`: Indices: Found=%d, start=%u, end=%u\n", indices.foundElements, indices.start, indices.end);
+            Track track = globalProject->tracks+tracki;
+            for (uint32_t i=indices.start; i<=indices.end; i++) {
+                Note note = track->notes[i];
+                note->channel = track->program;
+                //printf("Time: %7.4lf | Note On: %u, Velocity=%u, Timestamp=%u | Start=%u, End=%u\n", now, note->key, note->velocity, note->timestamp, timestampStart, timestampEnd);
+                
+                synthProgramNoteOnPanning(note->key, 0.007874*note->velocity*track->velocity, track->program, track->panning);
+                midiActionAdd(midiCreateEventForNoteOff(note), now+timestampPiecesToSeconds(note->duration));
+            }
+        }
+    }
+}
+
 
 
 void globalHandlerUpdateTick() {
@@ -244,13 +355,52 @@ void globalHandlerUpdateTick() {
         double oldT = th.timeline.time;
         double newT = (globalStateHandler->time.timeline.time+=dt);
 
+        uint32_t oldTst = th.timeline.timestamp;
+        uint32_t newTst = (uint32_t)(trackPiecesInBeat()*newT/globalStateHandler->time.beatDuration);
 
-        // search all tracks for notes between these
+        globalStateHandler->time.timeline.timestamp = newTst;
 
+        registerMidiEventsToActionsFrom(oldTst, newTst);
+        th = globalStateHandler->time;
         globalStateHandler->time.time = doubleMax(0*oldT*newT, th.timeline.time-0.35*th.visibleDuration);
-
 
     } else {
 
+    }
+}
+
+
+void globalHandlerMoveTimeDivAccordingToTimeLine(float startPadding, float endPadding) {
+    struct backend_time_handler th = globalStateHandler->time;
+    double tmp=th.time;
+    if (tmp+startPadding*th.visibleDuration>th.timeline.time) tmp=th.timeline.time-startPadding*th.visibleDuration;
+    if (tmp+(1.0-endPadding)*th.visibleDuration<th.timeline.time) tmp=th.timeline.time-(1.0-endPadding)*th.visibleDuration;
+    globalStateHandler->time.time = doubleMax(0, tmp);
+}
+
+void globalHandlerSetToNextMeasure() {
+    uint32_t piecesInMeasure = trackPiecesInBeat()*globalHandlerGetBeatsInMeasure();
+
+    uint64_t oldTst = globalStateHandler->time.timeline.timestamp;
+    uint64_t tmp = (oldTst/piecesInMeasure+1)*piecesInMeasure;
+
+    if (tmp<UINT32_MAX) { // if (tmp<UINT32_MAX)
+        globalStateHandler->time.timeline.timestamp = (uint32_t)tmp;
+        globalStateHandler->time.timeline.time = timestampPiecesToSeconds(globalStateHandler->time.timeline.timestamp);
+        globalHandlerMoveTimeDivAccordingToTimeLine(0, 0.15);
+    }
+}
+
+void globalHandlerSetToPreviousMeasure() {
+    uint32_t piecesInMeasure = trackPiecesInBeat()*globalHandlerGetBeatsInMeasure();
+
+    uint64_t oldTst = globalStateHandler->time.timeline.timestamp;
+    uint64_t tmp = (oldTst/piecesInMeasure)*piecesInMeasure;
+    if (tmp==oldTst) tmp-=piecesInMeasure;
+
+    if (tmp<UINT32_MAX && oldTst>tmp) {
+        globalStateHandler->time.timeline.timestamp = (uint32_t)tmp;
+        globalStateHandler->time.timeline.time = timestampPiecesToSeconds(globalStateHandler->time.timeline.timestamp);
+        globalHandlerMoveTimeDivAccordingToTimeLine(0.15, 0);
     }
 }

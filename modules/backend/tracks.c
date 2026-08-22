@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "backend_internal.h"
+#include <backend.h>
 #include <string.h>
 
 
@@ -65,6 +66,11 @@ Track trackCreateNew() {
 Track trackGetAtIdx(int idx) {
     if (!globalProject || idx<0 || idx>=globalProject->tracksNum) return NULL;
     return globalProject->tracks+idx;
+}
+
+Track trackGetSelectedTrack() {
+    if (!globalStateHandler || !globalProject || !(globalProject->tracks)) return NULL;
+    return globalProject->tracks+globalStateHandler->selectedTrack;
 }
 
 const char* trackGetTitle(Track track) {
@@ -170,7 +176,7 @@ void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     mnote->duration = duration;
     mnote->channel = track->channel;
 
-    // Should add the fields ftimestamp and fduration
+    // Should add the fields ftimestamp and fduration but currently not necessary
 
 
     track->notes[(track->numElements)++] = mnote;
@@ -179,13 +185,46 @@ void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
 }
 
 
+void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx) {
+    if (!track || track->numElements<=idx) return;
+    uint32_t i=idx;
+    while (i+1<track->numElements) {
+        track->notes[i] = track->notes[i+1];
+        i++;
+    }
+    track->notes[(track->numElements)--]=NULL;
+    if (track->numElements < (track->capacity>>2) && track->capacity>32) {
+        uint32_t tcap = track->capacity>>2;
+        tcap = (tcap>32)?tcap:32;
+        Note* tnotes = realloc(track->notes, tcap*sizeof(Note));
+        if (!tnotes) return;    // Reallocation failed
+        track->capacity = tcap;
+        track->notes = tnotes;
+    }
+}
+
+
+void trackDeleteNoteInTrack(Track track, Note note) {
+    if (!track || !note) return;
+    
+    uint32_t i=0;
+    while (i<track->numElements && track->notes[i]!=note) i++;
+    if (i<track->numElements && track->notes[i]==note) trackDeleteNoteInTrackByIdx(track, i);
+}
+
+
 
 
 int trackNoteCompare(const void* a, const void* b) {
     if (!a && !b) return 0;
     if (!a || !b) return a?-1:1;
-    float f = ((Note)b)->timestamp-((Note)a)->timestamp;
-    return (f>0)?1:((f<0)?-1:0);
+    
+    Note na = *(Note*)a;
+    Note nb = *(Note*)b;
+
+    if (na->timestamp>nb->timestamp) return 1;
+    if (na->timestamp<nb->timestamp) return -1;
+    return 0;
 }
 
 void trackSortNotes(Track track) {
@@ -195,7 +234,6 @@ void trackSortNotes(Track track) {
     if (!items) return;
 
     qsort(track->notes, items, sizeof(Note), trackNoteCompare);
-    
 }
 
 
@@ -203,4 +241,33 @@ void trackUpdateNotesFfields(Track track, uint16_t tempo) {
     if (!track || tempo<30 || tempo>2000) return;
 
 
+}
+
+uint32_t trackPiecesInBeat() {
+    return (1<<14);
+}
+
+//Note trackGetFirstVisibleNote(Track track) {
+//    if (!track || !(track->notes)) return NULL;
+//    double divTime = globalHandlerGetTime();
+//    double divDur = globalHandlerGetVisibleDuration();
+//
+//    int upper=track->capacity-1, lower=0;
+//    while (upper!=lower) {
+//
+//    }
+//}
+
+uint32_t trackGetNumOfNotes(Track track) {
+    if (!track) return 0;
+    return track->numElements;
+}
+
+Note* trackGetNotes(Track track) {
+    if (!track) return 0;
+    return track->notes;
+}
+
+inline int trackIsNoteWithinBounds(Note note) {
+    return 0*note->key;
 }

@@ -98,22 +98,7 @@ void renderTracksLeftInit() {
     initProgramTypeColors();
 }
 
-
-void renderTracksLeftClose() {
-    if (addTrackButton) buttonFree(addTrackButton);
-    addTrackButton = NULL;
-
-    if (timeLineDragButton) buttonFree(timeLineDragButton);
-    timeLineDragButton = NULL;
-
-    if (trackSlider) sliderFree(trackSlider);
-    trackSlider=NULL;
-
-    for (int i=0; i<3; i++) {
-        if (bottomViewButtons[i]) buttonFree(bottomViewButtons[i]);
-        bottomViewButtons[i]=NULL;
-    }
-
+void freeTrackUIs() {
     if (tracks) {
         int totalTracks = projectGetTracksNum();
         for (int i=0; i<totalTracks; i++) {
@@ -127,8 +112,8 @@ void renderTracksLeftClose() {
         free(tracks);
         tracks=NULL;
     }
-
 }
+
 
 void customizeNewTrackUI(TrackUI tr) {
     if (!tr) return;
@@ -147,6 +132,52 @@ void customizeNewTrackUI(TrackUI tr) {
     tr->effect = 0;
 }
 
+void createTrackUIsFromScratch(uint8_t* colArr) {
+    if (tracks) freeTrackUIs();
+
+    int totalTracks = projectGetTracksNum();
+    tracks = malloc(totalTracks*sizeof(struct track_control_ui));
+    if (!tracks) return;
+
+    for (int i=0; i<totalTracks; i++) {
+        Track track = trackGetAtIdx(i);
+        tracks[i].track = track;
+        customizeNewTrackUI(tracks+i);
+        tracks[i].themeIdx = ((int)colArr[i])%(sizeof(trackThemeColors)/sizeof(Color));
+        tracks[i].theme = trackThemeColors[tracks[i].themeIdx];
+
+        textboxLoadText(tracks[i].textbox, trackGetTitle(track));
+        sliderUpdateSlideValue(tracks[i].slider, trackGetVelocity(track));
+    }
+
+    globalHandlerSelectTrack(1);
+    synthPanic();
+}
+
+void renderTracksLeftClose() {
+    if (addTrackButton) buttonFree(addTrackButton);
+    addTrackButton = NULL;
+
+    if (timeLineDragButton) buttonFree(timeLineDragButton);
+    timeLineDragButton = NULL;
+
+    if (trackSlider) sliderFree(trackSlider);
+    trackSlider=NULL;
+
+    for (int i=0; i<3; i++) {
+        if (bottomViewButtons[i]) buttonFree(bottomViewButtons[i]);
+        bottomViewButtons[i]=NULL;
+    }
+
+    freeTrackUIs();
+}
+
+int getTrackThemeColorIdx(int i) {
+    int totalTracks = projectGetTracksNum();
+    if (i<0 || i>=totalTracks) return -1;
+    return tracks[i].themeIdx;
+}
+
 Color getTrackThemeColor(int i) {
     int totalTracks = projectGetTracksNum();
     if (i<0 || i>=totalTracks) return (Color){0,0,0,0};
@@ -159,6 +190,16 @@ Color getSelectedTrackThemeColor() {
     int totalTracks = projectGetTracksNum();
     if (sel>=totalTracks) return (Color){0,0,0,0};
     return tracks[sel].theme;
+}
+
+Color getTrackThemeColorForWhiteKeys() {
+    Color theme = getSelectedTrackThemeColor();
+    return theme;   //blendColors(theme, (Color){200,200,200,255}, 0.05);
+}
+
+Color getTrackThemeColorForBlackKeys() {
+    Color theme = getSelectedTrackThemeColor();
+    return blendColors(theme, (Color){0,0,0,255}, 0.35);
 }
 
 void renderTrackCreateNew() {
@@ -727,31 +768,36 @@ void order2PrecomputeTracksLeft() {
     int totalTracks = projectGetTracksNum();
     int scrolled =  !UIisHoveringOverLayout() && !UIisInTextInput() && globalMouseHandler.scroll!=0;
     float totalHeight = totalTracks*trackHeight+10;
+    int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
 
-    if (scrolled) {
-        if (IsKeyDown(KEY_LEFT_CONTROL)) {
-            if (CheckCollisionPointRec(globalMouseHandler.pos, zoomDivRect)) {
-                double visDur = globalHandlerGetVisibleDuration();
-                visDur *= pow(2, -0.075*globalMouseHandler.scroll);
-                globalHandlerSetVisibleDuration(visDur);
-            }
-        } else {
-            if (CheckCollisionPointRec(globalMouseHandler.pos, trackDivFullRect)) {
-                trackScrollYtarget -= 0.5*trackHeight*globalMouseHandler.scroll;
-            }
-        }
-    }
-    /*
-    if (mouseInDiv && globalMouseHandler.scroll!=0 && !UIexistsFrontLayoutOverlay()) {
-        if (IsKeyDown(KEY_LEFT_CONTROL)) {
+    if (controlDown && !UIisHoveringOverLayout() && !UIisInTextInput()) {
+        if (scrolled && CheckCollisionPointRec(globalMouseHandler.pos, zoomDivRect)) {
             double visDur = globalHandlerGetVisibleDuration();
             visDur *= pow(2, -0.075*globalMouseHandler.scroll);
             globalHandlerSetVisibleDuration(visDur);
-        } else if (totalHeight>trackDivTargetHeight) {
+        } else {
+            double visDur = globalHandlerGetVisibleDuration();
+            int d = IsKeyDown(KEY_KP_ADD)-IsKeyDown(KEY_KP_SUBTRACT);
+            visDur *= pow(2, -0.075*d);
+            globalHandlerSetVisibleDuration(visDur);
+        }
+    }
+
+    if (!controlDown && scrolled) {
+        if (CheckCollisionPointRec(globalMouseHandler.pos, trackDivFullRect)) {
             trackScrollYtarget -= 0.5*trackHeight*globalMouseHandler.scroll;
         }
-        
-    }*/
+    }
+
+    int dx = IsKeyPressed(KEY_RIGHT)-IsKeyPressed(KEY_LEFT);
+    if (dx && !UIisHoveringOverLayout() && !UIisInTextInput()) {
+        enum keyboard_render_types kbt = globalStateHandlerGetKeyboardType();
+        if ((kbt==T_KEYBOARD_NONE || kbt==T_KEYBOARD_VERTICAL) && !globalMouseHandler.down && !globalMouseHandler.rightClickPressed) {
+            if (dx>0) globalHandlerSetToNextMeasure();
+            else if (dx<0) globalHandlerSetToPreviousMeasure();
+        }
+    }
+
     if (trackScrollYtarget>totalHeight-trackDivTargetHeight) trackScrollYtarget = totalHeight-trackDivTargetHeight; // totalHeight>trackDivTargetHeight && 
     if (trackScrollYtarget<0) trackScrollYtarget=0;
 

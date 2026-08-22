@@ -14,16 +14,9 @@ enum project_saved_state {
     S_STATE_END
 };
 
-typedef struct note_data {
-    uint8_t key;
-    uint8_t velocity;
-    uint8_t channel;
-    uint8_t track;          // Not needed field, so we can change that in the future
-    uint32_t timestamp;     // Relative
-    uint32_t duration;      // Relative
-    double ftimestamp;
-    double fduration;
-} *Note;
+// Each beat should be sliced in 2^14 pieces, leaving a decent space of 2^22 beats per project
+
+
 
 
 typedef struct track_data {
@@ -48,7 +41,9 @@ struct time_line {
     uint8_t loopEnabled;
     uint8_t timeShown;
 
-    double time;    // The vertical line that shows the time
+    uint32_t timestamp;
+    uint32_t prePlayTimestamp;
+    double time;    // The vertical line that shows the time, obtained with `globalHandlerGetLineTime()`
     double prePlayTime;
 
     double loopStart;
@@ -57,7 +52,7 @@ struct time_line {
 
 
 struct backend_time_handler {
-    double time;    // Start of the div has this timestamp
+    double time;    // Start of the div has this timestamp, obtained with `globalHandlerGetTime()`
     uint64_t ticks;
 
     uint16_t tempo;
@@ -115,7 +110,39 @@ typedef struct general_project_data {
 extern struct general_project_data _globalProject;
 
 
+enum midi_message_types {
+    MM_NOTE_ON,
+    MM_NOTE_OFF,
+    MM_PROGRAM_CHANGE,
+};
 
+struct midi_event_note_onoff {
+    uint8_t key;
+    uint8_t velocity;
+};
+
+struct midi_event { // NOT FINISHED!!!
+    int channel;
+    enum midi_message_types type;
+
+    union {
+        struct {
+            uint8_t key;
+            uint8_t velocity;
+            uint8_t panning;
+        } note_on;
+
+        struct {
+            uint8_t key;
+            uint8_t velocity;
+        } note_off;
+
+        struct {
+            uint8_t program;
+        } program_change;
+
+    };
+};
 
 
 

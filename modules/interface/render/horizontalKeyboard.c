@@ -16,7 +16,7 @@
 float horizontalKeyboardHeight=0;
 
 static Button changeProgramButton=NULL;
-static Slider panningSlider=NULL, volumeSlider=NULL, octaveSlider=NULL, keyRangeSlider=NULL;
+static Slider panningSlider=NULL, volumeSlider=NULL, octaveSlider=NULL, keyRangeSlider=NULL, transposeSlider=NULL;
 static Button keyButtons[keyboardRangeShown] = {NULL};
 static int keyboardShownStartOffset=36, keyboardInputStartOffset=12;
 
@@ -24,6 +24,8 @@ static float space=0, wkWidth=0, hkHeight=0, hkTopPadding=0, offsetY=0, posY=0, 
 static int keyStart=0, keyEnd=0, numOfWhiteKeys=0;
 static Rectangle rect={0,0,0,0}, leftRect={0,0,0,0}, rightRect={0,0,0,0};
 
+
+int horizontalKeyboardTranspose = 0;
 
 
 
@@ -40,6 +42,9 @@ void horizontalKeyboardInit() {
     sliderUpdateCursorOnHover(octaveSlider, MOUSE_CURSOR_RESIZE_NS);
     keyRangeSlider=sliderCreate((Rectangle){20,20,20,20},1);
     sliderUpdateCursorOnHover(keyRangeSlider, MOUSE_CURSOR_RESIZE_NS);
+
+    transposeSlider=sliderCreate((Rectangle){20,20,20,20},1);
+    sliderUpdateCursorOnHover(transposeSlider, MOUSE_CURSOR_RESIZE_NS);
 
     for (int i=0; i<keyboardRangeShown; i++) {
         keyButtons[i]=buttonCreate((Rectangle){20,20,20,20},0);
@@ -63,6 +68,9 @@ void horizontalKeyboardClose() {
 
     if (keyRangeSlider) sliderFree(keyRangeSlider);
     keyRangeSlider=NULL;
+
+    if (transposeSlider) sliderFree(transposeSlider);
+    transposeSlider=NULL;
 
     for (int i=0; i<keyboardRangeShown; i++) {
         if (keyButtons[i]) buttonFree(keyButtons[i]);
@@ -151,7 +159,12 @@ void moveVirtualKeyboardIfNeeded() {
     if (keyboardInputStartOffset+19>=keyboardShownStartOffset+keyboardRangeShown) keyboardInputStartOffset=keyboardShownStartOffset+keyboardRangeShown-20;
 }
 
-
+static void toolTransposeKeyboard() {
+    int transpose = IsKeyPressed(KEY_PERIOD)-IsKeyPressed(KEY_COMMA);
+    int temp = intClip(horizontalKeyboardTranspose+transpose, -11, 11);
+    if (temp!=horizontalKeyboardTranspose) synthPanic();
+    horizontalKeyboardTranspose = temp;
+}
 
 float getVerticalDifferenceScroll() {
     return (globalMouseHandler.pos.y-globalMouseHandler.clickPos.y)/screenSize.y;
@@ -255,7 +268,7 @@ void precalculateJustHorizontalKeyboard() {
 
     if (keyRangeSlider) {
         float tw = floatMax(10, 0.01*leftRect.width), th=leftRect.height*0.7-2*interfaceSpace1;
-        Rectangle trect = (Rectangle){leftRect.x+leftRect.width*0.75-0.5*tw, leftRect.y+leftRect.height-th-2*interfaceSpace1, tw, th};
+        Rectangle trect = (Rectangle){leftRect.x+leftRect.width*0.5-0.5*tw, leftRect.y+leftRect.height-th-2*interfaceSpace1, tw, th};
         sliderUpdateRectangle(keyRangeSlider, trect);
         sliderUpdate(keyRangeSlider, -1);
 
@@ -268,12 +281,29 @@ void precalculateJustHorizontalKeyboard() {
         } else sliderUpdateSlideValue(keyRangeSlider, getIndexFromVirtulKeyboardOffset(keyboardInputStartOffset)/(numOfWhiteKeys-12.0));
     }
 
+    toolTransposeKeyboard();
+    if (transposeSlider) {
+        float tw = floatMax(10, 0.01*leftRect.width), th=leftRect.height*0.7-2*interfaceSpace1;
+        Rectangle trect = (Rectangle){leftRect.x+leftRect.width*0.75-0.5*tw, leftRect.y+leftRect.height-th-2*interfaceSpace1, tw, th};
+        sliderUpdateRectangle(transposeSlider, trect);
+        sliderUpdate(transposeSlider, -1);
+
+        if (isSliderDragged(transposeSlider)) {
+            synthPanic();           
+            float nval = ((int)(sliderUpdateValueCommonVertical(transposeSlider)*22))/22.0;
+            sliderUpdateSlideValue(transposeSlider, nval);
+            horizontalKeyboardTranspose = (int)(nval*22-11);
+        } else sliderUpdateSlideValue(transposeSlider, (horizontalKeyboardTranspose+11)/22.0);
+
+    }
 
     Rectangle brect={0,0,0,0};
 
     if (changeProgramButton) {
         float th = floatMax(40, 0.06*screenSize.y);
-        brect = centerRectangle((Vector2){screenSize.x*0.5, leftRect.y+leftRect.height-0.5*th}, (Vector2){floatMax(300, 0.22*screenSize.x), th});
+        float tw = floatMax(100, 0.22*screenSize.x);
+
+        brect = centerRectangle((Vector2){screenSize.x*0.5, leftRect.y+leftRect.height-0.5*th}, (Vector2){tw, th});
         float tmp = (leftRect.height-2*brect.height)/3.0;
         brect.y = leftRect.y+leftRect.height-brect.height-2*tmp;
         buttonUpdateRectangle(changeProgramButton, brect);
@@ -414,8 +444,8 @@ void renderJustHorizontalKeyboard() {
                 else posX+=2*(wkWidth+space);
             }
 
-            if (clicked || isButtonClicked(btn)) globalHandlerUpdateKeyAndPlaySynth(i, (uint8_t)(127*trackGetVelocity(trackGetAtIdx(globalHandlerGetSelectedTrack()))));
-            if (released || isButtonReleased(btn)) globalHandlerUpdateKeyAndPlaySynth(i, 0);
+            if (clicked || isButtonClicked(btn)) globalHandlerUpdateKeyAndPlaySynth(i+horizontalKeyboardTranspose, (uint8_t)(127*trackGetVelocity(trackGetAtIdx(globalHandlerGetSelectedTrack()))));
+            if (released || isButtonReleased(btn)) globalHandlerUpdateKeyAndPlaySynth(i+horizontalKeyboardTranspose, 0);
         }
     }
     DrawRectangleRec((Rectangle){rect.x+space, rect.y, rect.width-2*space, space}, keyboardColor);
@@ -431,6 +461,8 @@ void renderChangeInstrumentButton() {
         Rectangle brect = buttonGetRectangle(changeProgramButton);
         float roundness = buttonGetRoundness(changeProgramButton);
         float effect = buttonGetEffectValue(changeProgramButton);
+        float textSize = floatMin(0.02*screenSize.x, 0.06*screenSize.y);    // 0.08*brect.width
+
         Track track = trackGetAtIdx(globalHandlerGetSelectedTrack());
         int programIdx = trackGetProgram(track);
         const char* instName = midiGetProgramName(programIdx);
@@ -439,7 +471,7 @@ void renderChangeInstrumentButton() {
         DrawRectangleRounded(brect, roundness, 8, blendColors((Color){20, 20, 20, 255}, typeTheme, 0.1));//lerp(0.1, 0.6, effect)));
         
         DrawRectangleRounded(scaleRctangleFromCenter(brect, effect), roundness, 8, blendColors((Color){20, 20, 20, 60}, typeTheme, lerp(0.05, 0.5, effect)));
-        renderFontStringAlign(GlobalFonts[0].font, instName, getRectangleCenter(brect), (Vector2){0.5,0.5}, 0.08*brect.width, 0, (Color){200, 200, 200, 255});
+        renderFontStringAlign(GlobalFonts[0].font, instName, getRectangleCenter(brect), (Vector2){0.5,0.5}, textSize, 0, (Color){200, 200, 200, 255});
         //float thickness=lerp(4, 20, effect);
         //Rectangle irect = (Rectangle){brect.x+thickness*0.5, brect.y+0.5*thickness, brect.width-thickness, brect.height-thickness};
         //
@@ -452,10 +484,10 @@ void renderChangeInstrumentButton() {
 
 
 void renderSoundPanelEffects() {
-    Color col= {27,28,30,255};
+    Color col= {23,24,28,255};  //{27,28,30,255};
     DrawRectangleRounded(leftRect, getRoundnessForRoundedRectangle(leftRect, 2*space), 8, col);
     DrawRectangleRounded(rightRect, getRoundnessForRoundedRectangle(leftRect, 2*space), 8, col);
-    float textSize = 0.18*leftRect.height;
+    float textSize = floatMin(0.065*leftRect.width, 0.18*leftRect.height);
 
     Color col1={51,59,62,255}, col2={122,176,190,255}, col3={180,182,184,255};  //col2={122,147,154,255}
 
@@ -521,6 +553,24 @@ void renderSoundPanelEffects() {
         DrawRectangleRounded((Rectangle){trect.x-trect.width*1, trect.y+(1-val)*trect.height-0.15*trect.width, 3*trect.width, 0.3*trect.width}, 1, 4, (Color){209, 223, 230, 255});
 
         renderFontStringAlign(GlobalFonts[0].font, "Position", (Vector2){trect.x+0.5*trect.width, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, textSize, 0, col3);
+    }
+
+    if (transposeSlider) {
+        Rectangle trect = sliderGetRectangle(transposeSlider);        
+        float val=sliderGetSlideValue(transposeSlider);
+        float effect = sliderGetEffectValue(transposeSlider);
+
+        DrawRectangleRounded(trect, 0.5, 4, col1);
+        DrawRectangleRounded((Rectangle){trect.x, trect.y+(1-val)*trect.height, trect.width, trect.height*val}, 0.5, 4, col2);
+        DrawRectangleRounded((Rectangle){trect.x-trect.width*1.2, trect.y+(1-val)*trect.height-0.75*trect.width, 3.4*trect.width, 1.5*trect.width}, 0.5, 4, (Color){55, 64, 71, 255});
+        DrawRectangleRounded((Rectangle){trect.x-trect.width*1, trect.y+(1-val)*trect.height-0.15*trect.width, 3*trect.width, 0.3*trect.width}, 1, 4, (Color){209, 223, 230, 255});
+
+        renderFontStringAlign(GlobalFonts[0].font, "Transpose", (Vector2){trect.x+0.5*trect.width, 0.5*(trect.y+leftRect.y)}, (Vector2){0.5,0.5}, textSize, 0, col3);
+        if (effect>1e-5) {
+            Color tcol = col3;
+            tcol.a = (unsigned char)lerp(0, tcol.a, effect);
+            renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d", horizontalKeyboardTranspose), (Vector2){trect.x+trect.width*2.8, trect.y+(1-val)*trect.height}, (Vector2){0, 0.5}, textSize, 0, tcol);
+        }
     }
 }
 

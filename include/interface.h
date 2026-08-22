@@ -50,6 +50,7 @@ Rectangle scaleRctangleFromCenterV(Rectangle rect, Vector2 scale);
 Rectangle alignRectangle(Vector2 pos, Vector2 dim, Vector2 align);
 Rectangle rectangleMoveToFitInsideRect(Rectangle interior, Rectangle exterior);
 Rectangle rectangleScaleToFitInCenter(Vector2 originalDimensions, Rectangle toFit);
+Rectangle rectangleAnd(Rectangle rec1, Rectangle rec2);
 void renderRectangleCentered(Vector2 pos, Vector2 dim, Color col);
 void renderRoundedRectangleCentered(Vector2 pos, Vector2 dim, Color col, float roundness, int segments);
 void renderRoundedRectangleLinesCentered(Vector2 pos, Vector2 dim, Color col, float roundness, int segments, float thickness);
@@ -95,13 +96,17 @@ extern int timelineMeasureSkipsTop, timelineMeasureSkipsBottom, timelineBeatsSki
 extern Button timeLineDragButton;
 
 float normalizeProgramTypeIcon(enum icon_title iconType);
+void createTrackUIsFromScratch(uint8_t* colArr);
 
 void renderTracksLeftInit();
 void renderTracksLeftClose();
 void renderTrackCreateNew();
 void renderTrackDeleteAtIdx(int idx);
+int getTrackThemeColorIdx(int i);
 Color getTrackThemeColor(int i);
 Color getSelectedTrackThemeColor();
+Color getTrackThemeColorForWhiteKeys();
+Color getTrackThemeColorForBlackKeys();
 void renderTracksLeft();
 void order1PrecomputeTracksLeft();
 void order2PrecomputeTracksLeft();
