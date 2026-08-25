@@ -8,10 +8,15 @@
 
 
 tsf* synthSF=NULL;
+tsf* exportSF=NULL;
+
 
 int synthInit() {
     synthSF= tsf_load_filename("assets/midi/GeneralUserGSv1.471.sf2");
     tsf_set_output(synthSF, TSF_STEREO_INTERLEAVED, 44100, 0);
+
+    exportSF= tsf_load_filename("assets/midi/GeneralUserGSv1.471.sf2");
+    tsf_set_output(exportSF, TSF_STEREO_INTERLEAVED, 44100, 0);
 
     return 0;
 }
@@ -20,6 +25,9 @@ int synthInit() {
 int synthClose() {
     if (synthSF) tsf_close(synthSF);
     synthSF=NULL;
+
+    if (exportSF) tsf_close(exportSF);
+    exportSF=NULL;
 
     return 0;
 }
@@ -30,11 +38,17 @@ void audioInputCallback(void *buffer, unsigned int frames) {
     tsf_render_float(synthSF, (float*)buffer, frames, 0);
 }
 
-
+void renderExportAudio(void* buffer, unsigned int frames) {
+    tsf_render_short(exportSF, buffer, frames, 0);
+}
 
 
 void synthPanic() {
     if (synthSF) tsf_note_off_all(synthSF);
+}
+
+void exportSynthPanic() {
+    if (exportSF) tsf_note_off_all(exportSF);
 }
 
 void synthAllNoteOffChannel(uint8_t channel) {
@@ -53,19 +67,35 @@ void synthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, flo
     if (synthSF) {
         // basically channel=program (not standard midi)
         //printf("Key=%u, Velocity=%f, Program=%u, Panning=%f\n", key, velocity, program, panning);
-        tsf_channel_set_presetindex(synthSF, program, program);
+        //tsf_channel_set_presetindex(synthSF, program, program);
+        tsf_channel_set_presetnumber(synthSF, program, program, midiGetProgramType(program)==MPT_DRUMS);
         tsf_channel_set_pan(synthSF, program, panning);
         tsf_channel_note_on(synthSF, program, key, velocity);
     }
 }
 
+void exportSynthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, float panning) {
+    if (exportSF) {
+        tsf_channel_set_presetnumber(exportSF, program, program, midiGetProgramType(program)==MPT_DRUMS);
+        tsf_channel_set_pan(exportSF, program, panning);
+        tsf_channel_note_on(exportSF, program, key, velocity);
+    }
+}
+
 void synthProgramNoteOffPanning(uint8_t key, uint8_t program) {
     if (synthSF) {
-        tsf_channel_set_presetindex(synthSF, program, program);
+        //tsf_channel_set_presetindex(synthSF, program, program);
+        tsf_channel_set_presetnumber(synthSF, program, program, midiGetProgramType(program)==MPT_DRUMS);
         tsf_channel_note_on(synthSF, program, key, 0);
     }
 }
 
+void exportSynthProgramNoteOffPanning(uint8_t key, uint8_t program) {
+    if (exportSF) {
+        tsf_channel_set_presetnumber(exportSF, program, program, midiGetProgramType(program)==MPT_DRUMS);
+        tsf_channel_note_off(exportSF, program, key);
+    }
+}
 
 
 void synthExecuteEvent(MidiEvent event) {
