@@ -477,7 +477,7 @@ void exportProject() {
     const char* projectTitle = projectGetCurrentTitle();
     if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
 
-    char* title = stringToFileName(projectTitle, 20);
+    char* title = stringToFileName(projectTitle, 30);
     char* conct = concatenateStrings(title, ".mlb");
     free(title);
 
@@ -491,11 +491,34 @@ void exportProject() {
 }
 
 void importProject() {
+    globalHandlerPause();
+    synthPanic();
+
     const char *path = tinyfd_openFileDialog("Import MidiLab Project", "", 1, (const char *[]){"*.mlb"}, "MidiLab Project", 0);
     if (path) {
-        //printf("Trying to open: %s\n", path);
+        printf("Trying to open: %s\n", path);
         importProjectFrom(path);
-        //printf("Function ended??\n");
+        printf("Function ended??\n");
+    }
+}
+
+void exportWave() {
+    globalHandlerPause();
+    synthPanic();
+
+    const char* projectTitle = projectGetCurrentTitle();
+    if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
+
+    char* title = stringToFileName(projectTitle, 30);
+    char* conct = concatenateStrings(title, ".wav");
+    free(title);
+
+    const char* path = tinyfd_saveFileDialog("Export MidiLab Project As .WAV", conct, 1, (const char *[]){"*.wav"}, "WAVE Format");
+    free(conct);
+
+    if (path) {
+        //printf("Export to: %s\n", path);
+        exportProjectAsWave(path);
     }
 }
 
@@ -507,7 +530,7 @@ void renderBaseLayout() {
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
     DrawRectangleRounded(brect, roundness, 8, col1);
     const char* texts[] = {"Project", "Edit", "View", "Settings", "Export"};
-    OnClickFunc actions[] = {importProject, NULL, NULL, NULL, exportProject};   // For now, to test the new code
+    OnClickFunc actions[] = {importProject, NULL, NULL, exportWave, exportProject};   // For now, to test the new code
     int num = buttonListGetNum(layoutButton);
     for (int i=0; i<num; i++) {
         Button btn = buttonListGetButtonAt(layoutButton, i);

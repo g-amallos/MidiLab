@@ -5,5 +5,6 @@
 int exportProjectTo(const char* filename);
 int importProjectFrom(const char* filename);
 
+int exportProjectAsWave(const char* filename);
 
 #endif

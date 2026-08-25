@@ -161,5 +161,8 @@ void globalStateHandlerInit();
 void _globalHandlerUpdateDurations();
 void _globalStateHandlerUpdateTempo(double tempo);
 
+double timestampPiecesToSamples(uint32_t pieces, uint32_t sampleRate);
+double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate);
+
 
 #endif
