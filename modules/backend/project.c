@@ -2,10 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <handler.h>
+#include <utils.h>
 
 
 void updateCLTextboxes();                               // modules/interface/render/controlLine.c
 void freeTrackUIs();                                    // modules/interface/render/tracks.c
+
+
+static char* _title = NULL;
+
 
 
 struct general_project_data _globalProject = {
@@ -83,6 +89,7 @@ void newProject() {
     
     globalHandlerSetTimeSignature(ts);
     projectSetTempo(tempo);
+    globalHandlerSetKeyboardType(T_KEYBOARD_NONE);
 
     freeTrackUIs();
     updateCLTextboxes();
@@ -157,11 +164,16 @@ void projectSetFilepath(const char* filepath) {
 void projectSetSaveStatus(enum project_saved_state status) {
     if (!globalProject || status>=S_STATE_END || status<S_STATE_UNSAVED_PROJECT) return;
     globalProject->saveState.state = status;
+    updateWindowProjectTitle();
 }
 
 void projectUpdateStateSomethingChanged() {
-    if (!globalProject || globalProject->saveState.state==S_STATE_UNSAVED_PROJECT) return;
+    if (!globalProject || globalProject->saveState.state==S_STATE_UNSAVED_PROJECT) {
+        updateWindowProjectTitle();
+        return;
+    }
     if (globalProject->saveState.state==S_STATE_SAVED) globalProject->saveState.state=S_STATE_UNSAVED_CHANGES;
+    updateWindowProjectTitle();
 }
 
 int projectHasUnsavedChanges() {
@@ -193,4 +205,27 @@ int projectCanSafelyReplaceContents() {
     if (!globalProject) return 0;
     if (globalProject->saveState.state==S_STATE_SAVED && globalProject->saveState.filepath) return 1;   // Project saved
     return projectIsPracticallyEmpty();                                                                 // Project is empty
+}
+
+void updateWindowProjectTitle() {
+    static int saved = 0;
+
+    int newSaved = (globalProject->saveState.state==S_STATE_SAVED);
+    char* newTitle = globalProject->title;
+
+    if (saved!=newSaved || stringCompareWrapper(_title, newTitle)) {
+        saved = newSaved;
+        if (_title) free(_title);
+        _title = NULL;
+
+        if (newTitle) _title = strdup(newTitle);
+        updateWindowTitle(_title, saved);
+    }
+}
+
+
+int projectClose() {
+    if (_title) free(_title);
+
+    return 0;
 }

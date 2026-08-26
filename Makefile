@@ -19,7 +19,7 @@ WARNINGS = -Wall -Wextra -Werror -Wpedantic
 
 # Common flags for both systems
 CFLAGS = -I$(INCLUDE) $(WARNINGS)
-modules/tinyfiledialogs/tinyfiledialogs.o: CFLAGS += -Wno-pedantic -Wno-cast-function-type
+modules/tinyfiledialogs/tinyfiledialogs.o: CFLAGS += -Wno-pedantic -Wno-cast-function-type -Wno-format
 
 # Platform specific flags
 LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11

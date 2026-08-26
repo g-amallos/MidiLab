@@ -46,6 +46,7 @@ int projectHasUnsavedChanges();
 int projectHasSavedFilepath();
 int projectIsPracticallyEmpty();
 int projectCanSafelyReplaceContents();
+int projectClose();
 
 
 

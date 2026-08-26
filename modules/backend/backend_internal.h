@@ -166,6 +166,7 @@ double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate);
 
 void projectSetSaveStatus(enum project_saved_state status);
 const char* projectGetSavedFilepath();
+void updateWindowProjectTitle();
 
 
 #endif

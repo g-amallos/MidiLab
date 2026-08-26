@@ -28,8 +28,9 @@ int AppInit() {
 
     stream = LoadAudioStream(44100, 32, 2);
     SetAudioStreamCallback(stream, audioInputCallback);
-
     PlayAudioStream(stream);
+
+    //SetWindowState(FLAG_WINDOW_UNFOCUSED);
     
     return 0;
 }
@@ -56,7 +57,8 @@ int AppClose() {
 }
 
 int gameLoop(int (*func)()) {
-    while (!WindowShouldClose()) {
+    while (1) {
+        if (WindowShouldClose() && windowShouldCloseDialog()) break;
         func();
     }
     return 0;

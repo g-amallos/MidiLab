@@ -24,6 +24,8 @@ int intClip(int val, int min, int max);
 
 char* concatenateStrings(const char* s1, const char* s2);
 char* stringToFileName(const char* str, int max);
+char* stringStrip(const char* str);
+int stringCompareWrapper(const char* str1, const char* str2);
 
 
 #endif

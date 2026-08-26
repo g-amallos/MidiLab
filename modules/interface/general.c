@@ -35,6 +35,8 @@ int renderClose() {
 
 
 int updateRenderGlobalVariables() {
+    windowToggleFullscreenIfNecessary();
+
     int newX = GetScreenWidth();
     int newY = GetScreenHeight();
 

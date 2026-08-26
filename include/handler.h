@@ -35,5 +35,8 @@ void updateMouseCursor();
 void updateMouseHandler();
 
 
+void updateWindowTitle(const char* title, int saved);
+int windowShouldCloseDialog();
+int windowToggleFullscreenIfNecessary();
 
 #endif
