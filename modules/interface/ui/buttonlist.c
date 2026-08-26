@@ -13,6 +13,7 @@ typedef struct ui_button_list {
     float roundness;
     float spacing;
     Button* buttonArr;
+    ButtonList* child;
 } *ButtonList;
 
 
@@ -47,7 +48,19 @@ ButtonList buttonListCreate(Rectangle rect, int num, float roundness, float spac
     btnList->roundness = roundness;
     btnList->spacing = spacing;
 
+    btnList->child = NULL;
+
     return btnList;
+}
+
+void buttonListAttachChildLayout(ButtonList btnList, ButtonList* child) {
+    if (!btnList) return;
+    btnList->child = child;
+}
+
+ButtonList* buttonListGetAttachedChild(ButtonList btnList) {
+    if (!btnList) return NULL;
+    return btnList->child;
 }
 
 int buttonListGetNum(ButtonList btnList) {
@@ -111,10 +124,21 @@ void buttonListUpdate(ButtonList btnList) {
     if (!btnList) return;
     int isTouchingBaseLayout = checkCollisionPointRoundedRect(globalMouseHandler.pos, btnList->rect, btnList->roundness);
     if (isTouchingBaseLayout) UIhoveringOverLayout();
+    if (btnList->child && *(btnList->child)) btnList->ignoreDeletion = 1;
     if (globalMouseHandler.pressed && !(btnList->ignoreDeletion)) btnList->toDelete |= !isTouchingBaseLayout;
     if (btnList->ignoreDeletion) btnList->ignoreDeletion = 0;
     buttonListUpdateButtonsRects(btnList);
     buttonListUpdateButtons(btnList);
+}
+
+void buttonListUpdateJustList(ButtonList btnList) {
+    if (!btnList) return;
+    int isTouchingBaseLayout = checkCollisionPointRoundedRect(globalMouseHandler.pos, btnList->rect, btnList->roundness);
+    if (isTouchingBaseLayout) UIhoveringOverLayout();
+    if (btnList->child && *(btnList->child)) btnList->ignoreDeletion = 1;
+    if (globalMouseHandler.pressed && !(btnList->ignoreDeletion)) btnList->toDelete |= !isTouchingBaseLayout;
+    if (btnList->ignoreDeletion) btnList->ignoreDeletion = 0;
+    buttonListUpdateButtonsRects(btnList);
 }
 
 int buttonListShouldDelete(ButtonList btnList) {
@@ -127,6 +151,22 @@ void buttonListUpdateButtons(ButtonList btnList) {
     for (int i=0; i<btnList->numButtons; i++) {
         Button btn = (btnList->buttonArr)[i];
         buttonUpdate(btn, -1);
+    }
+}
+
+void buttonListUpdateButtonAt(ButtonList btnList, int index, int targetEffect) {
+    if (!btnList) return;
+    Button btn = (btnList->buttonArr)[index];
+    buttonUpdate(btn, targetEffect);
+}
+
+void buttonListUpdateButtonsEnDisabled(ButtonList btnList, int num, char* enabled, char* targetEffects) {
+    if (!btnList || btnList->numButtons!=num) return;
+    for (int i=0; i<num; i++) {
+        Button btn = (btnList->buttonArr)[i];
+        if (enabled[i]) buttonEnable(btn);
+        else buttonDisable(btn);
+        buttonUpdate(btn, targetEffects[i]);
     }
 }
 

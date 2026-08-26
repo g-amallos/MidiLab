@@ -438,7 +438,8 @@ void precomputeTrackOptionLayout(TrackUI track) {
     Rectangle trect = buttonGetRectangle(track->optionsButton);
     Rectangle brect = {trect.x+trect.width+interfaceSpace1, trect.y, buttonList4x5ExampleRect.width, buttonList4x5ExampleRect.height};
     float space = 10;
-    brect = rectangleMoveToFitInsideRect(brect, (Rectangle){0, trackDivVisiblePosMin+space, screenSize.x, trackDivVisiblePosMax-trackDivVisiblePosMin-2*space});
+    if (brect.height>trackDivVisiblePosMax-trackDivVisiblePosMin-2*space) brect.y=trackDivVisiblePosMin+space;
+    else brect = rectangleMoveToFitInsideRect(brect, (Rectangle){0, trackDivVisiblePosMin+space, screenSize.x, trackDivVisiblePosMax-trackDivVisiblePosMin-2*space});
     buttonListUpdateRect(track->btnList, brect);
     buttonListUpdateSpacing(track->btnList, buttonList4x5ExampleSpacing);
     buttonListUpdate(track->btnList);
@@ -781,6 +782,7 @@ void order2PrecomputeTracksLeft() {
             visDur *= pow(2, -0.075*d);
             globalHandlerSetVisibleDuration(visDur);
         }
+        if (IsKeyPressed(KEY_S)) actionDefer(exportProjectToSavedFilepath);
     }
 
     if (!controlDown && scrolled) {
@@ -790,7 +792,7 @@ void order2PrecomputeTracksLeft() {
     }
 
     int dx = IsKeyPressed(KEY_RIGHT)-IsKeyPressed(KEY_LEFT);
-    if (dx && !UIisHoveringOverLayout() && !UIisInTextInput()) {
+    if (dx && !UIisHoveringOverLayout() && !UIisInTextInput() && !globalHandlerIsPlaying()) {
         enum keyboard_render_types kbt = globalStateHandlerGetKeyboardType();
         if ((kbt==T_KEYBOARD_NONE || kbt==T_KEYBOARD_VERTICAL) && !globalMouseHandler.down && !globalMouseHandler.rightClickPressed) {
             if (dx>0) globalHandlerSetToNextMeasure();

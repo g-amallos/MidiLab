@@ -165,7 +165,7 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
 }
 
 
-int exportProjectAsWave(const char* filename) {
+int exportProjectAsWave(const char* filename) {         // In the future, I might make it in a different thread
     if (!filename) return 1;
 
     FILE* fptr = fopen(filename, "wb");
@@ -177,5 +177,5 @@ int exportProjectAsWave(const char* filename) {
     updateWavHeader(fptr, samples);
 
     fclose(fptr);
-    return 0;
+    return (samples==0);
 }

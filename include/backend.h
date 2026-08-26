@@ -33,12 +33,21 @@ extern ProjectData globalProject;               // The reference the whole progr
 
 int createNewProject();                         // Updates the global loaded project to a new one
 void freeProjectContents();                     // Frees whatever can be freed from the ProjectData (Doesn't free self)
+void newProject();                              // Creates a new project (both UI and backend)
 
 const char* projectGetCurrentTitle();           // Hiding the implementation
 void projectSetCurrentTitle(const char* text);  // Set/Update the title. Copies the text
 int projectSetTempo(int tempo);                 // Updates the tempo and returns the tempo that has been set
 int projectGetTempo();
 int projectGetTracksNum();
+void projectSetFilepath(const char* filepath);
+void projectUpdateStateSomethingChanged();
+int projectHasUnsavedChanges();
+int projectHasSavedFilepath();
+int projectIsPracticallyEmpty();
+int projectCanSafelyReplaceContents();
+
+
 
 /* Track (backend/tracks.c) */
 

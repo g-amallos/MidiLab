@@ -38,6 +38,7 @@ void buttonDisable(Button btn);
 void buttonUpdateRectangle(Button btn, Rectangle rect);
 void buttonUpdateRoundness(Button btn, float roundness);
 void buttonUpdate(Button btn, int effectTarget);
+int isButtonEnabled(Button btn);
 int isButtonClicked(Button btn);
 int isButtonHovered(Button btn);
 int isButtonDragged(Button btn);
@@ -76,7 +77,12 @@ Button buttonListGetButtonAt(ButtonList btnList, int index);
 void buttonListAppendButton(ButtonList btnList, Button btn);
 void buttonListFree(ButtonList btnList, int freeButtons);
 void buttonListUpdate(ButtonList btnList);
+void buttonListUpdateJustList(ButtonList btnList);
+void buttonListUpdateButtonAt(ButtonList btnList, int index, int targetEffect);
 int buttonListShouldDelete(ButtonList btnList);
+void buttonListAttachChildLayout(ButtonList btnList, ButtonList* child);
+ButtonList* buttonListGetAttachedChild(ButtonList btnList);
+void buttonListUpdateButtonsEnDisabled(ButtonList btnList, int num, char* enabled, char* targetEffects);
 
 
 

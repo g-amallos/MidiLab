@@ -205,6 +205,7 @@ void globalHandlerSetTimeSignature(struct time_signature tsign) {
         globalStateHandler->time.timeSignature = tsign;
         globalProject->timeSignature = tsign;
         _globalHandlerUpdateDurations();
+        projectUpdateStateSomethingChanged();
     }
 }
 

@@ -164,5 +164,8 @@ void _globalStateHandlerUpdateTempo(double tempo);
 double timestampPiecesToSamples(uint32_t pieces, uint32_t sampleRate);
 double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate);
 
+void projectSetSaveStatus(enum project_saved_state status);
+const char* projectGetSavedFilepath();
+
 
 #endif
