@@ -209,6 +209,11 @@ float buttonGetRoundness(Button btn) {
     return btn->roundness;
 }
 
+int isButtonEnabled(Button btn) {
+    if (!btn) return 0;
+    return !(btn->state.disabled);
+}
+
 int isButtonClicked(Button btn) {
     if (!btn) return 0;
     return btn->state.pressed;

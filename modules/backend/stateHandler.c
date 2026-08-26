@@ -100,6 +100,14 @@ double timestampPiecesToSeconds(uint32_t pieces) {
     return pieces*globalStateHandler->time.beatDuration/trackPiecesInBeat();
 }
 
+double timestampPiecesToSamples(uint32_t pieces, uint32_t sampleRate) {
+    return (sampleRate*(uint64_t)pieces)*globalStateHandler->time.beatDuration/trackPiecesInBeat();
+}
+
+double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate) {
+    return (samples/(double)sampleRate)*trackPiecesInBeat()/globalStateHandler->time.beatDuration;
+}
+
 double globalHandlerGetTime() {
     if (!globalStateHandler) return 0;
     return globalStateHandler->time.time;
@@ -197,6 +205,7 @@ void globalHandlerSetTimeSignature(struct time_signature tsign) {
         globalStateHandler->time.timeSignature = tsign;
         globalProject->timeSignature = tsign;
         _globalHandlerUpdateDurations();
+        projectUpdateStateSomethingChanged();
     }
 }
 

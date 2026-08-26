@@ -60,6 +60,7 @@ Track trackCreateNew() {
     ret->title = malloc(11*sizeof(char));
     if (ret->title) strncpy(ret->title, "New Track", 11);
 
+    projectUpdateStateSomethingChanged();
     return ret;
 }
 
@@ -86,6 +87,7 @@ void trackSetTitle(Track track, const char* title) {
     if (track->title) free(track->title);
     track->title = new;
     strncpy(new, title, len+1);
+    projectUpdateStateSomethingChanged();
 }
 
 float trackGetVelocity(Track track) {
@@ -96,6 +98,7 @@ float trackGetVelocity(Track track) {
 void trackSetVelocity(Track track, float velocity) {
     if (!track || velocity<0 || velocity>1) return;
     track->velocity=velocity;
+    projectUpdateStateSomethingChanged();
 }
 
 float trackGetPanning(Track track) {
@@ -106,6 +109,7 @@ float trackGetPanning(Track track) {
 void trackSetPanning(Track track, float panning) {
     if (!track || panning<0 || panning>1) return;
     track->panning=panning;
+    projectUpdateStateSomethingChanged();
 }
 
 int trackGetSustain(Track track) {
@@ -120,7 +124,8 @@ int trackGetProgram(Track track) {
 
 void trackSetProgram(Track track, uint8_t program) {    // 0-127: regular midi programs, 128: drums (channel 9)
     if (!track || program>128) return;
-    track->program = program;    
+    track->program = program;
+    projectUpdateStateSomethingChanged();  
 }
 
 void trackDeleteAtIdx(int idx) {
@@ -141,7 +146,8 @@ void trackDeleteAtIdx(int idx) {
         globalProject->tracksNum = 0;
         if (globalStateHandler) globalStateHandler->keys.type = T_KEYBOARD_NONE;
     }
-    
+
+    projectUpdateStateSomethingChanged();    
 }
 
 
@@ -177,6 +183,7 @@ void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     mnote->channel = track->channel;
 
     // Should add the fields ftimestamp and fduration but currently not necessary
+    projectUpdateStateSomethingChanged();
 
 
     track->notes[(track->numElements)++] = mnote;
@@ -201,6 +208,8 @@ void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx) {
         track->capacity = tcap;
         track->notes = tnotes;
     }
+    
+    projectUpdateStateSomethingChanged();
 }
 
 

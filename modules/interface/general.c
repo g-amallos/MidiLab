@@ -90,7 +90,7 @@ int render() {
         UIupdateTransparentOverlay();
         renderInstrumentPicker();
 
-        renderFPS();
+        if (globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2) renderFPS();
 
     EndDrawing();
     updateMouseCursor();

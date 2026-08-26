@@ -4,7 +4,8 @@
 #include <stdio.h>
 
 
-void updateTempoTextbox();      // modules/interface/render/controlLine.c
+void updateCLTextboxes();                               // modules/interface/render/controlLine.c
+void freeTrackUIs();                                    // modules/interface/render/tracks.c
 
 
 struct general_project_data _globalProject = {
@@ -69,7 +70,22 @@ int createNewProject() {
     globalProject->timeSignature.denominator = 4;
     globalProject->tracksNum = 0;
     globalProject->tracks = NULL;
+
+    
     return 0;
+}
+
+void newProject() {
+    if (createNewProject()) return;
+    
+    uint16_t tempo = globalProject->tempo;
+    struct time_signature ts = globalProject->timeSignature;
+    
+    globalHandlerSetTimeSignature(ts);
+    projectSetTempo(tempo);
+
+    freeTrackUIs();
+    updateCLTextboxes();
 }
 
 
@@ -88,6 +104,7 @@ void projectSetCurrentTitle(const char* text) {
 
     globalProject->title = new;
     strncpy(new, text, len+1);
+    projectUpdateStateSomethingChanged();
 }
 
 int projectSetTempo(int tempo) {
@@ -97,6 +114,7 @@ int projectSetTempo(int tempo) {
     globalProject->tempo = tempo;
     _globalStateHandlerUpdateTempo(tempo);
     _globalHandlerUpdateDurations();
+    projectUpdateStateSomethingChanged();
     return tempo;
 }
 
@@ -122,5 +140,57 @@ void projectLoadTmpProject(ProjectData newProject) {
     globalHandlerSetTimeSignature(ts);
     projectSetTempo(tempo);
 
-    updateTempoTextbox();
+    updateCLTextboxes();
+}
+
+void projectSetFilepath(const char* filepath) {
+    if (!globalProject) return;
+
+    if (globalProject->saveState.filepath) free(globalProject->saveState.filepath);
+    globalProject->saveState.filepath = NULL;
+    if (filepath) {
+        char* path = strdup(filepath);
+        globalProject->saveState.filepath = path;
+    }
+}
+
+void projectSetSaveStatus(enum project_saved_state status) {
+    if (!globalProject || status>=S_STATE_END || status<S_STATE_UNSAVED_PROJECT) return;
+    globalProject->saveState.state = status;
+}
+
+void projectUpdateStateSomethingChanged() {
+    if (!globalProject || globalProject->saveState.state==S_STATE_UNSAVED_PROJECT) return;
+    if (globalProject->saveState.state==S_STATE_SAVED) globalProject->saveState.state=S_STATE_UNSAVED_CHANGES;
+}
+
+int projectHasUnsavedChanges() {
+    if (!globalProject || globalProject->saveState.state!=S_STATE_SAVED) return 1;
+    return 0;
+}
+
+int projectHasSavedFilepath() {
+    return (globalProject && globalProject->saveState.filepath);
+}
+
+const char* projectGetSavedFilepath() {
+    if (!globalProject) return NULL;
+    return globalProject->saveState.filepath;
+}
+
+int projectIsPracticallyEmpty() {
+    if (!globalProject) return 0;
+    int totalNotes=0, totalTracks=(int)(globalProject->tracksNum);
+
+    for (int i=0; i<totalTracks; i++) {
+        totalNotes += (globalProject->tracks)[i].numElements;
+        if (totalNotes>0) return 0;
+    }
+    return 1;
+}
+
+int projectCanSafelyReplaceContents() {
+    if (!globalProject) return 0;
+    if (globalProject->saveState.state==S_STATE_SAVED && globalProject->saveState.filepath) return 1;   // Project saved
+    return projectIsPracticallyEmpty();                                                                 // Project is empty
 }

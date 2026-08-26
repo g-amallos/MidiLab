@@ -324,7 +324,7 @@ static void replaceCurrentProject(struct general_project_data newProject, uint8_
 }
 
 
-static int loadProject(FILE* fptr) {
+static int loadProject(FILE* fptr, const char* filepath) {
     struct general_project_data newProject={NULL,};
 
 
@@ -357,6 +357,8 @@ static int loadProject(FILE* fptr) {
 
 
     replaceCurrentProject(newProject, colArr);
+    projectSetFilepath(filepath);
+    projectSetSaveStatus(S_STATE_SAVED);
     free(colArr);
 
     return 0;
@@ -369,9 +371,18 @@ int exportProjectTo(const char* filename) {
     if (!filename) return 1;    // Couldn't open file
 
     int ret = writeProject(fptr);
-
     fclose(fptr);
+
+    if (!ret) {     // Success
+        projectSetFilepath(filename);
+        projectSetSaveStatus(S_STATE_SAVED);
+    }
     return ret;
+}
+
+int exportProjectToFilepath() {
+    const char* filepath = projectGetSavedFilepath();
+    return exportProjectTo(filepath);
 }
 
 
@@ -379,7 +390,7 @@ int importProjectFrom(const char* filename) {
     FILE* fptr = fopen(filename, "rb");
     if (!filename) return 1;    // Couldn't open file
 
-    int ret = loadProject(fptr);
+    int ret = loadProject(fptr, filename);
 
     fclose(fptr);
     return ret;

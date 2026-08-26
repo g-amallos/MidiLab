@@ -17,10 +17,10 @@
 
 
 float controlLineHeight=0, buttonList4x5ExampleSpacing=0, buttonListTSExampleSpacing=0;
-Rectangle buttonList4x5ExampleRect={0,0,0,0}, buttonList1x4ExampleRect={0,0,0,0}, buttonList1x6ExampleRect={0,0,0,0};
+Rectangle buttonList4x5ExampleRect={0,0,0,0}, buttonList1x4ExampleRect={0,0,0,0}, buttonList1x6ExampleRect={0,0,0,0}, buttonList4x4ExampleRect={0,0,0,0}, buttonList2x3ExampleRect={0,0,0,0};
 
 Button openFileButton = NULL;
-ButtonList layoutButton = NULL, tsignNumBList=NULL, tsignDenBList=NULL;
+ButtonList layoutButton = NULL, tsignNumBList=NULL, tsignDenBList=NULL, projectLayout=NULL, exportLayout=NULL;
 Textbox projectTitleTextbox=NULL, tempoTextbox=NULL;
 Button previousButton=NULL, playPauseButton=NULL, nextButton=NULL, loopButton=NULL, tsignatureNumButton=NULL, tsignatureDenButton=NULL;
 Rectangle timeRect={0,0,0,0};
@@ -100,6 +100,24 @@ void createTimeSignatureDenominatorLayout() {
     tsignDenBList = buttonListCreate(buttonList1x4ExampleRect, 4, 0.35, buttonListTSExampleSpacing, 1);
 }
 
+void createProjectLayout() {
+    if (!projectLayout) {
+        Rectangle rect = buttonListGetRect(layoutButton);
+        buttonList4x4ExampleRect.x = rect.x+rect.width+interfaceSpace1;
+        projectLayout = buttonListCreate(buttonList4x4ExampleRect, 4, 0.18, buttonList4x5ExampleSpacing, 1);
+    }
+    buttonListAttachChildLayout(layoutButton, &projectLayout);
+}
+
+void createExportLayout() {
+    if (!exportLayout) {
+        Rectangle rect = buttonListGetRect(layoutButton);
+        buttonList2x3ExampleRect.x = rect.x+rect.width+interfaceSpace1;
+        exportLayout = buttonListCreate(buttonList2x3ExampleRect, 3, 0.18, buttonList4x5ExampleSpacing, 1);
+    }
+    buttonListAttachChildLayout(layoutButton, &exportLayout);
+}
+
 
 void renderProjectTextbox() {
     int isFocused = isTextboxFocused(projectTitleTextbox);
@@ -145,10 +163,9 @@ void renderProjectTextbox() {
     }
 }
 
-void updateTempoTextbox() {
-    if (tempoTextbox) {
-        textboxLoadPositiveInt(tempoTextbox, projectGetTempo());
-    }
+void updateCLTextboxes() {
+    if (tempoTextbox) textboxLoadPositiveInt(tempoTextbox, projectGetTempo());
+    if (projectTitleTextbox) textboxLoadText(projectTitleTextbox, projectGetCurrentTitle());
 }
 
 void renderTempoTextbox() {
@@ -243,7 +260,7 @@ void clickedOnPlayPause() {
 void renderPrevPlayPauseNext() {
     int isPlaying = globalHandlerIsPlaying(), isLoopEnabled = globalHandlerIsLoopEnabled();
 
-    OnClickFunc funcs[] = {NULL, clickedOnPlayPause, NULL, isLoopEnabled?globalHandlerDisableLoop:globalHandlerEnableLoop};
+    OnClickFunc funcs[] = {globalHandlerSetToPreviousMeasure, clickedOnPlayPause, globalHandlerSetToNextMeasure, isLoopEnabled?globalHandlerDisableLoop:globalHandlerEnableLoop};
     Button btns[] = {previousButton, playPauseButton, nextButton, loopButton};
     enum icon_title btnIcons[] = {T_ICON_PREVIOUS, isPlaying?T_ICON_PAUSE:T_ICON_PLAY, T_ICON_NEXT, T_ICON_LOOP};
     float sizes[] = {0.85, isPlaying?0.8:0.65, 0.85, 0.88};
@@ -257,14 +274,17 @@ void renderPrevPlayPauseNext() {
 
         float effect = buttonGetEffectValue(btn);
         float roundness = buttonGetRoundness(btn);
+        int enabled = isButtonEnabled(btn);
+
         Rectangle rect = buttonGetRectangle(btn);
-        Color tmp = col2;
-        if (btn==loopButton && isLoopEnabled) tmp = COLOR_THEME_DARK_1;
-        
-        Color blendedCol = blendColors(col1, tmp, effect);
+        Color tmp1=col1, tmp2=col2;
+        if (btn==loopButton && isLoopEnabled) tmp2=COLOR_THEME_DARK_1;
+        if (!enabled) tmp1=(Color){16, 17, 19, 120};
+
+        Color blendedCol = blendColors(tmp1, tmp2, effect);
         
         if (effect>1e-3) DrawRectangleRounded(scaleRctangleFromCenter(rect, lerp(0.3, 1, effect)), roundness, 8, blendedCol);
-        iconRerder(btnIcons[i], scaleRctangleFromCenter(rect, sizes[i]*lerp(0.9, 0.95, effect)), blendColors(COLOR_TEXT_1, COLOR_PALETTE_1_P9, effect));
+        iconRerder(btnIcons[i], scaleRctangleFromCenter(rect, sizes[i]*lerp(0.9, 0.95, effect)), blendColors(enabled?COLOR_TEXT_1:COLOR_TEXT_4, COLOR_PALETTE_1_P9, effect));
         if (isButtonClicked(btn) && funcs[i]) actionDefer(funcs[i]);
         else {
             if (btn==playPauseButton && (!UIisInTextInput() && IsKeyPressed(KEY_SPACE))) actionDefer(funcs[i]);
@@ -285,9 +305,16 @@ void updateControlLineButtons() {
     
     rect.x += 2*rect.x+rect.width;
     Button btns[] = {previousButton, playPauseButton, nextButton, loopButton};
+    uint32_t timeline = globalHandlerGetLineTimestamp();
+    int isPlaying = globalHandlerIsPlaying();
+    int btnsAllowed[] = {timeline && !isPlaying, 1, !isPlaying, 1};
+
     int btnNum = sizeof(btns)/sizeof(Button);
     for (int i=0; i<btnNum; i++) {
         buttonUpdateRectangle(btns[i], rect);
+        if (btnsAllowed[i]) buttonEnable(btns[i]);
+        else buttonDisable(btns[i]);
+
         if (btns[i]==loopButton && globalHandlerIsLoopEnabled()) buttonUpdate(btns[i], 1);
         else buttonUpdate(btns[i], -1);
         rect.x += offsetXY+rect.width;
@@ -355,23 +382,6 @@ void updateControlLineButtons() {
 
 
 
-void openFileButtonAction() {
-    char const * lFilterPatterns[2] = { "*.mid", "*.midi" };
-
-    char const * lSelected = tinyfd_openFileDialog(
-        "Open MIDI Project",      // Title
-        "",                       // Default path (use "" or NULL for current directory)
-        2,                        // Number of filter patterns
-        lFilterPatterns,          // Filter patterns array
-        "MIDI Files",             // Description of the filter
-        0                         // Allow multiple select (0 = No)
-    );
-
-    if (lSelected) {
-        printf("`%s`\n", lSelected);
-    }
-}
-
 void createBaseLayout() {
     if (layoutButton) buttonListFree(layoutButton, 1);
     layoutButton = buttonListCreate(buttonList4x5ExampleRect, 5, 0.18, buttonList4x5ExampleSpacing, 1);
@@ -382,11 +392,31 @@ void createBaseLayout() {
     }
 }
 
-void destroyBaseLayout() {
-    if (!layoutButton) return;
-    buttonListFree(layoutButton, 1);
-    layoutButton = NULL;
+void destroyProjectLayout() {
+    if (projectLayout) {
+        if (layoutButton && buttonListGetAttachedChild(layoutButton)==&projectLayout) buttonListAttachChildLayout(layoutButton, NULL);
+        buttonListFree(projectLayout, 1);
+    }
+    projectLayout = NULL;
 }
+
+void destroyExportLayout() {
+    if (exportLayout) {
+        if (layoutButton && buttonListGetAttachedChild(layoutButton)==&exportLayout) buttonListAttachChildLayout(layoutButton, NULL);
+        buttonListFree(exportLayout, 1);
+    }
+    exportLayout = NULL;
+}
+
+void destroyBaseLayout() {
+    if (layoutButton) buttonListFree(layoutButton, 1);
+    layoutButton = NULL;
+
+    destroyProjectLayout();
+    destroyExportLayout();
+}
+
+
 
 void destroyTSignNumBL() {
     if (!tsignNumBList) return;
@@ -401,11 +431,55 @@ void destroyTSignDenBL() {
 }
 
 void updateBaseLayout() {
-    if (!layoutButton) return;
-    buttonListUpdateRect(layoutButton, buttonList4x5ExampleRect);
-    buttonListUpdateSpacing(layoutButton, buttonList4x5ExampleSpacing);
-    buttonListUpdate(layoutButton);
-    if (buttonListShouldDelete(layoutButton)) destroyBaseLayout();
+    if (projectLayout) {
+        buttonList4x4ExampleRect.y = buttonList4x5ExampleRect.y;
+        buttonList4x4ExampleRect.x = buttonList4x5ExampleRect.x+buttonList4x5ExampleRect.width+interfaceSpace1;
+
+        buttonListUpdateRect(projectLayout, buttonList4x4ExampleRect);
+        buttonListUpdateSpacing(projectLayout, buttonList4x5ExampleSpacing);
+
+        buttonListUpdateJustList(projectLayout);
+        char allowed[] = {1,1,(char)(projectHasSavedFilepath() && projectHasUnsavedChanges()),1};
+        char effects[] = {-1,-1,-1,-1};
+        buttonListUpdateButtonsEnDisabled(projectLayout, 4, allowed, effects);
+
+        if (buttonListShouldDelete(projectLayout)) destroyProjectLayout();
+    }
+
+    if (exportLayout) {
+        buttonList2x3ExampleRect.y = buttonList4x5ExampleRect.y+buttonList4x5ExampleRect.height-buttonList2x3ExampleRect.height;
+        buttonList2x3ExampleRect.x = buttonList4x5ExampleRect.x+buttonList4x5ExampleRect.width+interfaceSpace1;
+
+        buttonListUpdateRect(exportLayout, buttonList2x3ExampleRect);
+        buttonListUpdateSpacing(exportLayout, buttonList4x5ExampleSpacing);
+        buttonListUpdateJustList(exportLayout);
+
+        char allowed[] = {0,1,0};
+        char effects[] = {-1,-1,-1};
+
+        buttonListUpdateButtonsEnDisabled(exportLayout, 3, allowed, effects);
+
+        if (buttonListShouldDelete(exportLayout)) destroyExportLayout();
+    }
+
+    if (layoutButton) {
+        buttonListUpdateRect(layoutButton, buttonList4x5ExampleRect);
+        buttonListUpdateSpacing(layoutButton, buttonList4x5ExampleSpacing);
+        ButtonList* selected = buttonListGetAttachedChild(layoutButton);
+        if (!selected || !(*selected)) selected = NULL;
+
+        buttonListUpdateJustList(layoutButton);
+
+        char allowed[] = {1,1,1,1,1};
+        char effects[] = {(selected==&projectLayout)?1:-1,-1,-1,-1,(selected==&exportLayout)?1:-1};
+
+        buttonListUpdateButtonsEnDisabled(layoutButton, 5, allowed, effects);
+
+        if (buttonListShouldDelete(layoutButton)) destroyBaseLayout();
+    }
+
+    
+
 }
 
 void updateTSbuttonLists() {
@@ -454,19 +528,23 @@ void renderTSlayoutButton(Button btn, const char* text, float textSize, int sele
 
 void renderBaseLayoutButton(Button btn, const char* text, Vector2 textAlign, Vector2 textOffset, float textSize, enum icon_title icon) {
     if (!btn) return;
-    Color col={30, 32, 38, 255};
+    
     float effect = buttonGetEffectValue(btn);
-    Color blend1 = blendColors(col, COLOR_PALETTE_1_P1, effect);
+    int enabled = isButtonEnabled(btn);
+
+    Color col1={30, 32, 38, 255}, col2={16,17,21,255}, col3=enabled?COLOR_TEXT_1:COLOR_TEXT_4;
+
+    Color blend1 = blendColors(enabled?col1:col2, COLOR_PALETTE_1_P1, effect);
     Rectangle rect = buttonGetRectangle(btn);
     DrawRectangleRounded(rect, buttonGetRoundness(btn), 8, blend1);
     Vector2 tarPos = lerpVector2_vec((Vector2){rect.x, rect.y}, (Vector2){rect.x+rect.width, rect.y+rect.height}, textAlign);
-    renderFontStringAlign(GlobalFonts[0].font, text, Vector2Add(tarPos, textOffset), textAlign, textSize, 0, COLOR_TEXT_1);
+    renderFontStringAlign(GlobalFonts[0].font, text, Vector2Add(tarPos, textOffset), textAlign, textSize, 0, col3);
     if (effect>1e-5) {
-        Color tar =COLOR_TEXT_1;
+        Color tar = col3;
         tar.a = 0;
-        Color blend3 = blendColors(tar, COLOR_TEXT_1, effect);
+        Color blend3 = blendColors(tar, col3, effect);
         Rectangle targRect = {rect.x+(0.75+0.25*effect)*rect.width-0.7*rect.height, rect.y+0.3*rect.height, 0.4*rect.height, 0.4*rect.height};
-        iconRerder(icon, targRect, blend3);
+        if (icon!=T_ICON_END) iconRerder(icon, targRect, blend3);
     }
 }
 
@@ -477,7 +555,7 @@ void exportProject() {
     const char* projectTitle = projectGetCurrentTitle();
     if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
 
-    char* title = stringToFileName(projectTitle, 20);
+    char* title = stringToFileName(projectTitle, 30);
     char* conct = concatenateStrings(title, ".mlb");
     free(title);
 
@@ -486,17 +564,70 @@ void exportProject() {
 
     if (path) {
         //printf("Export to: %s\n", path);
-        exportProjectTo(path);
+        int failed = exportProjectTo(path);
+        if (!failed) destroyBaseLayout();
     }
 }
 
+void exportProjectToSavedFilepath() {
+    if (!projectHasSavedFilepath() || !projectHasUnsavedChanges()) return;
+
+    globalHandlerPause();
+    synthPanic();
+    exportProjectToFilepath();
+    destroyBaseLayout();
+}
+
 void importProject() {
+    globalHandlerPause();
+    synthPanic();
+
     const char *path = tinyfd_openFileDialog("Import MidiLab Project", "", 1, (const char *[]){"*.mlb"}, "MidiLab Project", 0);
     if (path) {
-        //printf("Trying to open: %s\n", path);
-        importProjectFrom(path);
-        //printf("Function ended??\n");
+        int canReplace = projectCanSafelyReplaceContents();
+        if (!canReplace) {
+            int result = tinyfd_messageBox("Warning", "Are you sure you want to load another project?\nYour current project will be lost.", "yesno", "warning", 0);
+            if (!result) return;
+        }
+
+        printf("Trying to open: %s\n", path);
+        int failed = importProjectFrom(path);
+        if (!failed) destroyBaseLayout();
     }
+}
+
+void exportWave() {
+    globalHandlerPause();
+    synthPanic();
+
+    const char* projectTitle = projectGetCurrentTitle();
+    if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
+
+    char* title = stringToFileName(projectTitle, 30);
+    char* conct = concatenateStrings(title, ".wav");
+    free(title);
+
+    const char* path = tinyfd_saveFileDialog("Export MidiLab Project As .WAV", conct, 1, (const char *[]){"*.wav"}, "WAVE Format");
+    free(conct);
+
+    if (path) {
+        int failed = exportProjectAsWave(path);
+        if (!failed) destroyBaseLayout();
+    }
+}
+
+void deferNewProject() {
+    globalHandlerPause();
+    synthPanic();
+
+    int result = 1;
+    int canReplace = projectCanSafelyReplaceContents();
+    if (!canReplace) {
+        result = tinyfd_messageBox("Warning", "Are you sure you want to create a new project?\nYour current project will be lost.", "yesno", "warning", 0);
+    }
+
+    if (result==1) newProject();
+    destroyBaseLayout();
 }
 
 void renderBaseLayout() {
@@ -507,7 +638,7 @@ void renderBaseLayout() {
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
     DrawRectangleRounded(brect, roundness, 8, col1);
     const char* texts[] = {"Project", "Edit", "View", "Settings", "Export"};
-    OnClickFunc actions[] = {importProject, NULL, NULL, NULL, exportProject};   // For now, to test the new code
+    OnClickFunc actions[] = {createProjectLayout, NULL, NULL, NULL, createExportLayout};
     int num = buttonListGetNum(layoutButton);
     for (int i=0; i<num; i++) {
         Button btn = buttonListGetButtonAt(layoutButton, i);
@@ -517,6 +648,41 @@ void renderBaseLayout() {
         }
     }
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);  //COLOR_TEXT_4
+
+
+    if (projectLayout) {
+        Rectangle brect = buttonListGetRect(projectLayout);
+        Color col1 = {20, 21, 23, 255};
+        float roundness = buttonListGetRoundness(projectLayout);
+        DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
+        DrawRectangleRounded(brect, roundness, 8, col1);
+        const char* texts[] = {"New Project", "Load Project", "Save", "Save As"};
+        OnClickFunc actions[] = {deferNewProject, importProject, exportProjectToSavedFilepath, exportProject};
+        int num = buttonListGetNum(projectLayout);
+        for (int i=0; i<num; i++) {
+            Button btn = buttonListGetButtonAt(projectLayout, i);
+            renderBaseLayoutButton(btn, texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.11, T_ICON_END);
+            if (actions[i] && isButtonClicked(btn)) actionDefer(actions[i]);
+        }
+        DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);
+    }
+
+    if (exportLayout) {
+        Rectangle brect = buttonListGetRect(exportLayout);
+        Color col1 = {20, 21, 23, 255};
+        float roundness = buttonListGetRoundness(exportLayout);
+        DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
+        DrawRectangleRounded(brect, roundness, 8, col1);
+        const char* texts[] = {"MIDI", "WAV", "MP3"};
+        OnClickFunc actions[] = {NULL, exportWave, NULL};
+        int num = buttonListGetNum(exportLayout);
+        for (int i=0; i<num; i++) {
+            Button btn = buttonListGetButtonAt(exportLayout, i);
+            renderBaseLayoutButton(btn, texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.14, T_ICON_END);
+            if (actions[i] && isButtonClicked(btn)) actionDefer(actions[i]);
+        }
+        DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);
+    }
 }
 
 void renderNumBlist() {
@@ -575,6 +741,9 @@ void order1PrecomputeControlLine() {
     buttonList1x4ExampleRect = (Rectangle){0, 0.9*lineHeight, floatMax(0.8*lineHeight, 30), floatMax(2.4*lineHeight, 144)};
     buttonListTSExampleSpacing = floatMax(0.032*lineHeight, 4.8);
 
+    buttonList4x4ExampleRect = (Rectangle){0, 0, floatMax(2.1*lineHeight, 120), buttonList4x5ExampleRect.height*0.8};
+    buttonList2x3ExampleRect = (Rectangle){0, 0, floatMax(1.3*lineHeight, 60), buttonList4x5ExampleRect.height*0.6};
+
     updateControlLineButtons(lineHeight);
 
     if (!layoutButton && isButtonClicked(openFileButton)) actionDefer(createBaseLayout);
@@ -583,6 +752,16 @@ void order1PrecomputeControlLine() {
 
 void order2PrecomputeControlLine() {
 
+}
+
+static void renderSaveState() {
+    int unsaved = projectHasUnsavedChanges();
+    if (!unsaved) return;
+
+    Rectangle trect = textboxGetRectangle(projectTitleTextbox);
+    float effect = textboxGetEffectValue(projectTitleTextbox);
+    DrawCircleV((Vector2){trect.x+trect.width-trect.height*0.5, trect.y+0.5*trect.height}, floatMax(4, 0.07*lineHeight), (Color){180,180,180,(unsigned char)(255*(1.0-effect))});
+    //DrawCircleV((Vector2){screenSize.x-lineHeight*0.5, lineHeight*0.5}, floatMax(4, 0.03*lineHeight), (Color){130,130,130,255});
 }
 
 void renderControlLine() {
@@ -622,4 +801,6 @@ void renderControlLine() {
     if (tsignNumBList) renderNumBlist();
     if (tsignDenBList) renderDenBlist();
     if (layoutButton) renderBaseLayout(lineHeight);
+
+    renderSaveState();
 }
