@@ -1,0 +1,31 @@
+1 ICON "assets/logo/midilab.ico"
+
+1 VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
+FILEFLAGSMASK   0x3fL
+FILEFLAGS       0x0L
+FILEOS          0x40004L
+FILETYPE        0x1L
+FILESUBTYPE     0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0" // US English, Unicode
+        BEGIN
+            VALUE "CompanyName",      "g-amallos"
+            VALUE "FileDescription",  "MidiLab"
+            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "InternalName",     "midilab"
+            VALUE "OriginalFilename", "midilab.exe"
+            VALUE "ProductName",      "MidiLab"
+            VALUE "ProductVersion",   "1.0.0.0"
+
+            VALUE "Comments",         "Built with Raylib. Used: TinyFileDialogs, TinySoundFont, GeneralUserGSv1.471.sf2"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END

@@ -782,7 +782,7 @@ void order2PrecomputeTracksLeft() {
             visDur *= pow(2, -0.075*d);
             globalHandlerSetVisibleDuration(visDur);
         }
-        if (IsKeyPressed(KEY_S)) actionDefer(exportProjectToSavedFilepath);
+        if (IsKeyPressed(KEY_S)) actionDefer(exportProjectByCtrlS);
     }
 
     if (!controlDown && scrolled) {

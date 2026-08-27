@@ -70,9 +70,11 @@ void renderFPS() {
 }
 
 int render() {
+    int allowedInput = startupInputAllowed();
     
-    SetWindowOpacity(1-0.5*GlobalInactivityHandler.opacity);
     UIiterationReset();
+    if (allowedInput) SetWindowOpacity(1-0.5*GlobalInactivityHandler.opacity);
+    
     
     order1Precompute();
     order2Precompute();
@@ -92,10 +94,13 @@ int render() {
         UIupdateTransparentOverlay();
         renderInstrumentPicker();
 
-        if (globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2) renderFPS();
+        //if (globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
+
+        startupScreenRenderIfNeeded(screenSize);
 
     EndDrawing();
-    updateMouseCursor();
+
+    if (allowedInput) updateMouseCursor();
 
     return 0;
 }

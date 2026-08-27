@@ -48,18 +48,32 @@ enum icon_title {
     T_ICON_VIEW_NONE,
     T_ICON_VIEW_ROLL,
 
+    T_ICON_MIDILAB_LOGO_256,
+    T_ICON_MIDILAB_LOGO_1024,
+
     T_ICON_END
 };
 
+enum image_title {
+    T_IMAGE_MIDILAB_LOGO_32,
+    T_IMAGE_MIDILAB_LOGO_64,
+    T_IMAGE_MIDILAB_LOGO_256,
+    T_IMAGE_MIDILAB_LOGO_1024,
 
+    T_IMAGE_END
+};
 
 
 int iconsInit();
+int iconsPreInit();
 int iconsClose();
 Texture2D iconGetTexture(enum icon_title icon);
 Vector2 iconGetDimensions(enum icon_title icon);
 void iconRerder(enum icon_title icon, Rectangle rect, Color col);
 
+int imagesInit();
+int imagesClose();
+Image imageGetImage(enum image_title image);
 
 
 #endif

@@ -5,7 +5,7 @@
 int backendInit() {
     int ret = createNewProject();
     globalStateHandlerInit();
-    updateWindowProjectTitle();
+    //updateWindowProjectTitle();
     return ret;
 }
 

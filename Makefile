@@ -27,8 +27,17 @@ OUT = $(TARGET)
 
 ifeq ($(os), win)
     CC = x86_64-w64-mingw32-gcc
-    LDFLAGS = libs/libraylib_win.a -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -static
+    WINDRES = x86_64-w64-mingw32-windres
     OUT = $(TARGET).exe
+    OBJS += resource.o
+
+    ifeq ($(debug), 1)
+        # Keeps console window open for stdout/stderr logs
+        LDFLAGS = libs/libraylib_win.a -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -static
+    else
+        # Hides console
+        LDFLAGS = libs/libraylib_win.a -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -static -mwindows
+    endif
 endif
 
 ifneq ($(filter mem,$(MAKECMDGOALS)),)
@@ -48,8 +57,16 @@ $(OUT): $(OBJS)
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS)
 
+ifeq ($(os), win)
+resource.o: resource.rc assets/logo/midilab.ico
+	$(WINDRES) resource.rc -o $@
+endif
+
 clean:
-	rm -f *.o $(OBJS) $(TARGET) $(TARGET).exe
+	rm -f *.o $(OBJS) $(TARGET) $(TARGET).exe resource.o
+
+mostlyclean:
+	rm -f *.o $(OBJS) resource.o
 
 run: $(OUT)
 	./$(OUT)
@@ -57,4 +74,4 @@ run: $(OUT)
 
 mem: run
 
-.PHONY: all clean run mem
+.PHONY: all clean mostlyclean run mem

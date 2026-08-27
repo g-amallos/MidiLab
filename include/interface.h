@@ -64,6 +64,8 @@ Rectangle rectangleClip(Rectangle source, Rectangle clip);
 
 /* Render (interface/render/) */
 
+void renderFPS();
+
 /* Backgrounds (interface/render/backgrounds.c) */
 
 void renderMainBackground();        // Renders the main background
@@ -82,6 +84,7 @@ void order1PrecomputeControlLine();
 void order2PrecomputeControlLine();
 
 void exportProjectToSavedFilepath();
+void exportProjectByCtrlS();
 
 
 
