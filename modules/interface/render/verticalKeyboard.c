@@ -35,7 +35,7 @@ uint8_t controlNoteVelocity=127;
 
 static float wkeyHeight=0, wkeyWidth=0, topPadding=15, space=0, keyScrollTarget=71.5, keyScroll=71.5, wkeyRangef=0, keyRange=0, keyRangeShown=0, blackKeyRelativeWidth=0.55, blackKeyRelativeHeight=0.5, octaveHeight=0, rollKeyHeight=0, rollStartX=0, verticalSliderX=0;
 static float scrollYposMin=0, scrollYposMax=0;
-static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, allowClickInRollRect=0;
+static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, allowClickInRollRect=0, mouseInBHLrect=0;
 static Rectangle vkeysRect={0,0,0,0}, clipRect={0,0,0,0}, rollRect={0,0,0,0};
 
 static double visibleDuration=0, divCurrentTime=0, targetMeasures=0;
@@ -161,6 +161,9 @@ void preCalculateNecessaryVerticalKeyboard() {
     mouseInRollRect = !UIisHoveringOverLayout() && !UIisInTextInput() && !UIexistsFrontLayoutOverlay() && CheckCollisionPointRec(globalMouseHandler.pos, rollRect);
     enum keyboard_render_types kbt = globalStateHandlerGetKeyboardType();
     allowClickInRollRect = (kbt==T_KEYBOARD_VERTICAL && mouseInRollRect && !(globalHandlerIsPlaying()));
+
+    Rectangle bhlrect = {0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, bottomHalfUsefulHeight};
+    mouseInBHLrect = !UIisHoveringOverLayout() && !UIisInTextInput() && !UIexistsFrontLayoutOverlay() && CheckCollisionPointRec(globalMouseHandler.pos, bhlrect);
 
     if (mouseInRollRect && globalStateHandlerGetKeyboardType()==T_KEYBOARD_VERTICAL) {
         if (allowClickInRollRect) setNextMouseCursor(MOUSE_CURSOR_CROSSHAIR);
@@ -682,7 +685,7 @@ void renderNotes() {
         if (!isPlaying && !rollHoveringOverNote && isHoveringOverNote(note)) {
             rollHoveringOverNote = note;
             rollHoveringOverNoteIdx = i;
-            tcol = blendColors(tcol, (Color){200,200,200,255}, 0.3);
+            tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
 
             uint32_t mn = uint32Min((mouseTimestampJumps<<1), (note->duration>>1));
             if (note->timestamp+note->duration-mouseExactTimestamp<=mn) {
@@ -692,10 +695,12 @@ void renderNotes() {
                 rollHoverNoteType = 1;
                 setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
             }
+        } else if (rollSelectedNote==note) {
+            tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
         } else if (isPlaying && isTimestampWithinNote(note, timelineTimestamp)) {
             tcol = blendColors(tcol, (Color){200,200,200,255}, 0.45);
         }
-        renderNote(note, tcol, rollHoveringOverNote==note);
+        renderNote(note, tcol, (rollHoveringOverNote==note)||(rollSelectedNote==note));
     }
 
 }
@@ -736,6 +741,13 @@ static void changeControlDuration(int zx) {
     }
 }
 
+
+
+static void renderSideInfo() {
+    
+}
+
+
 static void handleClick() {
     if (globalMouseHandler.released) {
         if (releaseEvent.wasPressed) {
@@ -744,31 +756,46 @@ static void handleClick() {
         }
     }
 
-    if (globalMouseHandler.pressed && mouseInRollRect && allowClickInRollRect) {
-        //printf("Clicked: mouseInRollRect=%d, mouseTimestamp=%d, rollKeyHovering=%d\n", mouseInRollRect, mouseTimestamp, rollKeyHovering);
-        if (mouseInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
-            //printf("Hovering over note: %p | idx=%d\n", (void*)rollHoveringOverNote, rollHoveringOverNoteIdx);
-            if (rollHoveringOverNote) {
-                //trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
-                // Should select note in this track to show stats
-                rollSelectedNote = rollHoveringOverNote;
-                rollSelectedNoteIdx = rollHoveringOverNoteIdx;
-            } else {
-                Track track = trackGetSelectedTrack();
-                uint8_t program = trackGetProgram(track);
-                trackCreateNoteInTrack(track, rollKeyHovering, controlNoteVelocity, mouseTimestamp, controlNoteSize);
-                synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track));
+    if (globalMouseHandler.pressed) {
+        printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
+        if (mouseInRollRect && allowClickInRollRect) {
+            //printf("Clicked: mouseInRollRect=%d, mouseTimestamp=%d, rollKeyHovering=%d\n", mouseInRollRect, mouseTimestamp, rollKeyHovering);
+            if (mouseInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
+                //printf("Hovering over note: %p | idx=%d\n", (void*)rollHoveringOverNote, rollHoveringOverNoteIdx);
+                if (rollHoveringOverNote) {
+                    //trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
+                    // Should select note in this track to show stats
+                    rollSelectedNote = rollHoveringOverNote;
+                    rollSelectedNoteIdx = rollHoveringOverNoteIdx;
+                } else {
+                    Track track = trackGetSelectedTrack();
+                    uint8_t program = trackGetProgram(track);
+                    rollSelectedNote = trackCreateNoteInTrack(track, rollKeyHovering, controlNoteVelocity, mouseTimestamp, controlNoteSize);
+                    synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track));
 
-                releaseEvent.key = rollKeyHovering;
-                releaseEvent.wasPressed = 1;
-                releaseEvent.program = program;
-                releaseEvent.channel = 0;
-            }
-            
-        }
+                    releaseEvent.key = rollKeyHovering;
+                    releaseEvent.wasPressed = 1;
+                    releaseEvent.program = program;
+                    releaseEvent.channel = 0;
+
+
+                }
+
+            } else rollSelectedNote=NULL;
+        } else if (mouseInBHLrect) {
+            rollSelectedNote=NULL;
+            rollSelectedNoteIdx=-1;
+            printf("Huh??\n");
+        } 
     } else if (globalMouseHandler.rightClickPressed) {
         if (mouseInRollRect && allowClickInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
-            if (rollHoveringOverNote) trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
+            if (rollHoveringOverNote) {
+                if (rollSelectedNote==rollHoveringOverNote) {
+                    rollSelectedNote=NULL;
+                    rollSelectedNoteIdx=-1;
+                }
+                trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
+            }
         }
     }
 
@@ -797,6 +824,7 @@ void renderWholeBottomLayoutTypeVertical() {
     
     renderOverlayToHideImperfections();
     renderRollVerticalSlider();
+    renderSideInfo();
 
     handleClick();
 }

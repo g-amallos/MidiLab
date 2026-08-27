@@ -81,12 +81,36 @@ struct backend_keys_handler {
     struct key_state keys[128];
 };
 
+struct notes_selection {    // Continue from selected notes in handler
+    uint8_t keyMin;
+    uint8_t keyMax;
+
+    uint8_t clickHold;
+
+    uint32_t clickTimestamp;
+    float clickNote;
+
+    uint32_t timestampStart;
+    uint32_t timestampEnd;
+
+    uint32_t capacity;
+    uint32_t notesNum;
+    Note* notes;
+};
+
+struct notes_selector {
+    struct notes_selection primary;
+    struct notes_selection secondary;
+};
+
 typedef struct backend_state_handler {
     struct backend_time_handler time;
     struct backend_keys_handler keys;
     ProjectData project;
+
     int selectedTrack;
 
+    struct notes_selector selector;
 
 } *StateHandler;
 

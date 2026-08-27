@@ -81,7 +81,7 @@ float trackGetPanning(Track track);
 void trackSetPanning(Track track, float panning);
 int trackGetSustain(Track track);
 int trackGetProgram(Track track);
-void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration);
+Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration);
 void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx);
 void trackDeleteNoteInTrack(Track track, Note note);
 uint32_t trackPiecesInBeat();
@@ -130,6 +130,13 @@ void globalHandlerUpdateTick();
 
 void globalHandlerSetToNextMeasure();
 void globalHandlerSetToPreviousMeasure();
+
+void globalHandlerClearNotesSelected();
+void globalHandlerAddNoteToSelected(Note note);
+void globalHandlerRemoveSelectedNote(Note note);
+int globalHandlerIsNoteSelected(Note note);
+
+
 
 /* Actions (backend/actions.c) */
 

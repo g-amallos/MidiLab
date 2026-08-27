@@ -155,8 +155,8 @@ void trackDeleteAtIdx(int idx) {
 void trackSortNotes(Track track);
 
 
-void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration) {   // Not entirely done yet
-    if (!track || note>127 || velocity>127) return;
+Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration) {   // Not entirely done yet
+    if (!track || note>127 || velocity>127) return NULL;
 
     if (!(track->notes)) {
         track->capacity = 32;
@@ -168,13 +168,13 @@ void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     if (track->numElements >= track->capacity) {
         uint32_t tcap = (track->numElements << 1);
         Note* tnotes = realloc(track->notes, tcap*sizeof(Note));
-        if (!tnotes) return;    // Reallocation failed
+        if (!tnotes) return NULL;    // Reallocation failed
         track->capacity = tcap;
         track->notes = tnotes;
     }
 
     Note mnote = malloc(sizeof(struct note_data));
-    if (!mnote) return;  // Malloc failed
+    if (!mnote) return NULL;  // Malloc failed
 
     mnote->key = note;
     mnote->velocity = velocity;
@@ -185,10 +185,9 @@ void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     // Should add the fields ftimestamp and fduration but currently not necessary
     projectUpdateStateSomethingChanged();
 
-
     track->notes[(track->numElements)++] = mnote;
-
     trackSortNotes(track);
+    return mnote;
 }
 
 

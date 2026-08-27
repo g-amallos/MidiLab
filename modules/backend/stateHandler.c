@@ -46,7 +46,33 @@ struct backend_state_handler _globalHandler = {
         .keys = {{0,0},}
     },
     .project = &_globalProject,
-    .selectedTrack = -1
+    .selectedTrack = -1,
+    .selector = {
+        .primary = {
+            .keyMin = 255,
+            .keyMax = 0,
+            .clickHold = 0,
+            .clickTimestamp = 0,
+            .clickNote = 0,
+            .timestampStart = 0,
+            .timestampEnd = 0,
+            .capacity = 0,
+            .notesNum = 0,
+            .notes = NULL
+        },
+        .secondary = {
+            .keyMin = 255,
+            .keyMax = 0,
+            .clickHold = 0,
+            .clickTimestamp = 0,
+            .clickNote = 0,
+            .timestampStart = 0,
+            .timestampEnd = 0,
+            .capacity = 0,
+            .notesNum = 0,
+            .notes = NULL
+        }
+    }
 };
 
 
@@ -219,6 +245,7 @@ void globalHandlerSelectTrack(int idx) {
     globalStateHandler->selectedTrack = idx;
     if (globalStateHandler->keys.type!=T_KEYBOARD_HORIZONTAL && globalStateHandler->keys.type!=T_KEYBOARD_VERTICAL) globalStateHandler->keys.type=T_KEYBOARD_HORIZONTAL;
     globalStateHandler->keys.inputAllowed = 1;
+    globalHandlerClearNotesSelected();
 }
 
 int globalHandlerGetSelectedTrack() {
@@ -233,6 +260,7 @@ enum keyboard_render_types globalStateHandlerGetKeyboardType() {
 
 void globalHandlerSetKeyboardType(enum keyboard_render_types view) {
     if (view!=T_KEYBOARD_NONE && view!=T_KEYBOARD_HORIZONTAL && view!=T_KEYBOARD_VERTICAL) return;
+    globalHandlerClearNotesSelected();
     int trn=globalStateHandler->project->tracksNum, trs=globalStateHandler->selectedTrack;
     if ((trs>=0 && trs<trn) && (view==T_KEYBOARD_HORIZONTAL || view==T_KEYBOARD_VERTICAL)) globalStateHandler->keys.type=view;
     else {
@@ -413,3 +441,162 @@ void globalHandlerSetToPreviousMeasure() {
         globalHandlerMoveTimeDivAccordingToTimeLine(0.15, 0);
     }
 }
+
+static void _freeNoteSelector() {
+    if (globalStateHandler->selector.primary.notes) free(globalStateHandler->selector.primary.notes);
+    if (globalStateHandler->selector.secondary.notes) free(globalStateHandler->selector.secondary.notes);
+
+    globalStateHandler->selector = (struct notes_selector){
+        .primary = {
+            .keyMin = 255,
+            .keyMax = 0,
+            .clickHold = 0,
+            .clickTimestamp = 0,
+            .clickNote = 0,
+            .timestampStart = 0,
+            .timestampEnd = 0,
+            .capacity = 0,
+            .notesNum = 0,
+            .notes = NULL
+        },
+        .secondary = {
+            .keyMin = 255,
+            .keyMax = 0,
+            .clickHold = 0,
+            .clickTimestamp = 0,
+            .clickNote = 0,
+            .timestampStart = 0,
+            .timestampEnd = 0,
+            .capacity = 0,
+            .notesNum = 0,
+            .notes = NULL
+        }
+    };
+}
+
+void globalHandlerClearNotesSelected() {
+    if (!globalStateHandler) return;
+    _freeNoteSelector();
+}
+
+static int _initSelectorVector(struct notes_selection* selector) {
+    if (!selector) return 1;
+    if (!(selector->notes)) {
+        uint32_t cap = 32;
+        selector->notes = calloc(cap, sizeof(Note));
+        selector->capacity = cap*(!!(selector->notes));
+        selector->notesNum = 0;
+    }
+    return !(selector->notes);
+}
+
+static int _selectorVectorDuplicateCapacity(struct notes_selection* selector) {
+    uint32_t oldCap = selector->capacity;
+    uint32_t newCap = (oldCap<<1);
+
+    Note* arr = realloc(selector->notes, newCap*sizeof(Note));
+    if (!arr) return 1;
+
+    selector->capacity = newCap;
+    selector->notes = arr;
+    return 0;
+}
+
+static int _selectorVectorHalveCapacity(struct notes_selection* selector) {
+    uint32_t oldCap = selector->capacity;
+    uint32_t newCap = (oldCap>>1);
+    if (newCap<32) newCap=32;
+
+    Note* arr = realloc(selector->notes, newCap*sizeof(Note));
+    if (!arr) return 1;
+
+    selector->capacity = newCap;
+    selector->notes = arr;
+    return 0;
+}
+
+static int _selectorVectorNoteCompare(const void* a, const void* b) {
+    if (!a && !b) return 0;
+    if (!a || !b) return a?-1:1;
+    
+    Note na = *(Note*)a;
+    Note nb = *(Note*)b;
+
+    if (na->timestamp>nb->timestamp) return 1;
+    if (na->timestamp<nb->timestamp) return -1;
+    return 0;
+}
+
+static int _selectorVectorFindWhereNoteShouldBe(struct notes_selection* selector, Note note) {
+    if (!selector || !(selector->notesNum) || !(selector->notes) || !note) return -1;
+    uint32_t left=0, right=selector->notesNum;
+    uint32_t target=note->timestamp;
+    while (right>left) {
+        uint32_t center = left+((right-left)>>1);
+        if ((selector->notes)[center]==note) return center;
+        if ((selector->notes)[center]->timestamp<target) left=center+1;
+        else right=center;
+    }
+    return right;
+}
+
+static int _selectorVectorFindNoteLinearlyAfter(struct notes_selection* selector, Note note, int idx) {
+    if (idx<0) return idx;
+    uint32_t target=note->timestamp, nidx=(uint32_t)idx;
+    while (nidx<selector->notesNum && note!=(selector->notes)[nidx] && target<=(selector->notes)[nidx]->timestamp) nidx++;
+    if (nidx>=selector->notesNum || note!=(selector->notes)[nidx]) return -1;
+    else return (int)nidx;
+}
+
+static int _selectorVectorFind(struct notes_selection* selector, Note note) {
+    int idx = _selectorVectorFindWhereNoteShouldBe(selector, note);
+    return _selectorVectorFindNoteLinearlyAfter(selector, note, idx);
+}
+
+/*static*/ void _selectorVectorSort(struct notes_selection* selector) {
+    if (!selector || !(selector->notes) || !(selector->notesNum)) return;
+    qsort(selector->notes, selector->notesNum, sizeof(Note), _selectorVectorNoteCompare);
+}
+
+static void _selectorVectorAdd(struct notes_selection* selector, Note note) {
+    if (_initSelectorVector(selector) || !note) return;
+    //(selector->notes)[(selector->notesNum)++] = note;
+    //_selectorVectorSort(selector);
+    int idx = _selectorVectorFindWhereNoteShouldBe(selector, note);
+    int existIdx = _selectorVectorFindNoteLinearlyAfter(selector, note, idx);
+
+    if (existIdx>=0) return;
+    if (selector->capacity<=selector->notesNum && _selectorVectorDuplicateCapacity(selector)) return;
+    memmove(selector->notes+idx+1, selector->notes+idx, (selector->notesNum-idx)*sizeof(Note));
+    (selector->notes)[idx]=note;
+    (selector->notesNum)++;
+}
+
+static void _selectorVectorRemove(struct notes_selection* selector, Note note) {
+    if (_initSelectorVector(selector) || !note) return;
+    int idx=_selectorVectorFind(selector, note), num=selector->notesNum;
+    if (idx<0) return;
+    (selector->notes)[idx]=NULL;
+    if (num-idx-1) memmove(selector->notes+idx, selector->notes+idx+1, (num-idx-1)*sizeof(Note));
+    if (((selector->capacity)>>2)>(--(selector->notesNum))) _selectorVectorHalveCapacity(selector);
+}
+
+
+void globalHandlerAddNoteToSelected(Note note) {
+    if (!globalStateHandler || !note) return;
+    _selectorVectorAdd(&(globalStateHandler->selector.primary), note);
+}
+
+void globalHandlerRemoveSelectedNote(Note note) {
+    if (!globalStateHandler || !note) return;
+    _selectorVectorRemove(&(globalStateHandler->selector.primary), note);
+}
+
+int globalHandlerIsNoteSelected(Note note) {
+    if (!globalStateHandler || !note) return 0;
+    if (_selectorVectorFind(&(globalStateHandler->selector.primary), note)>=0) return 1;
+    if (_selectorVectorFind(&(globalStateHandler->selector.secondary), note)>=0) return 1;
+    return 0;
+}
+
+// I should continue from the selectors (changes in both stateHndler.c and certicalKeyboard.c)
