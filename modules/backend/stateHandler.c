@@ -52,8 +52,10 @@ struct backend_state_handler _globalHandler = {
             .keyMin = 255,
             .keyMax = 0,
             .clickHold = 0,
-            .clickTimestamp = 0,
-            .clickNote = 0,
+            .rollRect = {
+                .topLeft = {.fkey=0, .timestamp=0},
+                .bottomRight = {.fkey=0, .timestamp=0},
+            },
             .timestampStart = 0,
             .timestampEnd = 0,
             .capacity = 0,
@@ -64,8 +66,10 @@ struct backend_state_handler _globalHandler = {
             .keyMin = 255,
             .keyMax = 0,
             .clickHold = 0,
-            .clickTimestamp = 0,
-            .clickNote = 0,
+            .rollRect = {
+                .topLeft = {.fkey=0, .timestamp=0},
+                .bottomRight = {.fkey=0, .timestamp=0},
+            },
             .timestampStart = 0,
             .timestampEnd = 0,
             .capacity = 0,
@@ -451,8 +455,10 @@ static void _freeNoteSelector() {
             .keyMin = 255,
             .keyMax = 0,
             .clickHold = 0,
-            .clickTimestamp = 0,
-            .clickNote = 0,
+            .rollRect = {
+                .topLeft = {.fkey=0, .timestamp=0},
+                .bottomRight = {.fkey=0, .timestamp=0},
+            },
             .timestampStart = 0,
             .timestampEnd = 0,
             .capacity = 0,
@@ -463,8 +469,10 @@ static void _freeNoteSelector() {
             .keyMin = 255,
             .keyMax = 0,
             .clickHold = 0,
-            .clickTimestamp = 0,
-            .clickNote = 0,
+            .rollRect = {
+                .topLeft = {.fkey=0, .timestamp=0},
+                .bottomRight = {.fkey=0, .timestamp=0},
+            },
             .timestampStart = 0,
             .timestampEnd = 0,
             .capacity = 0,
@@ -515,6 +523,15 @@ static int _selectorVectorHalveCapacity(struct notes_selection* selector) {
     return 0;
 }
 
+static int _intCompareFunc(const void* a, const void* b) {
+    if (!a && !b) return 0;
+    if (!a || !b) return a?-1:1;
+    int na=*(int*)a, nb = *(int*)b;
+    if (na>nb) return 1;
+    if (na<nb) return -1;
+    return 0;
+}
+
 static int _selectorVectorNoteCompare(const void* a, const void* b) {
     if (!a && !b) return 0;
     if (!a || !b) return a?-1:1;
@@ -527,8 +544,24 @@ static int _selectorVectorNoteCompare(const void* a, const void* b) {
     return 0;
 }
 
+static int _tracksVectorFindWhereNoteShouldBe(Track track, Note note) {
+    if (!track || !(track->notes) || !note) return -1;
+    uint32_t left=0, right=track->numElements;
+    uint32_t target=note->timestamp;
+    while (right>left) {
+        uint32_t center = left+((right-left)>>1);
+        if ((track->notes)[center]==note) return center;
+        if ((track->notes)[center]->timestamp<target) left=center+1;
+        else right=center;
+    }
+    uint32_t nidx=(uint32_t)right;
+    while (nidx<track->numElements && note!=(track->notes)[nidx] && target<=(track->notes)[nidx]->timestamp) nidx++;
+    if (nidx>=track->numElements || note!=(track->notes)[nidx]) return -1;
+    else return (int)nidx;
+}
+
 static int _selectorVectorFindWhereNoteShouldBe(struct notes_selection* selector, Note note) {
-    if (!selector || !(selector->notesNum) || !(selector->notes) || !note) return -1;
+    if (!selector || !(selector->notes) || !note) return -1;
     uint32_t left=0, right=selector->notesNum;
     uint32_t target=note->timestamp;
     while (right>left) {
@@ -581,6 +614,30 @@ static void _selectorVectorRemove(struct notes_selection* selector, Note note) {
     if (((selector->capacity)>>2)>(--(selector->notesNum))) _selectorVectorHalveCapacity(selector);
 }
 
+static void _selectorVectorToggle(struct notes_selection* selector, Note note) {
+    if (_initSelectorVector(selector) || !note) return;
+    int idx = _selectorVectorFindWhereNoteShouldBe(selector, note), num=selector->notesNum;;
+    int existIdx = _selectorVectorFindNoteLinearlyAfter(selector, note, idx);
+    if (existIdx>=0) {
+        (selector->notes)[existIdx]=NULL;
+        if (num-existIdx-1) memmove(selector->notes+existIdx, selector->notes+existIdx+1, (num-existIdx-1)*sizeof(Note));
+        if (((selector->capacity)>>2)>(--(selector->notesNum))) _selectorVectorHalveCapacity(selector);
+    } else {
+        if (selector->capacity<=(uint32_t)num && _selectorVectorDuplicateCapacity(selector)) return;
+        memmove(selector->notes+idx+1, selector->notes+idx, (num-idx)*sizeof(Note));
+        (selector->notes)[idx]=note;
+        (selector->notesNum)++;
+    }
+}
+
+static struct roll_rect _selectorGetRollRect(struct notes_selection* selector) {
+    if (!selector || !(selector->clickHold)) return (struct roll_rect){.topLeft=(struct roll_point){.fkey=-1, .timestamp=0}, .bottomRight=(struct roll_point){.fkey=-1, .timestamp=0}};
+    struct roll_rect rr = selector->rollRect;
+    struct roll_point topLeft = {.fkey=floatMax(rr.topLeft.fkey, rr.bottomRight.fkey), .timestamp=uint32Min(rr.topLeft.timestamp, rr.bottomRight.timestamp)};
+    struct roll_point bottomRight = {.fkey=floatMin(rr.topLeft.fkey, rr.bottomRight.fkey), .timestamp=uint32Max(rr.topLeft.timestamp, rr.bottomRight.timestamp)};
+    return (struct roll_rect){.topLeft=topLeft, .bottomRight=bottomRight};
+}
+
 
 void globalHandlerAddNoteToSelected(Note note) {
     if (!globalStateHandler || !note) return;
@@ -592,6 +649,11 @@ void globalHandlerRemoveSelectedNote(Note note) {
     _selectorVectorRemove(&(globalStateHandler->selector.primary), note);
 }
 
+void globalHandlerToggleSelectedNote(Note note) {
+    if (!globalStateHandler || !note) return;
+    _selectorVectorToggle(&(globalStateHandler->selector.primary), note);
+}
+
 int globalHandlerIsNoteSelected(Note note) {
     if (!globalStateHandler || !note) return 0;
     if (_selectorVectorFind(&(globalStateHandler->selector.primary), note)>=0) return 1;
@@ -599,4 +661,76 @@ int globalHandlerIsNoteSelected(Note note) {
     return 0;
 }
 
-// I should continue from the selectors (changes in both stateHndler.c and certicalKeyboard.c)
+int globalHandlerGetNumberOfActuallySelectedNotes() {
+    if (!globalStateHandler) return 0;
+    return globalStateHandler->selector.primary.notesNum;
+}
+
+int globalHandlerGetNumberOfVisuallySelectedNotes() {
+    if (!globalStateHandler) return 0;
+    return globalStateHandler->selector.primary.notesNum+globalStateHandler->selector.secondary.notesNum;
+}
+
+void globalHandlerDeleteSelectedNotes() {
+    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum) || globalStateHandler->selectedTrack<0 || !(globalStateHandler->project->tracks)) return;
+    uint32_t num = globalStateHandler->selector.primary.notesNum;
+    int* indexes = malloc(num*sizeof(int));
+    if (!indexes) return;
+
+    Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
+
+    for (uint32_t i=0; i<num; i++) {
+        indexes[i] = _tracksVectorFindWhereNoteShouldBe(track, (globalStateHandler->selector.primary.notes)[i]);
+    }
+    qsort(indexes, num, sizeof(int), _intCompareFunc);
+    uint32_t idx=0;
+    while (idx<num && indexes[idx]<0) idx++;
+    for (uint32_t i=idx; i<num; i++) free((track->notes)[indexes[i]]);
+
+    uint32_t read=0, write=0, delete=idx;
+    while (read<track->numElements) {
+        if (delete<num && indexes[delete]==(int)read) {
+            delete++;
+            read++;
+            continue;
+        }
+        (track->notes)[write++] = (track->notes)[read++];
+    }
+    track->numElements = write;
+
+    free(indexes);
+    trackVectorResizeToFitJustNotes(track);
+    globalHandlerClearNotesSelected();
+}
+
+
+void globalHandlerSelectGroupPress(float fkey, uint32_t timestamp) {
+    if (!globalStateHandler || fkey>128 || fkey<0) return;
+    globalStateHandler->selector.secondary.rollRect.topLeft = (struct roll_point){.fkey=fkey, .timestamp=timestamp};
+    globalStateHandler->selector.secondary.rollRect.bottomRight = (struct roll_point){.fkey=fkey, .timestamp=timestamp};
+    globalStateHandler->selector.secondary.clickHold = 1;
+}
+
+void globalHandlerSelectGroupHold(float fkey, uint32_t timestamp) {
+    if (!globalStateHandler || !(globalStateHandler->selector.secondary.clickHold)) return;
+    if (fkey>=0 && fkey<128) globalStateHandler->selector.secondary.rollRect.bottomRight = (struct roll_point){.fkey=fkey, .timestamp=timestamp};
+    globalStateHandler->selector.secondary.clickHold = 1;
+}
+
+int globalHandlerIsSelectGroupActive() {
+    if (!globalStateHandler) return 0;
+    return globalStateHandler->selector.secondary.clickHold;
+}
+
+struct roll_rect globalHandlerGetSelectGroupRect() {
+    if (!globalStateHandler) return _selectorGetRollRect(NULL);
+    return _selectorGetRollRect(&(globalStateHandler->selector.secondary));
+}
+
+void globalHandlerSelectGroupRelease(float fkey, uint32_t timestamp) {
+    if (!globalStateHandler || !(globalStateHandler->selector.secondary.clickHold)) return;
+    if (fkey>=0 && fkey<128) globalStateHandler->selector.secondary.rollRect.bottomRight = (struct roll_point){.fkey=fkey, .timestamp=timestamp};
+    globalStateHandler->selector.secondary.clickHold = 0;
+}
+
+// I should continue from the selectors (changes in both stateHndler.c and verticalKeyboard.c)

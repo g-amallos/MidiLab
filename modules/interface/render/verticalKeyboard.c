@@ -15,10 +15,11 @@
 float verticalKeyboardHeight=0;
 int rollKeyHovering=-1, pianoKeyHovering=-1, rollKeyBottom=-1, rollKeyTop=-1;
 uint32_t mouseTimestamp=0, mouseTimestampJumps=0, mouseExactTimestamp=0;
+float mouseFkey=0;
 Color backgroundCol1bvl={20, 20, 24, 255}, backgroundCol2bvl={22,21,25,255};
 
-static Note rollHoveringOverNote=NULL, rollSelectedNote=NULL;
-static int rollHoveringOverNoteIdx=-1, rollHoverNoteType=0, rollSelectedNoteIdx=-1;
+static Note rollHoveringOverNote=NULL;
+static int rollHoveringOverNoteIdx=-1, rollHoverNoteType=0;
 
 static struct {
     uint8_t key;
@@ -35,7 +36,7 @@ uint8_t controlNoteVelocity=127;
 
 static float wkeyHeight=0, wkeyWidth=0, topPadding=15, space=0, keyScrollTarget=71.5, keyScroll=71.5, wkeyRangef=0, keyRange=0, keyRangeShown=0, blackKeyRelativeWidth=0.55, blackKeyRelativeHeight=0.5, octaveHeight=0, rollKeyHeight=0, rollStartX=0, verticalSliderX=0;
 static float scrollYposMin=0, scrollYposMax=0;
-static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, allowClickInRollRect=0, mouseInBHLrect=0;
+static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, allowClickInRollRect=0, allowClickInRect=0, mouseInBHLrect=0;
 static Rectangle vkeysRect={0,0,0,0}, clipRect={0,0,0,0}, rollRect={0,0,0,0};
 
 static double visibleDuration=0, divCurrentTime=0, targetMeasures=0;
@@ -160,7 +161,8 @@ void preCalculateNecessaryVerticalKeyboard() {
     rollRect = (Rectangle){trackLeftWidth+interfaceSpace1, screenSize.y-bottomHalfUsefulHeight+topPadding, screenSize.x-trackLeftWidth+interfaceSpace1, bottomHalfUsefulHeight-topPadding};
     mouseInRollRect = !UIisHoveringOverLayout() && !UIisInTextInput() && !UIexistsFrontLayoutOverlay() && CheckCollisionPointRec(globalMouseHandler.pos, rollRect);
     enum keyboard_render_types kbt = globalStateHandlerGetKeyboardType();
-    allowClickInRollRect = (kbt==T_KEYBOARD_VERTICAL && mouseInRollRect && !(globalHandlerIsPlaying()));
+    allowClickInRect = (kbt==T_KEYBOARD_VERTICAL && !(globalHandlerIsPlaying()));
+    allowClickInRollRect = (allowClickInRect && mouseInRollRect);
 
     Rectangle bhlrect = {0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, bottomHalfUsefulHeight};
     mouseInBHLrect = !UIisHoveringOverLayout() && !UIisInTextInput() && !UIexistsFrontLayoutOverlay() && CheckCollisionPointRec(globalMouseHandler.pos, bhlrect);
@@ -188,6 +190,7 @@ static void updateNecessaryValues() {
 
     if (!mouseInRollRect || !allowClickInRollRect || globalMouseHandler.pos.x<divStartX) mouseExactTimestamp=(1<<31);
     else mouseExactTimestamp=divStartTimestamp+(uint32_t)((globalMouseHandler.pos.x-divStartX)/measureWidth*beatsInMeasure*piecesInBeat);
+    mouseFkey = -1;
 }
 
 void precomputeRollVerticalSlider();
@@ -277,7 +280,10 @@ void preCalculateVerticalKeyboard() {
                 ck->shown=shown;
 
                 ck->rollHover=mouseHoversRoll(ny2, ny2+rollKeyHeight);
-                if (ck->rollHover) rollKeyHovering=idx;
+                if (ck->rollHover) {
+                    rollKeyHovering=idx;
+                    mouseFkey = idx+ (ny2+rollKeyHeight-globalMouseHandler.pos.y)/rollKeyHeight;
+                }
 
                 ck->pianoHover = mouseHoversKey(ny1, ny1+rollKeyHeights[mod], ((ck->type)?blackKeyRelativeWidth:1.0)*wkeyWidth);
 
@@ -615,15 +621,42 @@ static void testRenderMouseTimestamp() {
 }
 
 static void renderWhatMightBeAdded() {
-    if (!mouseInRollRect || rollKeyHovering==-1 || !allowClickInRollRect || globalMouseHandler.down || globalMouseHandler.rightClickPressed || rollHoveringOverNote) return;
-    double mtx = divStartX+(((double)mouseTimestamp)/(piecesInBeat*beatsInMeasure)-globalHandlerDurationToMeasures(divCurrentTime))*measureWidth;
-    double mtw = ((double)controlNoteSize)/(piecesInBeat*beatsInMeasure)*measureWidth;
-    
-    Rectangle rect = {mtx, pianoRollKeys[rollKeyHovering].rollY, mtw, pianoRollKeys[rollKeyHovering].rollHeight};
-    Color interior = blendColors(getSelectedTrackThemeColor(), (Color){200,200,200,255}, 0.25);
-    interior.a = 100;
+    double divOffset = globalHandlerDurationToMeasures(divCurrentTime);
+    double mtx, mtw;
+    Rectangle rect;
+    Color interior;
 
-    DrawRectangleRounded(rectangleAnd(rect, rollRect), 1.0, 5, interior);
+    int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
+    int isGroupSelectionActive = globalHandlerIsSelectGroupActive();
+
+    if (mouseInRollRect && rollKeyHovering!=-1 && allowClickInRollRect && !controlDown && !isGroupSelectionActive && !(globalMouseHandler.down) && !(globalMouseHandler.rightClickPressed) && !rollHoveringOverNote) {
+        mtx = divStartX+(((double)mouseTimestamp)/(piecesInBeat*beatsInMeasure)-divOffset)*measureWidth;
+        mtw = ((double)controlNoteSize)/(piecesInBeat*beatsInMeasure)*measureWidth;
+
+        rect = (Rectangle){mtx, pianoRollKeys[rollKeyHovering].rollY, mtw, pianoRollKeys[rollKeyHovering].rollHeight};
+        interior = blendColors(getSelectedTrackThemeColor(), (Color){200,200,200,255}, 0.25);
+        interior.a = 100;
+
+        DrawRectangleRounded(rectangleAnd(rect, rollRect), 1.0, 5, interior);
+    }
+
+    if (allowClickInRect) {
+        if (isGroupSelectionActive) {
+            //printf("Ran\n");
+
+            interior = blendColors(getSelectedTrackThemeColor(), (Color){180,180,180,255}, 0.25);
+            struct roll_rect trect = globalHandlerGetSelectGroupRect();
+            interior.a = 120;
+            mtx = divStartX+(((double)(trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)-divOffset)*measureWidth;
+            mtw = ((double)(trect.bottomRight.timestamp-trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)*measureWidth;
+            int ft=(int)floor(trect.topLeft.fkey), fb=(int)floor(trect.bottomRight.fkey);
+            double mty = pianoRollKeys[ft].rollY+rollKeyHeight*(1-trect.topLeft.fkey+ft);
+            double mth = pianoRollKeys[fb].rollY+rollKeyHeight*(1-trect.bottomRight.fkey+fb);
+            mth = mth-mty;
+            rect = (Rectangle){mtx, mty, mtw, mth};
+            DrawRectangleRec(rectangleAnd(rect, rollRect), interior);
+        }
+    }
 }
 
 inline static int isNoteWithinBounds(uint32_t boundStart, uint32_t boundEnd, uint32_t noteStart, uint32_t noteDuration) {
@@ -682,6 +715,8 @@ void renderNotes() {
 
 
         tcol = colors[pianoRollKeys[note->key].type];
+        int isVisuallySelected = globalHandlerIsNoteSelected(note);
+
         if (!isPlaying && !rollHoveringOverNote && isHoveringOverNote(note)) {
             rollHoveringOverNote = note;
             rollHoveringOverNoteIdx = i;
@@ -695,12 +730,12 @@ void renderNotes() {
                 rollHoverNoteType = 1;
                 setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
             }
-        } else if (rollSelectedNote==note) {
+        } else if (isVisuallySelected) {
             tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
         } else if (isPlaying && isTimestampWithinNote(note, timelineTimestamp)) {
             tcol = blendColors(tcol, (Color){200,200,200,255}, 0.45);
         }
-        renderNote(note, tcol, (rollHoveringOverNote==note)||(rollSelectedNote==note));
+        renderNote(note, tcol, (rollHoveringOverNote==note)||isVisuallySelected);
     }
 
 }
@@ -756,6 +791,8 @@ static void handleClick() {
         }
     }
 
+    int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
+
     if (globalMouseHandler.pressed) {
         printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
         if (mouseInRollRect && allowClickInRollRect) {
@@ -763,14 +800,14 @@ static void handleClick() {
             if (mouseInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
                 //printf("Hovering over note: %p | idx=%d\n", (void*)rollHoveringOverNote, rollHoveringOverNoteIdx);
                 if (rollHoveringOverNote) {
-                    //trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
-                    // Should select note in this track to show stats
-                    rollSelectedNote = rollHoveringOverNote;
-                    rollSelectedNoteIdx = rollHoveringOverNoteIdx;
+                    if (controlDown) globalHandlerToggleSelectedNote(rollHoveringOverNote);
+                    else globalHandlerClearNotesSelected();
+                } else if (controlDown) {
+                    globalHandlerSelectGroupPress(mouseFkey, mouseExactTimestamp);
                 } else {
                     Track track = trackGetSelectedTrack();
                     uint8_t program = trackGetProgram(track);
-                    rollSelectedNote = trackCreateNoteInTrack(track, rollKeyHovering, controlNoteVelocity, mouseTimestamp, controlNoteSize);
+                    Note nt = trackCreateNoteInTrack(track, rollKeyHovering, controlNoteVelocity, mouseTimestamp, controlNoteSize);
                     synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track));
 
                     releaseEvent.key = rollKeyHovering;
@@ -778,28 +815,34 @@ static void handleClick() {
                     releaseEvent.program = program;
                     releaseEvent.channel = 0;
 
-
+                    if (controlDown) globalHandlerAddNoteToSelected(nt);
+                    else globalHandlerClearNotesSelected();
                 }
-
-            } else rollSelectedNote=NULL;
-        } else if (mouseInBHLrect) {
-            rollSelectedNote=NULL;
-            rollSelectedNoteIdx=-1;
-            printf("Huh??\n");
-        } 
-    } else if (globalMouseHandler.rightClickPressed) {
+            }
+        }
+    } else if (globalMouseHandler.down) {
+        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupHold(mouseFkey, mouseExactTimestamp);
+    } else if (globalMouseHandler.released) {
+        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupRelease(mouseFkey, mouseExactTimestamp);
+    }
+    
+    if (globalMouseHandler.rightClickPressed) {
         if (mouseInRollRect && allowClickInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
             if (rollHoveringOverNote) {
-                if (rollSelectedNote==rollHoveringOverNote) {
-                    rollSelectedNote=NULL;
-                    rollSelectedNoteIdx=-1;
-                }
+                globalHandlerRemoveSelectedNote(rollHoveringOverNote);
                 trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
             }
         }
     }
 
     int allowedShortcuts = (!UIisHoveringOverLayout() && !UIisInTextInput());
+    int delPressed = IsKeyPressed(KEY_DELETE);
+    if (allowedShortcuts && delPressed) {
+        globalHandlerDeleteSelectedNotes();
+    }
+
+
+
     int zx = IsKeyPressed(KEY_D)-IsKeyPressed(KEY_A);
 
     if (zx && allowedShortcuts) changeControlDuration(zx);

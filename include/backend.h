@@ -97,6 +97,16 @@ enum keyboard_render_types {
     T_KEYBOARD_NONE
 };
 
+struct roll_point {
+    float fkey;
+    uint32_t timestamp;
+};
+
+struct roll_rect {
+    struct roll_point topLeft;
+    struct roll_point bottomRight;
+};
+
 
 extern StateHandler globalStateHandler;         // Another reference the whole program will use for the project
 double globalHandlerGetTime();
@@ -134,8 +144,17 @@ void globalHandlerSetToPreviousMeasure();
 void globalHandlerClearNotesSelected();
 void globalHandlerAddNoteToSelected(Note note);
 void globalHandlerRemoveSelectedNote(Note note);
+void globalHandlerToggleSelectedNote(Note note);
 int globalHandlerIsNoteSelected(Note note);
+int globalHandlerGetNumberOfActuallySelectedNotes();
+int globalHandlerGetNumberOfVisuallySelectedNotes();
+void globalHandlerDeleteSelectedNotes();
 
+void globalHandlerSelectGroupPress(float fkey, uint32_t timestamp);
+void globalHandlerSelectGroupHold(float fkey, uint32_t timestamp);
+void globalHandlerSelectGroupRelease(float fkey, uint32_t timestamp);
+int globalHandlerIsSelectGroupActive();
+struct roll_rect globalHandlerGetSelectGroupRect();
 
 
 /* Actions (backend/actions.c) */
