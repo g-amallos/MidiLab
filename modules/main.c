@@ -82,15 +82,15 @@ int testIteration() {
     int inputAllowed = startupInputAllowed();
     int renderAllowed = startupRenderAllowed();
 
+    updateRenderGlobalVariables();      // First update global values
+
     if (inputAllowed && renderAllowed) {
         globalHandlerUpdateTick();
-    
-        updateRenderGlobalVariables();      // First update global values
         updateInactivityStruct();
     }
 
     if (renderAllowed) render();
-    else startupScreenRender(windowSize);
+    else startupScreenRender(screenSize);
 
     if (inputAllowed && renderAllowed) {
         actionExecuteAllDeferred();

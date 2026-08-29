@@ -154,7 +154,10 @@ void globalHandlerSelectGroupPress(float fkey, uint32_t timestamp);
 void globalHandlerSelectGroupHold(float fkey, uint32_t timestamp);
 void globalHandlerSelectGroupRelease(float fkey, uint32_t timestamp);
 int globalHandlerIsSelectGroupActive();
+uint32_t globalHandlerGetNumberOfSelectedNotes();
+void globalHandlerSelectGroupClear();
 struct roll_rect globalHandlerGetSelectGroupRect();
+struct roll_rect globalHandlerGetCroppedRectangleForSelectedNotes();
 
 
 /* Actions (backend/actions.c) */

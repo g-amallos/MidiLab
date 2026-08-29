@@ -102,3 +102,7 @@ Rectangle rectangleClip(Rectangle source, Rectangle clip) {
 
     return (Rectangle){nx1, ny1, nx2-nx1, ny2-ny1};
 }
+
+Rectangle rectangleIncrease(Rectangle rect, Vector2 topLeft, Vector2 bottomRight) {
+    return (Rectangle){rect.x-topLeft.x, rect.y-topLeft.y, rect.width+topLeft.x+bottomRight.x, rect.height+topLeft.y+bottomRight.y};
+}

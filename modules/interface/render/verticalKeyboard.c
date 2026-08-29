@@ -14,7 +14,7 @@
 
 float verticalKeyboardHeight=0;
 int rollKeyHovering=-1, pianoKeyHovering=-1, rollKeyBottom=-1, rollKeyTop=-1;
-uint32_t mouseTimestamp=0, mouseTimestampJumps=0, mouseExactTimestamp=0;
+uint32_t mouseTimestamp=0, mouseTimestampJumps=0, mouseExactTimestamp=0, mouseExactTimestampForGroupSelection=0;
 float mouseFkey=0;
 Color backgroundCol1bvl={20, 20, 24, 255}, backgroundCol2bvl={22,21,25,255};
 
@@ -133,7 +133,6 @@ void preCalculateNecessaryVerticalKeyboard() {
     space=0.5*interfaceSpace1;
     verticalKeyboardHeight = 0.7*screenSize.y;
 
-
     topPadding = floatMax(0.02*screenSize.y, 15);
 
     wkeyHeight = floatMax(0.03*screenSize.y, 20);
@@ -159,6 +158,8 @@ void preCalculateNecessaryVerticalKeyboard() {
     clipRect = (Rectangle){0, vkeysRect.y-1, screenSize.x, screenSize.y-vkeysRect.y};
 
     rollRect = (Rectangle){trackLeftWidth+interfaceSpace1, screenSize.y-bottomHalfUsefulHeight+topPadding, screenSize.x-trackLeftWidth+interfaceSpace1, bottomHalfUsefulHeight-topPadding};
+    if (keyScroll-keyRangeShown<-2) rollRect.height += rollKeyHeight*(keyScroll-keyRangeShown+2);
+
     mouseInRollRect = !UIisHoveringOverLayout() && !UIisInTextInput() && !UIexistsFrontLayoutOverlay() && CheckCollisionPointRec(globalMouseHandler.pos, rollRect);
     enum keyboard_render_types kbt = globalStateHandlerGetKeyboardType();
     allowClickInRect = (kbt==T_KEYBOARD_VERTICAL && !(globalHandlerIsPlaying()));
@@ -190,6 +191,10 @@ static void updateNecessaryValues() {
 
     if (!mouseInRollRect || !allowClickInRollRect || globalMouseHandler.pos.x<divStartX) mouseExactTimestamp=(1<<31);
     else mouseExactTimestamp=divStartTimestamp+(uint32_t)((globalMouseHandler.pos.x-divStartX)/measureWidth*beatsInMeasure*piecesInBeat);
+    if (allowClickInRect) {
+        if (globalMouseHandler.pos.x>=divStartX) mouseExactTimestampForGroupSelection = divStartTimestamp+(uint32_t)((globalMouseHandler.pos.x-divStartX)/measureWidth*beatsInMeasure*piecesInBeat);
+        else mouseExactTimestampForGroupSelection = divStartTimestamp;
+    } else mouseExactTimestampForGroupSelection=(1<<31);
     mouseFkey = -1;
 }
 
@@ -218,7 +223,7 @@ static int mouseHoversKey(float y1, float y2, float width) {
 
 
 static void updateRects() {
-    if ((mouseInRollRect || mouseInKeyRect) && globalMouseHandler.scroll!=0 && !IsKeyDown(KEY_LEFT_CONTROL)) {
+    if ((mouseInRollRect || mouseInKeyRect) && globalMouseHandler.scroll!=0 && !(globalMouseHandler.down) && !IsKeyDown(KEY_LEFT_CONTROL)) {
         keyScrollTarget += 2*globalMouseHandler.scroll;
     }
     clipKeyScrollTarget();
@@ -241,6 +246,7 @@ void preCalculateVerticalKeyboard() {
     int aligni=topKey, mod=0;
 
     float maxY=screenSize.y, minY=screenSize.y-bottomHalfUsefulHeight+topPadding;
+    float tmy=floatClip(globalMouseHandler.pos.y, y1, floatMin(screenSize.y, rollRect.y+rollRect.height));
 
 
     for (aligni=topKey; ; aligni--) {
@@ -280,10 +286,8 @@ void preCalculateVerticalKeyboard() {
                 ck->shown=shown;
 
                 ck->rollHover=mouseHoversRoll(ny2, ny2+rollKeyHeight);
-                if (ck->rollHover) {
-                    rollKeyHovering=idx;
-                    mouseFkey = idx+ (ny2+rollKeyHeight-globalMouseHandler.pos.y)/rollKeyHeight;
-                }
+                if (ck->rollHover) rollKeyHovering=idx;
+                if (tmy>=ny2 && tmy<ny2+rollKeyHeight) mouseFkey=idx+(ny2+rollKeyHeight-tmy)/rollKeyHeight;
 
                 ck->pianoHover = mouseHoversKey(ny1, ny1+rollKeyHeights[mod], ((ck->type)?blackKeyRelativeWidth:1.0)*wkeyWidth);
 
@@ -467,7 +471,12 @@ void renderRollBackground() {
 }
 
 void setupBackground() {
-    DrawRectangle(0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, bottomHalfUsefulHeight, backgroundCol1bvl);
+    float h=bottomHalfUsefulHeight;
+    //if (keyScroll-keyRangeShown<0) {
+    //    h+=rollKeyHeight*(keyScroll-keyRangeShown);
+    //    //printf("keyScroll=%.3f | offset=%.3f\n", keyScroll, rollKeyHeight*(keyScroll-keyRangeShown));
+    //}
+    DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, h}, backgroundCol1bvl);
 }
 
 
@@ -476,6 +485,10 @@ static void renderOverlayToHideImperfections() {
     DrawRectangleRec((Rectangle){x, vkeysRect.y-topPadding, interfaceSpace1*2, vkeysRect.height+topPadding}, backgroundCol1bvl);
     DrawRectangleRec((Rectangle){x, screenSize.y-bottomHalfUsefulHeight, screenSize.x-x, topPadding}, backgroundCol1bvl);
 
+    if (keyScroll-keyRangeShown<-2) {
+        float h = (keyScroll-keyRangeShown+2)*rollKeyHeight;
+        DrawRectangleRec((Rectangle){x, screenSize.y+h, screenSize.x-x, -h}, backgroundCol1bvl);
+    }
 }
 
 
@@ -628,6 +641,7 @@ static void renderWhatMightBeAdded() {
 
     int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
     int isGroupSelectionActive = globalHandlerIsSelectGroupActive();
+    uint32_t selNotes = globalHandlerGetNumberOfSelectedNotes();
 
     if (mouseInRollRect && rollKeyHovering!=-1 && allowClickInRollRect && !controlDown && !isGroupSelectionActive && !(globalMouseHandler.down) && !(globalMouseHandler.rightClickPressed) && !rollHoveringOverNote) {
         mtx = divStartX+(((double)mouseTimestamp)/(piecesInBeat*beatsInMeasure)-divOffset)*measureWidth;
@@ -646,7 +660,7 @@ static void renderWhatMightBeAdded() {
 
             interior = blendColors(getSelectedTrackThemeColor(), (Color){180,180,180,255}, 0.25);
             struct roll_rect trect = globalHandlerGetSelectGroupRect();
-            interior.a = 120;
+            interior.a = 100;
             mtx = divStartX+(((double)(trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)-divOffset)*measureWidth;
             mtw = ((double)(trect.bottomRight.timestamp-trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)*measureWidth;
             int ft=(int)floor(trect.topLeft.fkey), fb=(int)floor(trect.bottomRight.fkey);
@@ -655,6 +669,22 @@ static void renderWhatMightBeAdded() {
             mth = mth-mty;
             rect = (Rectangle){mtx, mty, mtw, mth};
             DrawRectangleRec(rectangleAnd(rect, rollRect), interior);
+        }
+
+        if (selNotes>1) {
+            interior = blendColors(getSelectedTrackThemeColor(), (Color){180,180,180,255}, 0.25);
+            struct roll_rect trect = globalHandlerGetCroppedRectangleForSelectedNotes();
+            interior.a = 30;
+            mtx = divStartX+(((double)(trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)-divOffset)*measureWidth;
+            mtw = ((double)(trect.bottomRight.timestamp-trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)*measureWidth;
+            int ft=(int)floor(trect.topLeft.fkey), fb=(int)floor(trect.bottomRight.fkey);
+            double mty = pianoRollKeys[ft].rollY+rollKeyHeight*(1-trect.topLeft.fkey+ft);
+            double mth = pianoRollKeys[fb].rollY+rollKeyHeight*(1-trect.bottomRight.fkey+fb);
+            mth = mth-mty;
+            rect = (Rectangle){mtx, mty, mtw, mth};
+            rect = rectangleAnd(rect, rectangleIncrease(rollRect, (Vector2){4,2}, (Vector2){4,2}));
+            DrawRectangleRec(rect, interior);
+            DrawRectangleLinesEx(rect, 2, getSelectedTrackThemeColor());
         }
     }
 }
@@ -667,6 +697,9 @@ inline static int isNoteWithinBounds(uint32_t boundStart, uint32_t boundEnd, uin
 
 
 inline static void renderNote(Note note, Color color, int isHovering) {
+    float y=pianoRollKeys[note->key].rollY, h=pianoRollKeys[note->key].rollHeight;
+    if (y+h<rollRect.y || y>rollRect.y+rollRect.height) return;
+
     double mtx = divStartX+(((double)(note->timestamp))/(piecesInBeat*beatsInMeasure)-globalHandlerDurationToMeasures(divCurrentTime))*measureWidth;
     double mtw = ((double)(note->duration))/(piecesInBeat*beatsInMeasure)*measureWidth;
 
@@ -715,13 +748,17 @@ void renderNotes() {
 
 
         tcol = colors[pianoRollKeys[note->key].type];
-        int isVisuallySelected = globalHandlerIsNoteSelected(note);
+        int isVisuallySelected = (!isPlaying && globalHandlerIsNoteSelected(note));
+        int isVisuallyHovered = (!isPlaying && !rollHoveringOverNote && isHoveringOverNote(note));
 
-        if (!isPlaying && !rollHoveringOverNote && isHoveringOverNote(note)) {
+        if (isVisuallySelected) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.5);
+        else if (isVisuallyHovered) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
+        else if (isPlaying && isTimestampWithinNote(note, timelineTimestamp)) tcol = blendColors(tcol, (Color){200,200,200,255}, 0.45);
+        
+
+        if (isVisuallyHovered) {
             rollHoveringOverNote = note;
             rollHoveringOverNoteIdx = i;
-            tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
-
             uint32_t mn = uint32Min((mouseTimestampJumps<<1), (note->duration>>1));
             if (note->timestamp+note->duration-mouseExactTimestamp<=mn) {
                 rollHoverNoteType = 2;
@@ -730,10 +767,6 @@ void renderNotes() {
                 rollHoverNoteType = 1;
                 setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
             }
-        } else if (isVisuallySelected) {
-            tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
-        } else if (isPlaying && isTimestampWithinNote(note, timelineTimestamp)) {
-            tcol = blendColors(tcol, (Color){200,200,200,255}, 0.45);
         }
         renderNote(note, tcol, (rollHoveringOverNote==note)||isVisuallySelected);
     }
@@ -766,6 +799,48 @@ void renderBottomKeyboardTimeLine() {
     }
 }
 
+static void _groupSelectionScrollIfNeeded() {
+    float mx=globalMouseHandler.pos.x, my=globalMouseHandler.pos.y;
+    float vx=floatClip((mx-rollRect.x)/rollRect.width, 0, 1), vy=floatClip((my-rollRect.y)/rollRect.height, 0, 1);
+    // keyScrollTarget
+    double edgeX=0.15, edgeY=0.15;
+
+    double ctime = globalHandlerGetTime();
+    double cdur = globalHandlerGetVisibleDuration();
+
+    if (vx<edgeX) {
+        if (ctime>0) {
+            double speed = (vx/edgeX)-1.0;
+            double offset = 0.02*cdur*speed;
+            globalHandlerSetTime(ctime+offset);
+        } else globalHandlerSetTime(0);
+
+    } else if (vx>1-edgeX) {
+        double speed = (vx-1.0+edgeX)/edgeX;
+        double offset = 0.02*cdur*speed;
+        globalHandlerSetTime(ctime+offset);
+    }
+
+    if (vy<edgeY) {
+        double speed = 1.0-(vy/edgeY);
+        keyScrollTarget += 0.05*keyRangeShown*speed;
+    } else if (vy>1-edgeY) {
+        double speed = (1.0-edgeY-vy)/edgeY;
+        keyScrollTarget += 0.05*keyRangeShown*speed;
+    }
+    clipKeyScrollTarget();
+}
+
+void order2PrecomputeRoll() {
+    int isPlaying = globalHandlerIsPlaying();
+    int mouseDown = globalMouseHandler.down;
+    int groupSelActive = globalHandlerIsSelectGroupActive();
+    if (!isPlaying && mouseDown && groupSelActive) {
+        _groupSelectionScrollIfNeeded();
+    }
+
+}
+
 static void changeControlDuration(int zx) {
     if (zx>0 && UINT32_MAX-mouseTimestampJumps>controlNoteSize) {
         controlNoteSize = mouseTimestampJumps*((controlNoteSize/mouseTimestampJumps)+1);
@@ -782,6 +857,19 @@ static void renderSideInfo() {
     
 }
 
+
+static void handlerIntermediateEvents() {
+    if (globalHandlerIsPlaying() && globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupClear();
+
+    int allowedShortcuts = (!UIisHoveringOverLayout() && !UIisInTextInput());
+    int delPressed = IsKeyPressed(KEY_DELETE);
+    if (allowedShortcuts && delPressed) {
+        globalHandlerDeleteSelectedNotes();
+    }
+
+    int zx = IsKeyPressed(KEY_D)-IsKeyPressed(KEY_A);
+    if (zx && allowedShortcuts) changeControlDuration(zx);
+}
 
 static void handleClick() {
     if (globalMouseHandler.released) {
@@ -803,7 +891,7 @@ static void handleClick() {
                     if (controlDown) globalHandlerToggleSelectedNote(rollHoveringOverNote);
                     else globalHandlerClearNotesSelected();
                 } else if (controlDown) {
-                    globalHandlerSelectGroupPress(mouseFkey, mouseExactTimestamp);
+                    globalHandlerSelectGroupPress(mouseFkey, mouseExactTimestampForGroupSelection);
                 } else {
                     Track track = trackGetSelectedTrack();
                     uint8_t program = trackGetProgram(track);
@@ -821,9 +909,9 @@ static void handleClick() {
             }
         }
     } else if (globalMouseHandler.down) {
-        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupHold(mouseFkey, mouseExactTimestamp);
+        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupHold(mouseFkey, mouseExactTimestampForGroupSelection);
     } else if (globalMouseHandler.released) {
-        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupRelease(mouseFkey, mouseExactTimestamp);
+        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupRelease(mouseFkey, mouseExactTimestampForGroupSelection);
     }
     
     if (globalMouseHandler.rightClickPressed) {
@@ -834,19 +922,6 @@ static void handleClick() {
             }
         }
     }
-
-    int allowedShortcuts = (!UIisHoveringOverLayout() && !UIisInTextInput());
-    int delPressed = IsKeyPressed(KEY_DELETE);
-    if (allowedShortcuts && delPressed) {
-        globalHandlerDeleteSelectedNotes();
-    }
-
-
-
-    int zx = IsKeyPressed(KEY_D)-IsKeyPressed(KEY_A);
-
-    if (zx && allowedShortcuts) changeControlDuration(zx);
-
 }
 
 void renderWholeBottomLayoutTypeVertical() {
@@ -869,5 +944,6 @@ void renderWholeBottomLayoutTypeVertical() {
     renderRollVerticalSlider();
     renderSideInfo();
 
+    handlerIntermediateEvents();
     handleClick();
 }
