@@ -5,11 +5,13 @@
 int backendInit() {
     int ret = createNewProject();
     globalStateHandlerInit();
+    //updateWindowProjectTitle();
     return ret;
 }
 
 
 int backendClose() {
     freeProjectContents(globalProject);
+    projectClose();
     return 0;
 }

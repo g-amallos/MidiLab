@@ -46,6 +46,7 @@ int projectHasUnsavedChanges();
 int projectHasSavedFilepath();
 int projectIsPracticallyEmpty();
 int projectCanSafelyReplaceContents();
+int projectClose();
 
 
 
@@ -80,7 +81,7 @@ float trackGetPanning(Track track);
 void trackSetPanning(Track track, float panning);
 int trackGetSustain(Track track);
 int trackGetProgram(Track track);
-void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration);
+Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration);
 void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx);
 void trackDeleteNoteInTrack(Track track, Note note);
 uint32_t trackPiecesInBeat();
@@ -94,6 +95,16 @@ enum keyboard_render_types {
     T_KEYBOARD_HORIZONTAL,
     T_KEYBOARD_VERTICAL,
     T_KEYBOARD_NONE
+};
+
+struct roll_point {
+    float fkey;
+    uint32_t timestamp;
+};
+
+struct roll_rect {
+    struct roll_point topLeft;
+    struct roll_point bottomRight;
 };
 
 
@@ -129,6 +140,25 @@ void globalHandlerUpdateTick();
 
 void globalHandlerSetToNextMeasure();
 void globalHandlerSetToPreviousMeasure();
+
+void globalHandlerClearNotesSelected();
+void globalHandlerAddNoteToSelected(Note note);
+void globalHandlerRemoveSelectedNote(Note note);
+void globalHandlerToggleSelectedNote(Note note);
+int globalHandlerIsNoteSelected(Note note);
+int globalHandlerGetNumberOfActuallySelectedNotes();
+int globalHandlerGetNumberOfVisuallySelectedNotes();
+void globalHandlerDeleteSelectedNotes();
+
+void globalHandlerSelectGroupPress(float fkey, uint32_t timestamp);
+void globalHandlerSelectGroupHold(float fkey, uint32_t timestamp);
+void globalHandlerSelectGroupRelease(float fkey, uint32_t timestamp);
+int globalHandlerIsSelectGroupActive();
+uint32_t globalHandlerGetNumberOfSelectedNotes();
+void globalHandlerSelectGroupClear();
+struct roll_rect globalHandlerGetSelectGroupRect();
+struct roll_rect globalHandlerGetCroppedRectangleForSelectedNotes();
+
 
 /* Actions (backend/actions.c) */
 

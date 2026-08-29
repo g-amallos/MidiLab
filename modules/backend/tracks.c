@@ -155,8 +155,8 @@ void trackDeleteAtIdx(int idx) {
 void trackSortNotes(Track track);
 
 
-void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration) {   // Not entirely done yet
-    if (!track || note>127 || velocity>127) return;
+Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration) {   // Not entirely done yet
+    if (!track || note>127 || velocity>127) return NULL;
 
     if (!(track->notes)) {
         track->capacity = 32;
@@ -168,13 +168,13 @@ void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     if (track->numElements >= track->capacity) {
         uint32_t tcap = (track->numElements << 1);
         Note* tnotes = realloc(track->notes, tcap*sizeof(Note));
-        if (!tnotes) return;    // Reallocation failed
+        if (!tnotes) return NULL;    // Reallocation failed
         track->capacity = tcap;
         track->notes = tnotes;
     }
 
     Note mnote = malloc(sizeof(struct note_data));
-    if (!mnote) return;  // Malloc failed
+    if (!mnote) return NULL;  // Malloc failed
 
     mnote->key = note;
     mnote->velocity = velocity;
@@ -185,12 +185,41 @@ void trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     // Should add the fields ftimestamp and fduration but currently not necessary
     projectUpdateStateSomethingChanged();
 
-
     track->notes[(track->numElements)++] = mnote;
-
     trackSortNotes(track);
+    return mnote;
 }
 
+void trackVectorResizeToFitJustNotes(Track track) {
+    if (!track) return;
+    uint32_t cap=32;
+    if (!(track->notes)) {
+        Note* tnotes = malloc(cap*sizeof(Note));
+        if (!tnotes) return;
+        track->notes = tnotes;
+        track->capacity = cap;
+        track->numElements = 0;
+    } else {
+        cap = track->numElements;
+        cap = (cap>32)?cap:32;
+        Note* tnotes = realloc(track->notes, cap*sizeof(Note));
+        if (!tnotes) return;
+        track->capacity = cap;
+        track->notes = tnotes;
+    }
+}
+
+void trackHalveCapacity(Track track) {
+    if (!track || !(track->notes)) return;
+    if (track->numElements < (track->capacity>>2) && track->capacity>32) {
+        uint32_t tcap = (track->capacity)>>2;
+        tcap = (tcap>32)?tcap:32;
+        Note* tnotes = realloc(track->notes, tcap*sizeof(Note));
+        if (!tnotes) return;
+        track->capacity = tcap;
+        track->notes = tnotes;
+    }
+}
 
 void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx) {
     if (!track || track->numElements<=idx) return;
@@ -200,14 +229,7 @@ void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx) {
         i++;
     }
     track->notes[(track->numElements)--]=NULL;
-    if (track->numElements < (track->capacity>>2) && track->capacity>32) {
-        uint32_t tcap = track->capacity>>2;
-        tcap = (tcap>32)?tcap:32;
-        Note* tnotes = realloc(track->notes, tcap*sizeof(Note));
-        if (!tnotes) return;    // Reallocation failed
-        track->capacity = tcap;
-        track->notes = tnotes;
-    }
+    trackHalveCapacity(track);
     
     projectUpdateStateSomethingChanged();
 }

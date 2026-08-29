@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 
 
@@ -54,6 +55,10 @@ uint32_t uint32Min(uint32_t a, uint32_t b) {
     return (a<b)?a:b;
 }
 
+uint32_t uint32Max(uint32_t a, uint32_t b) {
+    return (a>b)?a:b;
+}
+
 float floatClip(float val, float min, float max) {
     if (val>max) return max;
     if (val<min) return min;
@@ -101,4 +106,31 @@ char* stringToFileName(const char* str, int max) {
     }
     ret[chars]=0;
     return ret;
+}
+
+char* stringStrip(const char* str) {
+    if (!str) return NULL;
+
+    int length = strlen(str);
+    int idx1=0, idx2=length-1;
+
+    while (idx1<length && isspace(str[idx1])) idx1++;
+    while (idx2>=idx1 && isspace(str[idx2])) idx2--;
+
+    int newLen = idx2-idx1+1;
+    if (newLen<0) newLen=0;
+
+    char* newStr = malloc((newLen+1)*sizeof(char));
+    newStr[newLen]=0;
+    for (int i=0; i<newLen; i++) newStr[i]=str[i+idx1];
+
+    return newStr;
+}
+
+
+int stringCompareWrapper(const char* str1, const char* str2) {
+    if (str1 && str2) return strcmp(str1, str2);
+    else if (!str1 && str2) return -1;
+    else if (str1 && !str2) return 1;
+    else return 0;
 }

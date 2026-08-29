@@ -58,11 +58,13 @@ int checkCollisionPointRoundedRect(Vector2 point, Rectangle rect, float roundnes
 float getRadiusForRoundedRectangle(Rectangle rect, float roundness);
 float getRoundnessForRoundedRectangle(Rectangle rect, float radius);
 Rectangle rectangleClip(Rectangle source, Rectangle clip);
-
+Rectangle rectangleIncrease(Rectangle rect, Vector2 topLeft, Vector2 bottomRight);
 
 
 
 /* Render (interface/render/) */
+
+void renderFPS();
 
 /* Backgrounds (interface/render/backgrounds.c) */
 
@@ -82,6 +84,7 @@ void order1PrecomputeControlLine();
 void order2PrecomputeControlLine();
 
 void exportProjectToSavedFilepath();
+void exportProjectByCtrlS();
 
 
 
@@ -156,6 +159,7 @@ void preCalculateNecessaryVerticalKeyboard();
 void preCalculateVerticalKeyboard();
 void renderVerticalKeyboard();
 void renderWholeBottomLayoutTypeVertical();
+void order2PrecomputeRoll();
 
 
 /* Layout (interface/render/layout.c)  (More of a test) */

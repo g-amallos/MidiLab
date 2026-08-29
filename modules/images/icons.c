@@ -54,6 +54,9 @@ struct texture icons[T_ICON_END] = {
     [T_ICON_VIEW_NONE] = {.path="assets/icons/none.png", .texture={0}},
     [T_ICON_VIEW_ROLL] = {.path="assets/icons/notes.png", .texture={0}},
 
+    [T_ICON_MIDILAB_LOGO_256] = {.path="assets/images/midilablogo/midilab_256.png", .texture={0}},
+    [T_ICON_MIDILAB_LOGO_1024] = {.path="assets/images/midilablogo/midilab_1024.png", .texture={0}},
+
 };
 
 void _loadTexture(struct texture* txtr) {
@@ -71,6 +74,11 @@ int iconsInit() {
     for (int i=0; i<T_ICON_END; i++) {
         _loadTexture(icons+i);
     }
+    return 0;
+}
+
+int iconsPreInit() {
+    _loadTexture(icons+T_ICON_MIDILAB_LOGO_1024);
     return 0;
 }
 

@@ -35,5 +35,21 @@ void updateMouseCursor();
 void updateMouseHandler();
 
 
+void updateWindowTitle(const char* title, int saved);
+int windowShouldCloseDialog();
+int windowToggleFullscreenIfNecessary();
+
+
+
+/* StartUp Handler (handler/startup.c) */
+
+int startupSetup(Vector2 screenSize);
+int startupScreenRenderIfNeeded(Vector2 screenSize);
+int startupScreenRender(Vector2 screenSize);
+int startupScreenUpdate();
+int startupRenderAllowed();
+int startupInputAllowed();
+
+
 
 #endif

@@ -6,4 +6,5 @@ err.txt
 tests/
 assets/archive/
 projects/TestProject.mlb
+projects/NewProject.mlb
 *.wav

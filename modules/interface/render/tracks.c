@@ -274,7 +274,7 @@ void dragTimeLineAction() {
     float mx = globalMouseHandler.pos.x-5;
     float tval = floatClip((mx-rect.x)/rect.width, 0, 1);
 
-    double edges=0.2;
+    double edges=0.15;
 
     double ctime = globalHandlerGetTime();
     double cdur = globalHandlerGetVisibleDuration();
@@ -285,8 +285,8 @@ void dragTimeLineAction() {
 
     if (tval<edges) {
         if (ctime>0) {
-            double speed = 1+(rect.x-mx)/(edges*rect.width);
-            double offset = -0.05*cdur*speed;
+            double speed = (tval/edges)-1.0;
+            double offset = 0.035*cdur*speed;
             //globalHandlerSetLineTime(ltime+offset);
             globalHandlerSetTime(ctime+offset);
         } else {
@@ -294,8 +294,8 @@ void dragTimeLineAction() {
         }
 
     } else if (tval>1-edges) {
-        double speed = (mx-rect.x-(1-edges)*rect.width)/((1-edges)*rect.width);
-        double offset = 0.05*cdur*speed;
+        double speed = (tval-1.0+edges)/edges;
+        double offset = 0.03*cdur*speed;
         //globalHandlerSetLineTime(ltime+offset);
         globalHandlerSetTime(ctime+offset);
     }
@@ -782,7 +782,7 @@ void order2PrecomputeTracksLeft() {
             visDur *= pow(2, -0.075*d);
             globalHandlerSetVisibleDuration(visDur);
         }
-        if (IsKeyPressed(KEY_S)) actionDefer(exportProjectToSavedFilepath);
+        if (IsKeyPressed(KEY_S)) actionDefer(exportProjectByCtrlS);
     }
 
     if (!controlDown && scrolled) {

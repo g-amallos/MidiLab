@@ -361,6 +361,7 @@ void renderJustHorizontalKeyboard() {
     
 
     //if (keyboardInputEnabled && IsKeyPressed(KEY_ENTER)) actionDefer(temporarySolutionChangeInstrument);
+    int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
 
     for (int type=0; type<=1; type++) {
         float posX=rect.x+space+type*(wkWidth-0.5*bkWidth-space);
@@ -377,8 +378,8 @@ void renderJustHorizontalKeyboard() {
 
             if (isInInput&&keyboardInputEnabled) {
                 int rkey = getKeyFromChar(type?keyBlackInputChars[inputIdxChar]:keyWhiteInputChars[inputIdxChar]);
-                clicked=IsKeyPressed(rkey);
-                effect=IsKeyDown(rkey);
+                clicked=(IsKeyPressed(rkey) && !controlDown);
+                effect=(IsKeyDown(rkey) && !controlDown);
                 released=IsKeyReleased(rkey);
             }
 

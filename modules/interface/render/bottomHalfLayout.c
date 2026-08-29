@@ -92,6 +92,7 @@ void order2PrecomputeBottomHalfLayout() {
     } else if (kbType==T_KEYBOARD_VERTICAL) {
         bottomHalfBackgroundColor=(Color){20, 20, 24, 255};
         preCalculateVerticalKeyboard();
+        order2PrecomputeRoll();
     }
 
 

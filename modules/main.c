@@ -11,25 +11,37 @@
 
 
 AudioStream stream={.buffer=NULL, .channels=2, .sampleRate=44100};
+static Vector2 windowSize = {800, 600};
 
 
 int AppInit() {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_ALWAYS_RUN);    // FLAG_WINDOW_UNDECORATED
-    InitWindow(800, 600, APP_NAME);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_ALWAYS_RUN);    // FLAG_WINDOW_UNDECORATED
+    
+    InitWindow((int)windowSize.x, (int)windowSize.y, APP_NAME);
+
     SetWindowMinSize(450, 300);
     SetTargetFPS(60);
+
+    startupSetup(windowSize);
+
+
     InitAudioDevice();
 
     backendInit();
     midiInit();
     synthInit();
     iconsInit();
+    imagesInit();
     renderInit();
 
     stream = LoadAudioStream(44100, 32, 2);
     SetAudioStreamCallback(stream, audioInputCallback);
-
     PlayAudioStream(stream);
+
+    startupScreenRender(screenSize);
+    
+    SetWindowState(FLAG_WINDOW_RESIZABLE);
+    //SetWindowState(FLAG_WINDOW_UNFOCUSED);
     
     return 0;
 }
@@ -38,6 +50,7 @@ int AppInit() {
 int AppClose() {
     renderClose();
     iconsClose();
+    imagesClose();
     backendClose();
     
 
@@ -56,7 +69,8 @@ int AppClose() {
 }
 
 int gameLoop(int (*func)()) {
-    while (!WindowShouldClose()) {
+    while (1) {
+        if (WindowShouldClose() && windowShouldCloseDialog()) break;
         func();
     }
     return 0;
@@ -64,15 +78,25 @@ int gameLoop(int (*func)()) {
 
 
 int testIteration() {
-    globalHandlerUpdateTick();
-    
+    startupScreenUpdate();
+    int inputAllowed = startupInputAllowed();
+    int renderAllowed = startupRenderAllowed();
+
     updateRenderGlobalVariables();      // First update global values
-    updateInactivityStruct();
 
-    render();
+    if (inputAllowed && renderAllowed) {
+        globalHandlerUpdateTick();
+        updateInactivityStruct();
+    }
 
-    actionExecuteAllDeferred();
-    midiActionExecuteFrame();
+    if (renderAllowed) render();
+    else startupScreenRender(screenSize);
+
+    if (inputAllowed && renderAllowed) {
+        actionExecuteAllDeferred();
+        midiActionExecuteFrame();
+    }
+
     return 0;
 }
 

@@ -578,6 +578,27 @@ void exportProjectToSavedFilepath() {
     destroyBaseLayout();
 }
 
+void exportProjectByCtrlS() {
+    if (!projectHasUnsavedChanges()) return;
+    //globalHandlerPause();
+    //synthPanic();
+    
+    if (projectHasSavedFilepath()) exportProjectToFilepath();
+    else {
+        const char* projectTitle = projectGetCurrentTitle();
+        if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
+
+        char* title = stringToFileName(projectTitle, 30);
+        char* conct = concatenateStrings(title, ".mlb");
+        free(title);
+
+        const char* path = tinyfd_saveFileDialog("Export MidiLab Project", conct, 1, (const char *[]){"*.mlb"}, "MidiLab Project");
+        free(conct);
+
+        if (path) exportProjectTo(path);
+    }
+}
+
 void importProject() {
     globalHandlerPause();
     synthPanic();

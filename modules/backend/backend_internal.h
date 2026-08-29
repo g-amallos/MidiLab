@@ -81,12 +81,35 @@ struct backend_keys_handler {
     struct key_state keys[128];
 };
 
+struct notes_selection {    // Continue from selected notes in handler
+    uint8_t keyMin;
+    uint8_t keyMax;
+
+    uint8_t clickHold;
+
+    struct roll_rect rollRect;
+
+    uint32_t timestampStart;
+    uint32_t timestampEnd;
+
+    uint32_t capacity;
+    uint32_t notesNum;
+    Note* notes;
+};
+
+struct notes_selector {
+    struct notes_selection primary;
+    struct notes_selection secondary;
+};
+
 typedef struct backend_state_handler {
     struct backend_time_handler time;
     struct backend_keys_handler keys;
     ProjectData project;
+
     int selectedTrack;
 
+    struct notes_selector selector;
 
 } *StateHandler;
 
@@ -166,6 +189,10 @@ double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate);
 
 void projectSetSaveStatus(enum project_saved_state status);
 const char* projectGetSavedFilepath();
+void updateWindowProjectTitle();
+
+void trackHalveCapacity(Track track);
+void trackVectorResizeToFitJustNotes(Track track);
 
 
 #endif
