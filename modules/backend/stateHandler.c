@@ -284,7 +284,7 @@ void globalHandlerUpdateKeyAndPlaySynth(int key, uint8_t velocity) {
     globalStateHandler->keys.keys[key].velocity = velocity;
     //synthProgramNoteOn();
     struct track_data track = (globalStateHandler->project->tracks)[globalStateHandler->selectedTrack];
-    synthProgramNoteOnPanning(key, 0.007874*velocity, track.program, track.panning);
+    synthProgramNoteOnPanning(key, 0.007874*velocity, track.program, track.panning, globalStateHandler->selectedTrack);
 }
 
 
@@ -376,9 +376,10 @@ static void registerMidiEventsToActionsFrom(uint32_t timestampStart, uint32_t ti
             for (uint32_t i=indices.start; i<=indices.end; i++) {
                 Note note = track->notes[i];
                 note->channel = track->program;
+                note->track = tracki;
                 //printf("Time: %7.4lf | Note On: %u, Velocity=%u, Timestamp=%u | Start=%u, End=%u\n", now, note->key, note->velocity, note->timestamp, timestampStart, timestampEnd);
                 
-                synthProgramNoteOnPanning(note->key, 0.007874*note->velocity*track->velocity, track->program, track->panning);
+                synthProgramNoteOnPanning(note->key, 0.007874*note->velocity*track->velocity, track->program, track->panning, (int)tracki);
                 midiActionAdd(midiCreateEventForNoteOff(note), now+timestampPiecesToSeconds(note->duration));
             }
         }
@@ -819,15 +820,23 @@ static void _selectorsMergeAndClearNoChecks() {
 
         _mergeSortedVectors(arr, primary->notes, primary->notesNum, secondary->notes, secondary->notesNum);     // In O(n) instead of O(nlog(n)) using qsort
         
+        if (primary->notesNum) {
+            if (primary->keyMax<secondary->keyMax) primary->keyMax = secondary->keyMax;
+            if (primary->keyMin>secondary->keyMin) primary->keyMin = secondary->keyMin;
+            if (primary->timestampStart>secondary->timestampStart) primary->timestampStart = secondary->timestampStart;
+            if (primary->timestampEnd<secondary->timestampEnd) primary->timestampEnd = secondary->timestampEnd;
+        } else {
+            primary->keyMax = secondary->keyMax;
+            primary->keyMin = secondary->keyMin;
+            primary->timestampStart = secondary->timestampStart;
+            primary->timestampEnd = secondary->timestampEnd;
+        }
+
         primary->capacity = num;
         primary->notesNum = num;
         free(primary->notes);
         primary->notes = arr;
 
-        if (primary->keyMax<secondary->keyMax) primary->keyMax = secondary->keyMax;
-        if (primary->keyMin>secondary->keyMin) primary->keyMin = secondary->keyMin;
-        if (primary->timestampStart>secondary->timestampStart) primary->timestampStart = secondary->timestampStart;
-        if (primary->timestampEnd<secondary->timestampEnd) primary->timestampEnd = secondary->timestampEnd;
 
         _selectorVectorReset(secondary);
     }
@@ -947,4 +956,16 @@ uint32_t globalHandlerGetNumberOfSelectedNotes() {
     if (!globalStateHandler) return 0;
     return globalStateHandler->selector.primary.notesNum;
 }
-// I should continue from the selectors (changes in both stateHndler.c and verticalKeyboard.c)
+
+
+void globalHandlerSelectSingleNote(Note note) {
+    if (!globalStateHandler || !note) return;
+    _selectorVectorReset(&(globalStateHandler->selector.primary));
+    _selectorVectorAdd(&(globalStateHandler->selector.primary), note);
+}
+
+void globalHandlerChangeVelocityOfSelectedNotes(uint8_t velocity) {
+    if (!globalStateHandler || velocity>127) return;
+    if (globalStateHandler->selector.primary.notesNum==1 && globalStateHandler->selector.primary.notes) (globalStateHandler->selector.primary.notes)[0]->velocity = velocity;
+    // else run a more general function that applies it to all
+}

@@ -395,3 +395,10 @@ int importProjectFrom(const char* filename) {
     fclose(fptr);
     return ret;
 }
+
+uint32_t estimateFileSizeForProject() {
+    uint32_t size = 8+strlen(globalProject->title); // Header size
+    uint16_t tracks = globalProject->tracksNum;
+    for (uint16_t i=0; i<tracks; i++) size += 17+strlen((globalProject->tracks)[i].title)+12*(globalProject->tracks)[i].numElements;
+    return size;
+}

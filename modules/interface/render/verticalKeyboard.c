@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <images.h>
+#include <export.h>
 
 
 
@@ -48,7 +49,7 @@ static float twidths[3] = {0};
 static float rollKeyRelHeights[12] = {16,10,18,10,16,18,10,17,10,17,10,18}, rollKeyHeights[12]={0}, consecutiveRelOffsets[12] = {1.6, 0.3, 1.5, 0.6, 1, 1.8, 0.2, 1.5, 0.4, 1.3, 0.7, 1.1}, consecutiveOffsets[12]={0};
 
 
-static Slider verticalSlider=NULL;
+static Slider verticalSlider=NULL, noteVelocitySlider=NULL, trackVelocitySlider=NULL, trackPanningSlider=NULL;
 
 
 
@@ -105,12 +106,30 @@ void verticalKeyboardInit() {
     Rectangle rect = (Rectangle){20,20,20,20};
     verticalSlider = sliderCreate(rect, 1);
     sliderUpdateCursorOnHover(verticalSlider, MOUSE_CURSOR_RESIZE_NS);
+
+    noteVelocitySlider = sliderCreate(rect, 1);
+    sliderUpdateCursorOnHover(noteVelocitySlider, MOUSE_CURSOR_RESIZE_EW);
+
+    trackVelocitySlider = sliderCreate(rect, 1);
+    sliderUpdateCursorOnHover(trackVelocitySlider, MOUSE_CURSOR_RESIZE_EW);
+
+    trackPanningSlider = sliderCreate(rect, 1);
+    sliderUpdateCursorOnHover(trackPanningSlider, MOUSE_CURSOR_RESIZE_EW);
 }
 
 
 void verticalKeyboardClose() {
     if (verticalSlider) sliderFree(verticalSlider);
     verticalSlider=NULL;
+
+    if (noteVelocitySlider) sliderFree(noteVelocitySlider);
+    noteVelocitySlider=NULL;
+
+    if (trackVelocitySlider) sliderFree(trackVelocitySlider);
+    trackVelocitySlider=NULL;
+
+    if (trackPanningSlider) sliderFree(trackPanningSlider);
+    trackPanningSlider=NULL;
 }
 
 
@@ -125,6 +144,67 @@ void clipKeyScrollTarget() {
     scrollYposMax=126;
     if (keyScrollTarget>126) keyScrollTarget=126;
     if (keyScrollTarget-keyRangeShown<-3.5) keyScrollTarget=keyRangeShown-3.5;
+}
+
+static void updateVelocitySliders() {
+    int isPlaying = globalHandlerIsPlaying();
+    int isSelectedActive = globalHandlerIsSelectGroupActive();
+    int notesSelected = globalHandlerGetNumberOfSelectedNotes();
+    int noteVelSliderAllow = (!isSelectedActive && (!notesSelected || (notesSelected==1 && !isPlaying)));
+
+    float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
+    float fy = rollRect.y;
+    Vector2 mts;
+    mts = textFontGetSize(GlobalFonts[0].font, "C", nsize, 0);
+    fy += 4*mts.y+5*interfaceSpace1;
+
+    if (noteVelocitySlider) {
+        Rectangle rect = {2*interfaceSpace1, fy-1, vkeysRect.x-4*interfaceSpace1, mts.y+2};
+        sliderUpdateRectangle(noteVelocitySlider, rect);
+
+        if (noteVelSliderAllow) sliderEnable(noteVelocitySlider);
+        else sliderDisable(noteVelocitySlider);
+        sliderUpdate(noteVelocitySlider, -1);
+
+        if (isSliderDragged(noteVelocitySlider)) {
+            controlNoteVelocity = (uint8_t)(127*sliderUpdateValueCommonHorizontal(noteVelocitySlider));
+            if (notesSelected==1) globalHandlerChangeVelocityOfSelectedNotes(controlNoteVelocity);
+        } else {
+            sliderUpdateSlideValue(noteVelocitySlider, controlNoteVelocity/127.0);
+        }
+    }
+
+    fy += 3*mts.y+6*interfaceSpace1;
+
+    if (trackVelocitySlider) {
+        Rectangle rect = {2*interfaceSpace1, fy-1, vkeysRect.x-4*interfaceSpace1, mts.y+2};
+        sliderUpdateRectangle(trackVelocitySlider, rect);
+
+        if (1) sliderEnable(trackVelocitySlider);
+        else sliderDisable(trackVelocitySlider);
+        sliderUpdate(trackVelocitySlider, -1);
+
+        if (isSliderDragged(trackVelocitySlider)) {
+            trackSetVelocity(trackGetSelectedTrack(), sliderUpdateValueCommonHorizontal(trackVelocitySlider));
+        } else {
+            sliderUpdateSlideValue(trackVelocitySlider, trackGetVelocity(trackGetSelectedTrack()));
+        }
+    }
+    fy += mts.y+interfaceSpace1;
+    if (trackPanningSlider) {
+        Rectangle rect = {2*interfaceSpace1, fy-1, vkeysRect.x-4*interfaceSpace1, mts.y+2};
+        sliderUpdateRectangle(trackPanningSlider, rect);
+
+        if (1) sliderEnable(trackPanningSlider);
+        else sliderDisable(trackPanningSlider);
+        sliderUpdate(trackPanningSlider, -1);
+
+        if (isSliderDragged(trackPanningSlider)) {
+            trackSetPanning(trackGetSelectedTrack(), sliderUpdateValueCommonHorizontal(trackPanningSlider));
+        } else {
+            sliderUpdateSlideValue(trackPanningSlider, trackGetPanning(trackGetSelectedTrack()));
+        }
+    }
 }
 
 static void updateNecessaryValues();
@@ -321,6 +401,7 @@ void preCalculateVerticalKeyboard() {
 
 
     precomputeRollVerticalSlider();
+    updateVelocitySliders();
 }
 
 
@@ -851,9 +932,157 @@ static void changeControlDuration(int zx) {
     }
 }
 
+static Vector2 _renderSideInfoTextSeperator(const char* text, Color col, float fy, float nsize) {
+    Vector2 mts = textFontGetSize(GlobalFonts[0].font, text, nsize, 0);
+    float s=0;
+    renderFontStringAlign(GlobalFonts[0].font, text, (Vector2){(vkeysRect.x-s)*0.5, fy}, (Vector2){0.5,0}, nsize, 0, blendColors(col, (Color){255,255,255,255}, 0.25));
+    Vector2 p1={2*interfaceSpace1, fy+mts.y*0.5}, p2={(vkeysRect.x-s)*0.5-mts.x*0.5-interfaceSpace1, fy+mts.y*0.5}, p3={(vkeysRect.x-s)*0.5+mts.x*0.5+interfaceSpace1, fy+mts.y*0.5}, p4={vkeysRect.x-s-2*interfaceSpace1, fy+mts.y*0.5};
+    DrawLineEx(p1, p2, 1.0, col);
+    DrawLineEx(p3, p4, 1.0, col);
 
+    return mts;
+}
+
+static Vector2 _renderSideInfoTextData(const char* key, const char* val, Color col, float fy, float nsize, int enabled) {
+    Vector2 mts = textFontGetSize(GlobalFonts[0].font, key, nsize, 0);
+    
+    renderFontStringAlign(GlobalFonts[0].font, key, (Vector2){2*interfaceSpace1, fy}, (Vector2){0,0}, nsize, 0, enabled?COLOR_TEXT_3:COLOR_TEXT_4);
+    if (enabled) renderFontStringAlign(GlobalFonts[0].font, val, (Vector2){vkeysRect.x-2*interfaceSpace1, fy}, (Vector2){1.0,0}, nsize, 0, blendColors(col, (Color){255,255,255,255}, 0.25));
+    else renderFontStringAlign(GlobalFonts[0].font, "---", (Vector2){vkeysRect.x-3*interfaceSpace1, fy}, (Vector2){1,0}, nsize, 0, COLOR_TEXT_4);
+
+    return mts;
+}
 
 static void renderSideInfo() {
+    int isPlaying = globalHandlerIsPlaying();
+    //int isSelectedActive = globalHandlerIsSelectGroupActive();
+    int notesSelected = globalHandlerGetNumberOfSelectedNotes();
+    uint32_t trackNotes = trackGetNumOfNotes(trackGetSelectedTrack());
+    int tracksNum = projectGetTracksNum();
+    uint32_t totalNotes = projectGetTotalNumberOfNotes();
+    uint32_t totalProjectSize = estimateFileSizeForProject();
+
+
+    int mouseInfo = (!isPlaying && mouseExactTimestamp!=(((uint32_t)1)<<31));
+    int selectedInfo = (notesSelected && !isPlaying);
+
+    float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
+    float fy=rollRect.y, my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y, bgLerp=0.07;
+    Vector2 mts;
+    Color backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_0, COLOR_TRACK_THEME_1, 0.5), bgLerp);
+
+    Rectangle trect = {0.5*interfaceSpace1, fy, vkeysRect.x-interfaceSpace1, 5*my+7*interfaceSpace1};
+    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, backgroundCol);
+    fy += interfaceSpace1;
+
+    mts = _renderSideInfoTextSeperator("Control", COLOR_TRACK_THEME_0, fy, nsize);
+    fy += mts.y+interfaceSpace1;
+
+    const char* mnf = NULL;
+    if (mouseInfo) {
+        uint32_t msr = mouseExactTimestamp/(beatsInMeasure*piecesInBeat);
+        uint32_t bts = (mouseExactTimestamp-beatsInMeasure*piecesInBeat*msr)/piecesInBeat;
+        float fsb = (mouseExactTimestamp-beatsInMeasure*piecesInBeat*msr-bts*piecesInBeat)/(double)piecesInBeat;
+        mnf = TextFormat("%u:%u:%03u", msr, bts, (uint32_t)(fsb*1000));
+    }
+    mts = _renderSideInfoTextData("Mouse:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_1, fy, nsize, mouseInfo);
+    fy += mts.y+interfaceSpace1;
+    mts = _renderSideInfoTextData("Selected:", selectedInfo?(TextFormat("%u", notesSelected)):NULL, COLOR_TRACK_THEME_1, fy, nsize, selectedInfo);
+    fy += mts.y+interfaceSpace1;
+    mnf = NULL;
+    if (mouseInfo) {
+        uint32_t msr = controlNoteSize/(beatsInMeasure*piecesInBeat);
+        uint32_t bts = (controlNoteSize-beatsInMeasure*piecesInBeat*msr)/piecesInBeat;
+        float fsb = (controlNoteSize-beatsInMeasure*piecesInBeat*msr-bts*piecesInBeat)/(double)piecesInBeat;
+        mnf = TextFormat("%u:%u:%03u", msr, bts, (uint32_t)(fsb*1000));
+    }
+    mts = _renderSideInfoTextData("Dur:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_2, fy, nsize, mouseInfo);
+    fy += mts.y+interfaceSpace1;
+
+    if (noteVelocitySlider) {
+        float sldEffect = sliderGetEffectValue(noteVelocitySlider);
+        int isDisabled = isSliderDisabled(noteVelocitySlider);
+        Color sldbg;
+        Color sldfg;
+        if (isDisabled) {
+            sldbg = (Color){9, 10, 13, 255};
+            sldfg = blendColors(COLOR_TRACK_THEME_2, (Color){20,20,20,255}, 0.65);
+        } else {
+            sldbg = (Color){12, 13, 19, 255};
+            sldfg = blendColors(COLOR_TRACK_THEME_2, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
+        }
+        Rectangle trc = sliderGetRectangle(noteVelocitySlider);
+        DrawRectangleRounded(trc, 0.3, 4, sldbg);
+        DrawRectangleRounded(sliderGetRectangleValueCommon(noteVelocitySlider), 0.3, 4, sldfg);
+
+        renderFontStringAlign(GlobalFonts[0].font, "Volume", getRectangleCenter(trc), (Vector2){0.5,0.5}, nsize, 0, isDisabled?COLOR_TEXT_4:blendColors(COLOR_TEXT_3, COLOR_TEXT_1, 0.7*sldEffect));
+    }
+    fy += mts.y+3*interfaceSpace1;
+
+    trect.y=fy;
+    trect.height = 4*my+6*interfaceSpace1;
+    backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_3, COLOR_TRACK_THEME_4, 0.5), bgLerp);
+    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, backgroundCol);
+    fy += interfaceSpace1;
+
+    mts = _renderSideInfoTextSeperator("Track", COLOR_TRACK_THEME_3, fy, nsize);
+    fy += mts.y+interfaceSpace1;
+
+    mts = _renderSideInfoTextData("Notes:", TextFormat("%u", trackNotes), COLOR_TRACK_THEME_4, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
+    if (trackVelocitySlider) {
+        float sldEffect = sliderGetEffectValue(trackVelocitySlider);
+        Color sldbg={12,13,19,255};
+        Color sldfg=blendColors(COLOR_TRACK_THEME_4, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
+        Rectangle trc = sliderGetRectangle(trackVelocitySlider);
+        DrawRectangleRounded(trc, 0.3, 4, sldbg);
+        DrawRectangleRounded(sliderGetRectangleValueCommon(trackVelocitySlider), 0.3, 4, sldfg);
+    
+        renderFontStringAlign(GlobalFonts[0].font, "Volume", getRectangleCenter(trc), (Vector2){0.5,0.5}, nsize, 0, blendColors(COLOR_TEXT_3, COLOR_TEXT_1, 0.7*sldEffect));
+    }
+    fy += mts.y+interfaceSpace1;
+
+    if (trackPanningSlider) {
+        float sldEffect = sliderGetEffectValue(trackPanningSlider);
+        Color sldbg={12,13,19,255};
+        Color sldfg=blendColors(COLOR_TRACK_THEME_4, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
+        Color sldtc=blendColors(COLOR_TEXT_3, COLOR_TEXT_1, 0.7*sldEffect);
+        Rectangle trc = sliderGetRectangle(trackPanningSlider);
+        DrawRectangleRounded(trc, 0.3, 4, sldbg);
+        DrawRectangleRounded(sliderGetRectangleValueCommon(trackPanningSlider), 0.3, 4, sldfg);
+
+        renderFontStringAlign(GlobalFonts[0].font, "L", (Vector2){trc.x+0.5*interfaceSpace1, trc.y+trc.height*0.5}, (Vector2){0,0.5}, nsize, 0, sldtc);
+        renderFontStringAlign(GlobalFonts[0].font, "R", (Vector2){trc.x+trc.width-0.5*interfaceSpace1, trc.y+trc.height*0.5}, (Vector2){1,0.5}, nsize, 0, sldtc);
+        renderFontStringAlign(GlobalFonts[0].font, "Panning", getRectangleCenter(trc), (Vector2){0.5,0.5}, nsize, 0, sldtc);
+    }
+
+    fy += mts.y+3*interfaceSpace1;
+
+    trect.y=fy;
+    trect.height = 4*my+6*interfaceSpace1;
+    backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_5, COLOR_TRACK_THEME_6, 0.5), bgLerp);
+    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, backgroundCol);
+    fy += interfaceSpace1;
+
+    mts = _renderSideInfoTextSeperator("Project", COLOR_TRACK_THEME_5, fy, nsize);
+    fy += mts.y+interfaceSpace1;
+
+    mts = _renderSideInfoTextData("Tracks:", TextFormat("%u", tracksNum), COLOR_TRACK_THEME_6, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
+    mts = _renderSideInfoTextData("Notes:", TextFormat("%u", totalNotes), COLOR_TRACK_THEME_6, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
+    mnf = NULL;
+    if (totalProjectSize<(1<<10)) mnf = TextFormat("%u B", totalProjectSize);
+    else if (totalProjectSize<(1<<20)) mnf = TextFormat("%.1f KB", totalProjectSize/1024.0);
+    else if (totalProjectSize<(1<<30)) mnf = TextFormat("%.1f MB", totalProjectSize/1048576.0);
+    else mnf = TextFormat("%.2fGB", (totalProjectSize/1048576.0)/1024.0);
+
+    mts = _renderSideInfoTextData("Size:", mnf, COLOR_TRACK_THEME_6, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
     
 }
 
@@ -875,7 +1104,7 @@ static void handleClick() {
     if (globalMouseHandler.released) {
         if (releaseEvent.wasPressed) {
             releaseEvent.wasPressed = 0;
-            synthProgramNoteOffPanning(releaseEvent.key, releaseEvent.program);
+            synthProgramNoteOffPanning(releaseEvent.key, releaseEvent.program, globalHandlerGetSelectedTrack());
         }
     }
 
@@ -889,14 +1118,17 @@ static void handleClick() {
                 //printf("Hovering over note: %p | idx=%d\n", (void*)rollHoveringOverNote, rollHoveringOverNoteIdx);
                 if (rollHoveringOverNote) {
                     if (controlDown) globalHandlerToggleSelectedNote(rollHoveringOverNote);
-                    else globalHandlerClearNotesSelected();
+                    else {
+                        globalHandlerSelectSingleNote(rollHoveringOverNote); //globalHandlerClearNotesSelected();
+                        controlNoteVelocity = rollHoveringOverNote->velocity;
+                    }
                 } else if (controlDown) {
                     globalHandlerSelectGroupPress(mouseFkey, mouseExactTimestampForGroupSelection);
                 } else {
                     Track track = trackGetSelectedTrack();
                     uint8_t program = trackGetProgram(track);
                     Note nt = trackCreateNoteInTrack(track, rollKeyHovering, controlNoteVelocity, mouseTimestamp, controlNoteSize);
-                    synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track));
+                    synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track), globalHandlerGetSelectedTrack());
 
                     releaseEvent.key = rollKeyHovering;
                     releaseEvent.wasPressed = 1;

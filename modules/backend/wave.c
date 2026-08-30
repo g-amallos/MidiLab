@@ -127,9 +127,9 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
             Note nt = allEvents[eventIdx++];
             Track tr = globalProject->tracks+nt->track;
             if (nt>=noteOffEvents+notesNum || nt<noteOffEvents) {
-                exportSynthProgramNoteOnPanning(nt->key, nt->velocity*0.007874*tr->velocity, tr->program, tr->panning);
+                exportSynthProgramNoteOnPanning(nt->key, nt->velocity*0.007874*tr->velocity, tr->program, tr->panning, nt->track);
             } else {
-                exportSynthProgramNoteOffPanning(nt->key, tr->program);
+                exportSynthProgramNoteOffPanning(nt->key, tr->program, nt->track);
             }
         }
 

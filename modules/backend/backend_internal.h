@@ -146,6 +146,7 @@ struct midi_event_note_onoff {
 
 struct midi_event { // NOT FINISHED!!!
     int channel;
+    int track;
     enum midi_message_types type;
 
     union {

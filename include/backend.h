@@ -40,6 +40,7 @@ void projectSetCurrentTitle(const char* text);  // Set/Update the title. Copies 
 int projectSetTempo(int tempo);                 // Updates the tempo and returns the tempo that has been set
 int projectGetTempo();
 int projectGetTracksNum();
+uint32_t projectGetTotalNumberOfNotes();
 void projectSetFilepath(const char* filepath);
 void projectUpdateStateSomethingChanged();
 int projectHasUnsavedChanges();
@@ -57,7 +58,7 @@ typedef struct note_data {
     uint8_t key;
     uint8_t velocity;
     uint8_t channel;
-    uint8_t track;          // Not needed field, so we can change that in the future
+    uint8_t track;
     uint32_t timestamp;     // Relative
     uint32_t duration;      // Relative
     double ftimestamp;
@@ -145,6 +146,7 @@ void globalHandlerClearNotesSelected();
 void globalHandlerAddNoteToSelected(Note note);
 void globalHandlerRemoveSelectedNote(Note note);
 void globalHandlerToggleSelectedNote(Note note);
+void globalHandlerSelectSingleNote(Note note);
 int globalHandlerIsNoteSelected(Note note);
 int globalHandlerGetNumberOfActuallySelectedNotes();
 int globalHandlerGetNumberOfVisuallySelectedNotes();
@@ -158,6 +160,7 @@ uint32_t globalHandlerGetNumberOfSelectedNotes();
 void globalHandlerSelectGroupClear();
 struct roll_rect globalHandlerGetSelectGroupRect();
 struct roll_rect globalHandlerGetCroppedRectangleForSelectedNotes();
+void globalHandlerChangeVelocityOfSelectedNotes(uint8_t velocity);
 
 
 /* Actions (backend/actions.c) */
