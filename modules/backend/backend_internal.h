@@ -111,6 +111,7 @@ struct notes_selection {
 struct notes_selector {
     struct notes_selection primary;
     struct notes_selection secondary;
+    struct notes_selection clipboard;
 };
 
 typedef struct backend_state_handler {
@@ -207,6 +208,8 @@ void trackHalveCapacity(Track track);
 void trackVectorResizeToFitJustNotes(Track track);
 
 void trackSortNotes(Track track);
+void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size);    // buff must have sorted notes
+void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb);
 
 
 #endif

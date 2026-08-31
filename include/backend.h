@@ -173,6 +173,12 @@ Note globalHandlerResizeSelectedGetReferenceNote();
 int globalHandlerResizeSelectedIsActive();
 void globalHandlerSelectAllNotes();
 
+void globalHandlerClearClipboard();
+void globalHandlerCopySelected();
+void globalHandlerCutSelected();
+void globalHandlerPasteSelected();
+
+
 /* Actions (backend/actions.c) */
 
 void actionExecuteAllDeferred();

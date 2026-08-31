@@ -78,6 +78,21 @@ struct backend_state_handler _globalHandler = {
             .capacity = 0,
             .notesNum = 0,
             .notes = NULL
+        },
+        .clipboard = {
+            .keyMin = 255,
+            .keyMax = 0,
+            .clickHold = 0,
+            .rollRect = {
+                .topLeft = {.fkey=-1, .timestamp=0},
+                .bottomRight = {.fkey=-1, .timestamp=0},
+            },
+            .noteReference = {NULL,},
+            .timestampStart = 0,
+            .timestampEnd = 0,
+            .capacity = 0,
+            .notesNum = 0,
+            .notes = NULL
         }
     }
 };

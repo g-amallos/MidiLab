@@ -11,38 +11,24 @@ static void _freeNoteSelector() {
     if (globalStateHandler->selector.primary.notes) free(globalStateHandler->selector.primary.notes);
     if (globalStateHandler->selector.secondary.notes) free(globalStateHandler->selector.secondary.notes);
 
-    globalStateHandler->selector = (struct notes_selector){
-        .primary = {
-            .keyMin = 255,
-            .keyMax = 0,
-            .clickHold = 0,
-            .rollRect = {
-                .topLeft = {.fkey=-1, .timestamp=0},
-                .bottomRight = {.fkey=-1, .timestamp=0},
-            },
-            .noteReference = {NULL,},
-            .timestampStart = 0,
-            .timestampEnd = 0,
-            .capacity = 0,
-            .notesNum = 0,
-            .notes = NULL
+    struct notes_selection tmpSel = {
+        .keyMin = 255,
+        .keyMax = 0,
+        .clickHold = 0,
+        .rollRect = {
+            .topLeft = {.fkey=-1, .timestamp=0},
+            .bottomRight = {.fkey=-1, .timestamp=0},
         },
-        .secondary = {
-            .keyMin = 255,
-            .keyMax = 0,
-            .clickHold = 0,
-            .rollRect = {
-                .topLeft = {.fkey=-1, .timestamp=0},
-                .bottomRight = {.fkey=-1, .timestamp=0},
-            },
-            .noteReference = {NULL,},
-            .timestampStart = 0,
-            .timestampEnd = 0,
-            .capacity = 0,
-            .notesNum = 0,
-            .notes = NULL
-        }
+        .noteReference = {NULL,},
+        .timestampStart = 0,
+        .timestampEnd = 0,
+        .capacity = 0,
+        .notesNum = 0,
+        .notes = NULL
     };
+
+    globalStateHandler->selector.primary = tmpSel;
+    globalStateHandler->selector.secondary = tmpSel;
 }
 
 void globalHandlerClearNotesSelected() {
@@ -68,6 +54,20 @@ static void _selectorVectorReset(struct notes_selection* selector) {
         .notesNum = 0,
         .notes = NULL
     };
+}
+
+static void _freeNotes(Note* buff, uint32_t size) {
+    if (!buff) return;
+    for (uint32_t i=0; i<size; i++) {
+        if (buff[i]) free(buff[i]);
+        buff[i] = NULL;                 // Theoretically shouldn't be necessary, but anyways
+    }
+}
+
+static void _selectorVectorDeepFree(struct notes_selection* selector) {
+    if (!selector) return;
+    _freeNotes(selector->notes, selector->notesNum);
+    _selectorVectorReset(selector);
 }
 
 static int _initSelectorVector(struct notes_selection* selector) {
@@ -336,7 +336,7 @@ static void _selectorVectorUpdateGroupSelected(struct notes_selection* selector)
     _selectorVectorSelectRegion(selector, rangeKeyMin, rangeKeyMax, rr.topLeft.timestamp, rr.bottomRight.timestamp);
 }
 
-static void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb) {
+void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb) {
     uint32_t id=0, sd=sa+sb, ia=0, ib=0;
     for (; id<sd; id++) {
         if (ia>=sa) dest[id]=b[ib++];
@@ -529,6 +529,87 @@ static void _selectorVectorSelectAll(struct notes_selection* selector) {
     selector->timestampEnd = endTimestamp;
 }
 
+static void _selectorDeleteSelected(struct notes_selection* selector) {
+    if (!globalStateHandler || !selector || !(selector->notesNum) || globalStateHandler->selectedTrack<0 || !(globalStateHandler->project->tracks)) return;
+    uint32_t num = selector->notesNum;
+    int* indexes = malloc(num*sizeof(int));
+    if (!indexes) return;
+
+    Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
+
+    for (uint32_t i=0; i<num; i++) {
+        indexes[i] = _tracksVectorFindWhereNoteShouldBe(track, (selector->notes)[i]);
+    }
+    qsort(indexes, num, sizeof(int), _intCompareFunc);
+    uint32_t idx=0;
+    while (idx<num && indexes[idx]<0) idx++;
+    for (uint32_t i=idx; i<num; i++) free((track->notes)[indexes[i]]);
+
+    uint32_t read=0, write=0, delete=idx;
+    while (read<track->numElements) {
+        if (delete<num && indexes[delete]==(int)read) {
+            delete++;
+            read++;
+            continue;
+        }
+        (track->notes)[write++] = (track->notes)[read++];
+    }
+    track->numElements = write;
+
+    free(indexes);
+    trackVectorResizeToFitJustNotes(track);
+    _selectorVectorReset(selector);
+}
+
+static void _copyNotes(Note* dest, const Note* source, uint32_t size) {
+    if (!dest || !source || !size) return;
+
+    for (uint32_t i=0; i<size; i++) {
+        Note note = malloc(sizeof(struct note_data));
+        if (!note) return;
+        *note = *(source[i]);
+        dest[i] = note;
+    }
+}
+
+static void _selectorVectorCopy(struct notes_selection* dest, struct notes_selection* source) {
+    if (!dest || !source) return;
+    if (&(globalStateHandler->selector.clipboard)==dest) _selectorVectorDeepFree(dest);
+    else _selectorVectorReset(dest);
+    
+    uint32_t n=source->notesNum;
+    if (!n) return;
+
+    Note* arr = malloc(sizeof(Note)*n);
+    if (!arr) return;
+
+    _copyNotes(arr, source->notes, n);
+    *dest = *source;
+    dest->notes = arr;
+}
+
+static void _selectorVectorCut(struct notes_selection* dest, struct notes_selection* source) {
+    if (!dest || !source) return;
+    _selectorVectorDeepFree(dest);
+    uint32_t n=source->notesNum;
+    if (!n) return;
+
+    _selectorVectorCopy(dest, source);      // Must be a better way of doing that
+    _selectorDeleteSelected(source);
+}
+
+static void _selectorVectorPaste(struct notes_selection* dest, struct notes_selection* source) {
+    if (!dest || !source) return;
+    _selectorVectorReset(dest);
+
+    uint32_t n=source->notesNum;
+    if (!n) return;
+    _selectorVectorCopy(dest, source);
+
+    Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
+    trackVectorAddNewNotes(track, dest->notes, dest->notesNum);
+}
+
 void globalHandlerAddNoteToSelected(Note note) {
     if (!globalStateHandler || !note) return;
     _selectorVectorAdd(&(globalStateHandler->selector.primary), note);
@@ -563,34 +644,7 @@ int globalHandlerGetNumberOfVisuallySelectedNotes() {
 
 void globalHandlerDeleteSelectedNotes() {
     if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum) || globalStateHandler->selectedTrack<0 || !(globalStateHandler->project->tracks)) return;
-    uint32_t num = globalStateHandler->selector.primary.notesNum;
-    int* indexes = malloc(num*sizeof(int));
-    if (!indexes) return;
-
-    Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
-
-    for (uint32_t i=0; i<num; i++) {
-        indexes[i] = _tracksVectorFindWhereNoteShouldBe(track, (globalStateHandler->selector.primary.notes)[i]);
-    }
-    qsort(indexes, num, sizeof(int), _intCompareFunc);
-    uint32_t idx=0;
-    while (idx<num && indexes[idx]<0) idx++;
-    for (uint32_t i=idx; i<num; i++) free((track->notes)[indexes[i]]);
-
-    uint32_t read=0, write=0, delete=idx;
-    while (read<track->numElements) {
-        if (delete<num && indexes[delete]==(int)read) {
-            delete++;
-            read++;
-            continue;
-        }
-        (track->notes)[write++] = (track->notes)[read++];
-    }
-    track->numElements = write;
-
-    free(indexes);
-    trackVectorResizeToFitJustNotes(track);
-    globalHandlerClearNotesSelected();
+    _selectorDeleteSelected(&(globalStateHandler->selector.primary));
 
     projectUpdateStateSomethingChanged();
 }
@@ -714,4 +768,26 @@ Note globalHandlerResizeSelectedGetReferenceNote() {
 void globalHandlerSelectAllNotes() {
     if (!globalStateHandler) return;
     _selectorVectorSelectAll(&(globalStateHandler->selector.primary));
+}
+
+void globalHandlerClearClipboard() {
+    if (!globalStateHandler) return;
+    _selectorVectorDeepFree(&(globalStateHandler->selector.clipboard));
+}
+
+void globalHandlerCopySelected() {
+    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return;
+    _selectorVectorCopy(&(globalStateHandler->selector.clipboard), &(globalStateHandler->selector.primary));
+}
+
+void globalHandlerCutSelected() {
+    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return;
+    _selectorVectorCut(&(globalStateHandler->selector.clipboard), &(globalStateHandler->selector.primary));
+    projectUpdateStateSomethingChanged();
+}
+
+void globalHandlerPasteSelected() {
+    if (!globalStateHandler || !(globalStateHandler->selector.clipboard.notesNum)) return;
+    _selectorVectorPaste(&(globalStateHandler->selector.primary), &(globalStateHandler->selector.clipboard));
+    projectUpdateStateSomethingChanged();
 }

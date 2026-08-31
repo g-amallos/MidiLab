@@ -843,7 +843,7 @@ void renderNotes() {
 
         tcol = colors[pianoRollKeys[note->key].type];
         int isVisuallySelected = (!isPlaying && globalHandlerIsNoteSelected(note));
-        int isVisuallyHovered = (!isPlaying && !somethingActive && !rollHoveringOverNote && isHoveringOverNote(note));
+        int isVisuallyHovered = (!isPlaying && !somethingActive && (!rollHoveringOverNote || isVisuallySelected) && isHoveringOverNote(note));
 
         if (isVisuallySelected) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.5);
         else if (isVisuallyHovered) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
@@ -1145,9 +1145,18 @@ static void handlerIntermediateEvents() {
     int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
     int delPressed = IsKeyPressed(KEY_DELETE);
     int aPressed = IsKeyPressed(KEY_A);
+    int cPressed = IsKeyPressed(KEY_C);
+    int xPressed = IsKeyPressed(KEY_X);
+    int vPressed = IsKeyPressed(KEY_V);
+
 
     if (allowedShortcuts && delPressed) globalHandlerDeleteSelectedNotes();
     else if (allowedShortcuts && aPressed && controlDown) actionDefer(globalHandlerSelectAllNotes);
+    else if (allowedShortcuts && cPressed && controlDown) actionDefer(globalHandlerCopySelected);
+    else if (allowedShortcuts && xPressed && controlDown) actionDefer(globalHandlerCutSelected);
+    else if (allowedShortcuts && vPressed && controlDown) actionDefer(globalHandlerPasteSelected);
+
+
 
     int zx = IsKeyPressed(KEY_D)-IsKeyPressed(KEY_A);
     if (zx && allowedShortcuts && !controlDown) changeControlDuration(zx);
