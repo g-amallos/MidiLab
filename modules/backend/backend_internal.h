@@ -54,6 +54,7 @@ struct time_line {
 struct backend_time_handler {
     double time;    // Start of the div has this timestamp, obtained with `globalHandlerGetTime()`
     uint64_t ticks;
+    uint32_t mouseJumps;    // Visual mouse jumps depending on the div zoom
 
     uint16_t tempo;
     uint16_t ppqn;  // Pulses per quarter note
@@ -81,13 +82,23 @@ struct backend_keys_handler {
     struct key_state keys[128];
 };
 
-struct notes_selection {    // Continue from selected notes in handler
+struct reference_note {
+    Note note;
+    uint32_t originalTimestamp;
+    uint32_t minPossibleTimestamp;
+    uint8_t originalKey;
+    uint8_t minPossibleKey;
+    uint8_t maxPossibleKey;    
+};
+
+struct notes_selection {
     uint8_t keyMin;
     uint8_t keyMax;
 
     uint8_t clickHold;
 
     struct roll_rect rollRect;
+    struct reference_note noteReference;
 
     uint32_t timestampStart;
     uint32_t timestampEnd;
@@ -194,6 +205,8 @@ void updateWindowProjectTitle();
 
 void trackHalveCapacity(Track track);
 void trackVectorResizeToFitJustNotes(Track track);
+
+void trackSortNotes(Track track);
 
 
 #endif

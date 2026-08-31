@@ -133,6 +133,7 @@ int globalHandlerGetBeatsInMeasure();
 double globalHandlerGetMeasureDuration();
 double globalHandlerGetBeatDuration();
 void globalHandlerSetVisibleDuration(double duration);
+void globalHandlerSetVisibleMouseJumps(uint32_t mouseJumps);
 int globalHandlerIsTimeLineShown();
 double globalHandlerGetLineTime();
 void globalHandlerSetLineTime(double time);
@@ -161,7 +162,16 @@ void globalHandlerSelectGroupClear();
 struct roll_rect globalHandlerGetSelectGroupRect();
 struct roll_rect globalHandlerGetCroppedRectangleForSelectedNotes();
 void globalHandlerChangeVelocityOfSelectedNotes(uint8_t velocity);
-
+void globalHandlerMoveSelectedPress(Note note, float fkey, uint32_t timestamp);
+void globalHandlerMoveSelectedHold(float fkey, uint32_t timestamp);
+void globalHandlerMoveSelectedRelease(float fkey, uint32_t timestamp);
+int globalHandlerMoveSelectedIsActive();
+void globalHandlerResizeSelectedPress(Note note, float fkey, uint32_t timestamp);
+void globalHandlerResizeSelectedHold(float fkey, uint32_t timestamp);
+uint32_t globalHandlerResizeSelectedRelease(float fkey, uint32_t timestamp);
+Note globalHandlerResizeSelectedGetReferenceNote();
+int globalHandlerResizeSelectedIsActive();
+void globalHandlerSelectAllNotes();
 
 /* Actions (backend/actions.c) */
 

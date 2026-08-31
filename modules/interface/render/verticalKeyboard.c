@@ -29,7 +29,7 @@ static struct {
     uint8_t channel;
 } releaseEvent;
 
-// rollHoverNoteType: 0 -> note hovering | 1 -> hovering to select | 2 -> hovering to resize | 3 -> hovering to move
+// rollHoverNoteType: 0 -> not hovering | 1 -> hovering to select | 2 -> hovering to resize | 3 -> hovering to move
 
 uint32_t controlNoteSize=(1<<13);
 uint8_t controlNoteVelocity=127;
@@ -625,6 +625,8 @@ void renderMeasureLinesBackground() {
     else if (measureSkips==1) mouseTimestampJumps = beatSkips*piecesInBeat;
     else mouseTimestampJumps = beatSkips*piecesInBeat;
 
+    globalHandlerSetVisibleMouseJumps(mouseTimestampJumps);
+
 
     Color col1=COLOR_TEXT_1, col2=COLOR_TEXT_3, col3=COLOR_TEXT_4;
     col1.a=80, col2.a=80, col3.a=80;
@@ -785,7 +787,7 @@ inline static void renderNote(Note note, Color color, int isHovering) {
     double mtw = ((double)(note->duration))/(piecesInBeat*beatsInMeasure)*measureWidth;
 
     Rectangle rect = {mtx, pianoRollKeys[note->key].rollY, mtw, pianoRollKeys[note->key].rollHeight};
-    if (isHovering) DrawRectangleRec(rectangleAnd(rect, rollRect), color);
+    if (isHovering) DrawRectangleRounded(rect, 0.5, 5, color);//DrawRectangleRec(rectangleAnd(rect, rollRect), color);
     else DrawRectangleRounded(rect, 0.75, 5, color);
 
     int space=7;
@@ -804,6 +806,12 @@ inline static int isTimestampWithinNote(Note note, uint32_t timestamp) {
     return (note->timestamp<=timestamp && timestamp-note->timestamp<note->duration);
 }
 
+inline static void _fixMouseCursorIfNeeded(int selGroupActive, int selMoveActive, int selResizeActive) {
+    if (selGroupActive) setNextMouseCursor(MOUSE_CURSOR_CROSSHAIR);
+    else if (selMoveActive) setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+    else if (selResizeActive) setNextMouseCursor(MOUSE_CURSOR_RESIZE_EW);
+}
+
 void renderNotes() {
     Track track = trackGetSelectedTrack();
     uint32_t notesNum = trackGetNumOfNotes(track);
@@ -811,6 +819,11 @@ void renderNotes() {
 
     Color colors[2] = {getTrackThemeColorForWhiteKeys(), getTrackThemeColorForBlackKeys()};
     Color tcol={0,0,0,255};
+
+    int selGroupActive = globalHandlerIsSelectGroupActive();
+    int selMoveActive = globalHandlerMoveSelectedIsActive();
+    int selResizeActive = globalHandlerResizeSelectedIsActive();
+    int somethingActive = (selGroupActive || selMoveActive || selResizeActive);
 
     rollHoveringOverNote = NULL;
     rollHoveringOverNoteIdx = -1;
@@ -830,7 +843,7 @@ void renderNotes() {
 
         tcol = colors[pianoRollKeys[note->key].type];
         int isVisuallySelected = (!isPlaying && globalHandlerIsNoteSelected(note));
-        int isVisuallyHovered = (!isPlaying && !rollHoveringOverNote && isHoveringOverNote(note));
+        int isVisuallyHovered = (!isPlaying && !somethingActive && !rollHoveringOverNote && isHoveringOverNote(note));
 
         if (isVisuallySelected) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.5);
         else if (isVisuallyHovered) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
@@ -845,13 +858,21 @@ void renderNotes() {
                 rollHoverNoteType = 2;
                 setNextMouseCursor(MOUSE_CURSOR_RESIZE_EW);
             } else {
-                rollHoverNoteType = 1;
+                rollHoverNoteType = 3;
                 setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
             }
+            /*
+            } else if (isVisuallySelected) {
+                rollHoverNoteType = 3;
+                setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+            } else {
+                rollHoverNoteType = 1;
+                setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+            }*/
         }
         renderNote(note, tcol, (rollHoveringOverNote==note)||isVisuallySelected);
     }
-
+    _fixMouseCursorIfNeeded(selGroupActive, selMoveActive, selResizeActive);
 }
 
 void renderBottomKeyboardTimeLine() {
@@ -883,7 +904,6 @@ void renderBottomKeyboardTimeLine() {
 static void _groupSelectionScrollIfNeeded() {
     float mx=globalMouseHandler.pos.x, my=globalMouseHandler.pos.y;
     float vx=floatClip((mx-rollRect.x)/rollRect.width, 0, 1), vy=floatClip((my-rollRect.y)/rollRect.height, 0, 1);
-    // keyScrollTarget
     double edgeX=0.15, edgeY=0.15;
 
     double ctime = globalHandlerGetTime();
@@ -912,12 +932,46 @@ static void _groupSelectionScrollIfNeeded() {
     clipKeyScrollTarget();
 }
 
+static void _groupSelectionScrollHorizontallyIfNeeded() {
+    Note note = globalHandlerResizeSelectedGetReferenceNote();
+    float mx=globalMouseHandler.pos.x;
+    
+    if (note) {
+        double mtx = divStartX+(((double)(note->timestamp))/(piecesInBeat*beatsInMeasure)-globalHandlerDurationToMeasures(divCurrentTime))*measureWidth;
+        double mtw = ((double)(note->duration))/(piecesInBeat*beatsInMeasure)*measureWidth;
+        mx = mtx+mtw;
+    }
+    
+    float vx=floatClip((mx-rollRect.x)/rollRect.width, 0, 1);
+    double edgeX=0.15;
+
+    double ctime = globalHandlerGetTime();
+    double cdur = globalHandlerGetVisibleDuration();
+
+    if (vx<edgeX) {
+        if (ctime>0) {
+            double speed = (vx/edgeX)-1.0;
+            double offset = 0.015*cdur*speed;
+            globalHandlerSetTime(ctime+offset);
+        } else globalHandlerSetTime(0);
+
+    } else if (vx>1-edgeX) {
+        double speed = (vx-1.0+edgeX)/edgeX;
+        double offset = 0.015*cdur*speed;
+        globalHandlerSetTime(ctime+offset);
+    }
+}
+
 void order2PrecomputeRoll() {
     int isPlaying = globalHandlerIsPlaying();
     int mouseDown = globalMouseHandler.down;
     int groupSelActive = globalHandlerIsSelectGroupActive();
-    if (!isPlaying && mouseDown && groupSelActive) {
+    int groupMoveActive = globalHandlerMoveSelectedIsActive();
+    int groupResizeActive = globalHandlerResizeSelectedIsActive();
+    if (!isPlaying && mouseDown && (groupSelActive || groupMoveActive)) {
         _groupSelectionScrollIfNeeded();
+    } else if (!isPlaying && mouseDown && groupResizeActive) {
+        _groupSelectionScrollHorizontallyIfNeeded();
     }
 
 }
@@ -929,7 +983,7 @@ static void changeControlDuration(int zx) {
         uint32_t tmp = mouseTimestampJumps*((controlNoteSize/mouseTimestampJumps));
         if (tmp==controlNoteSize) tmp-=mouseTimestampJumps;
         controlNoteSize = tmp;
-    }
+    } else if (zx<0 && controlNoteSize==mouseTimestampJumps && !(mouseTimestampJumps&1)) controlNoteSize = (mouseTimestampJumps>>1);
 }
 
 static Vector2 _renderSideInfoTextSeperator(const char* text, Color col, float fy, float nsize) {
@@ -952,6 +1006,13 @@ static Vector2 _renderSideInfoTextData(const char* key, const char* val, Color c
 
     return mts;
 }
+
+static const char* _timestampToString(uint32_t timestamp) {
+    uint32_t msr = timestamp/(beatsInMeasure*piecesInBeat);
+    uint32_t bts = (timestamp-beatsInMeasure*piecesInBeat*msr)/piecesInBeat;
+    float fsb = (timestamp-beatsInMeasure*piecesInBeat*msr-bts*piecesInBeat)/(double)piecesInBeat;
+    return TextFormat("%u:%u:%03u", msr, bts, (uint32_t)(fsb*1000));
+} 
 
 static void renderSideInfo() {
     int isPlaying = globalHandlerIsPlaying();
@@ -979,24 +1040,14 @@ static void renderSideInfo() {
     fy += mts.y+interfaceSpace1;
 
     const char* mnf = NULL;
-    if (mouseInfo) {
-        uint32_t msr = mouseExactTimestamp/(beatsInMeasure*piecesInBeat);
-        uint32_t bts = (mouseExactTimestamp-beatsInMeasure*piecesInBeat*msr)/piecesInBeat;
-        float fsb = (mouseExactTimestamp-beatsInMeasure*piecesInBeat*msr-bts*piecesInBeat)/(double)piecesInBeat;
-        mnf = TextFormat("%u:%u:%03u", msr, bts, (uint32_t)(fsb*1000));
-    }
+    if (mouseInfo) mnf=_timestampToString(mouseExactTimestamp);
     mts = _renderSideInfoTextData("Mouse:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_1, fy, nsize, mouseInfo);
     fy += mts.y+interfaceSpace1;
     mts = _renderSideInfoTextData("Selected:", selectedInfo?(TextFormat("%u", notesSelected)):NULL, COLOR_TRACK_THEME_1, fy, nsize, selectedInfo);
     fy += mts.y+interfaceSpace1;
     mnf = NULL;
-    if (mouseInfo) {
-        uint32_t msr = controlNoteSize/(beatsInMeasure*piecesInBeat);
-        uint32_t bts = (controlNoteSize-beatsInMeasure*piecesInBeat*msr)/piecesInBeat;
-        float fsb = (controlNoteSize-beatsInMeasure*piecesInBeat*msr-bts*piecesInBeat)/(double)piecesInBeat;
-        mnf = TextFormat("%u:%u:%03u", msr, bts, (uint32_t)(fsb*1000));
-    }
-    mts = _renderSideInfoTextData("Dur:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_2, fy, nsize, mouseInfo);
+    if (mouseInfo) mnf=_timestampToString(controlNoteSize);
+    mts = _renderSideInfoTextData("Length:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_2, fy, nsize, mouseInfo);
     fy += mts.y+interfaceSpace1;
 
     if (noteVelocitySlider) {
@@ -1091,13 +1142,21 @@ static void handlerIntermediateEvents() {
     if (globalHandlerIsPlaying() && globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupClear();
 
     int allowedShortcuts = (!UIisHoveringOverLayout() && !UIisInTextInput());
+    int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
     int delPressed = IsKeyPressed(KEY_DELETE);
-    if (allowedShortcuts && delPressed) {
-        globalHandlerDeleteSelectedNotes();
-    }
+    int aPressed = IsKeyPressed(KEY_A);
+
+    if (allowedShortcuts && delPressed) globalHandlerDeleteSelectedNotes();
+    else if (allowedShortcuts && aPressed && controlDown) actionDefer(globalHandlerSelectAllNotes);
 
     int zx = IsKeyPressed(KEY_D)-IsKeyPressed(KEY_A);
-    if (zx && allowedShortcuts) changeControlDuration(zx);
+    if (zx && allowedShortcuts && !controlDown) changeControlDuration(zx);
+}
+
+static void _selectSingleNote(Note note) {
+    globalHandlerSelectSingleNote(note);
+    controlNoteVelocity = note->velocity;
+    controlNoteSize = note->duration;
 }
 
 static void handleClick() {
@@ -1109,6 +1168,12 @@ static void handleClick() {
     }
 
     int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
+    //int selectedNotes = globalHandlerGetNumberOfSelectedNotes();
+    int selGroupActive = globalHandlerIsSelectGroupActive();
+    int selMoveActive = globalHandlerMoveSelectedIsActive();
+    int selResizeActive = globalHandlerResizeSelectedIsActive();
+
+
 
     if (globalMouseHandler.pressed) {
         printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
@@ -1118,10 +1183,19 @@ static void handleClick() {
                 //printf("Hovering over note: %p | idx=%d\n", (void*)rollHoveringOverNote, rollHoveringOverNoteIdx);
                 if (rollHoveringOverNote) {
                     if (controlDown) globalHandlerToggleSelectedNote(rollHoveringOverNote);
-                    else {
-                        globalHandlerSelectSingleNote(rollHoveringOverNote); //globalHandlerClearNotesSelected();
-                        controlNoteVelocity = rollHoveringOverNote->velocity;
-                    }
+                    //else if (selectedNotes) {
+                        if (rollHoverNoteType==3) { // Move
+                            if (!globalHandlerIsNoteSelected(rollHoveringOverNote)) _selectSingleNote(rollHoveringOverNote);
+                            globalHandlerMoveSelectedPress(rollHoveringOverNote, mouseFkey, mouseExactTimestampForGroupSelection);
+                        } else if (rollHoverNoteType==2) {  // Resize
+                            if (!globalHandlerIsNoteSelected(rollHoveringOverNote)) _selectSingleNote(rollHoveringOverNote);
+                            globalHandlerResizeSelectedPress(rollHoveringOverNote, mouseFkey, mouseExactTimestampForGroupSelection);
+                        } else if (rollHoverNoteType==1) {
+                            _selectSingleNote(rollHoveringOverNote);
+                        }
+                    //} else {
+                    //    _selectSingleNote(rollHoveringOverNote);
+                    //}
                 } else if (controlDown) {
                     globalHandlerSelectGroupPress(mouseFkey, mouseExactTimestampForGroupSelection);
                 } else {
@@ -1141,9 +1215,15 @@ static void handleClick() {
             }
         }
     } else if (globalMouseHandler.down) {
-        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupHold(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selGroupActive) globalHandlerSelectGroupHold(mouseFkey, mouseExactTimestampForGroupSelection);
+        else if (selMoveActive) globalHandlerMoveSelectedHold(mouseFkey, mouseExactTimestampForGroupSelection);
+        else if (selResizeActive) globalHandlerResizeSelectedHold(mouseFkey, mouseExactTimestampForGroupSelection);
+
     } else if (globalMouseHandler.released) {
-        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selGroupActive) globalHandlerSelectGroupRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selMoveActive) globalHandlerMoveSelectedRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selResizeActive) controlNoteSize = globalHandlerResizeSelectedRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+
     }
     
     if (globalMouseHandler.rightClickPressed) {
