@@ -36,9 +36,9 @@ uint8_t controlNoteVelocity=127;
 
 
 static float wkeyHeight=0, wkeyWidth=0, topPadding=15, space=0, keyScrollTarget=71.5, keyScroll=71.5, wkeyRangef=0, keyRange=0, keyRangeShown=0, blackKeyRelativeWidth=0.55, blackKeyRelativeHeight=0.5, octaveHeight=0, rollKeyHeight=0, rollStartX=0, verticalSliderX=0;
-static float scrollYposMin=0, scrollYposMax=0;
-static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, allowClickInRollRect=0, allowClickInRect=0, mouseInBHLrect=0;
-static Rectangle vkeysRect={0,0,0,0}, clipRect={0,0,0,0}, rollRect={0,0,0,0};
+static float scrollYposMin=0, scrollYposMax=0, scrollInfoTarget=0, scrollInfoY=0;
+static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, mouseInInfoRect=0, allowClickInRollRect=0, allowClickInRect=0, mouseInBHLrect=0;
+static Rectangle vkeysRect={0,0,0,0}, clipRect={0,0,0,0}, rollRect={0,0,0,0}, infoRect={0,0,0,0};
 
 static double visibleDuration=0, divCurrentTime=0, targetMeasures=0;
 static int beatsInMeasure=0; 
@@ -146,6 +146,19 @@ void clipKeyScrollTarget() {
     if (keyScrollTarget-keyRangeShown<-3.5) keyScrollTarget=keyRangeShown-3.5;
 }
 
+static void clipInfoScrollTarget() {
+    float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
+    float fy=rollRect.y, my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y;
+    int pairs = 10;
+    float height = (3+pairs)*my+(12+pairs)*interfaceSpace1;
+    if (fy+height<screenSize.y) scrollInfoTarget=0;
+    else {
+        if (scrollInfoTarget<0) scrollInfoTarget=0;
+        else if (scrollInfoTarget>0 && fy+height-my*scrollInfoTarget<screenSize.y) scrollInfoTarget=(fy+height-screenSize.y)/my;
+    }
+    
+}
+
 static void updateVelocitySliders() {
     int isPlaying = globalHandlerIsPlaying();
     int isSelectedActive = globalHandlerIsSelectGroupActive();
@@ -153,7 +166,8 @@ static void updateVelocitySliders() {
     int noteVelSliderAllow = (!isSelectedActive && (!notesSelected || (notesSelected==1 && !isPlaying)));
 
     float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
-    float fy = rollRect.y;
+    float my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y;
+    float fy=rollRect.y-my*scrollInfoY;
     Vector2 mts;
     mts = textFontGetSize(GlobalFonts[0].font, "C", nsize, 0);
     fy += 4*mts.y+5*interfaceSpace1;
@@ -164,6 +178,10 @@ static void updateVelocitySliders() {
 
         if (noteVelSliderAllow) sliderEnable(noteVelocitySlider);
         else sliderDisable(noteVelocitySlider);
+
+        if (mouseInInfoRect) sliderEnableHover(noteVelocitySlider);
+        else sliderDisableHover(noteVelocitySlider);
+        
         sliderUpdate(noteVelocitySlider, -1);
 
         if (isSliderDragged(noteVelocitySlider)) {
@@ -182,6 +200,8 @@ static void updateVelocitySliders() {
 
         if (1) sliderEnable(trackVelocitySlider);
         else sliderDisable(trackVelocitySlider);
+        if (mouseInInfoRect) sliderEnableHover(trackVelocitySlider);
+        else sliderDisableHover(trackVelocitySlider);
         sliderUpdate(trackVelocitySlider, -1);
 
         if (isSliderDragged(trackVelocitySlider)) {
@@ -197,6 +217,8 @@ static void updateVelocitySliders() {
 
         if (1) sliderEnable(trackPanningSlider);
         else sliderDisable(trackPanningSlider);
+        if (mouseInInfoRect) sliderEnableHover(trackPanningSlider);
+        else sliderDisableHover(trackPanningSlider);
         sliderUpdate(trackPanningSlider, -1);
 
         if (isSliderDragged(trackPanningSlider)) {
@@ -252,6 +274,10 @@ void preCalculateNecessaryVerticalKeyboard() {
         if (allowClickInRollRect) setNextMouseCursor(MOUSE_CURSOR_CROSSHAIR);
         else setNextMouseCursor(MOUSE_CURSOR_NOT_ALLOWED);
     }
+
+    infoRect = (Rectangle){0, screenSize.y-bottomHalfUsefulHeight+topPadding, trackLeftWidth-wkeyWidth-1, bottomHalfUsefulHeight-topPadding};
+    mouseInInfoRect = !UIisHoveringOverLayout() && !UIisInTextInput() && !UIexistsFrontLayoutOverlay() && CheckCollisionPointRec(globalMouseHandler.pos, infoRect);
+
     updateNecessaryValues();
 }
 
@@ -303,13 +329,18 @@ static int mouseHoversKey(float y1, float y2, float width) {
 
 
 static void updateRects() {
-    if ((mouseInRollRect || mouseInKeyRect) && globalMouseHandler.scroll!=0 && !(globalMouseHandler.down) && !IsKeyDown(KEY_LEFT_CONTROL)) {
-        keyScrollTarget += 2*globalMouseHandler.scroll;
+    if (globalMouseHandler.scroll!=0 && !(globalMouseHandler.down) && !IsKeyDown(KEY_LEFT_CONTROL)) {
+        if (mouseInRollRect || mouseInKeyRect) keyScrollTarget += 2*globalMouseHandler.scroll;
+        else if (mouseInInfoRect) scrollInfoTarget -= globalMouseHandler.scroll;
     }
+
     clipKeyScrollTarget();
 
     keyScroll += 0.2*(keyScrollTarget-keyScroll);
     topKey = (int)ceil(keyScroll);
+
+    clipInfoScrollTarget();
+    scrollInfoY += 0.2*(scrollInfoTarget-scrollInfoY);
 
     rollKeyHovering=-1;
     pianoKeyHovering=-1;
@@ -560,15 +591,19 @@ void setupBackground() {
     DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, h}, backgroundCol1bvl);
 }
 
-
-static void renderOverlayToHideImperfections() {
+static void renderOverlayToHideImperfections1() {
     float x=vkeysRect.x-2*interfaceSpace1;
     DrawRectangleRec((Rectangle){x, vkeysRect.y-topPadding, interfaceSpace1*2, vkeysRect.height+topPadding}, backgroundCol1bvl);
-    DrawRectangleRec((Rectangle){x, screenSize.y-bottomHalfUsefulHeight, screenSize.x-x, topPadding}, backgroundCol1bvl);
+}
+
+static void renderOverlayToHideImperfections2() {
+    float x=vkeysRect.x-0.5*interfaceSpace1;
+    DrawRectangleRec((Rectangle){x, vkeysRect.y-topPadding, interfaceSpace1*0.5, vkeysRect.height+topPadding}, backgroundCol1bvl);
+    DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, topPadding}, backgroundCol1bvl);
 
     if (keyScroll-keyRangeShown<-2) {
         float h = (keyScroll-keyRangeShown+2)*rollKeyHeight;
-        DrawRectangleRec((Rectangle){x, screenSize.y+h, screenSize.x-x, -h}, backgroundCol1bvl);
+        DrawRectangleRec((Rectangle){0, screenSize.y+h, screenSize.x, -h}, backgroundCol1bvl);
     }
 }
 
@@ -988,6 +1023,8 @@ static void changeControlDuration(int zx) {
 
 static Vector2 _renderSideInfoTextSeperator(const char* text, Color col, float fy, float nsize) {
     Vector2 mts = textFontGetSize(GlobalFonts[0].font, text, nsize, 0);
+    if (fy>screenSize.y+1 || fy+mts.y<rollRect.y-1) return mts;
+
     float s=0;
     renderFontStringAlign(GlobalFonts[0].font, text, (Vector2){(vkeysRect.x-s)*0.5, fy}, (Vector2){0.5,0}, nsize, 0, blendColors(col, (Color){255,255,255,255}, 0.25));
     Vector2 p1={2*interfaceSpace1, fy+mts.y*0.5}, p2={(vkeysRect.x-s)*0.5-mts.x*0.5-interfaceSpace1, fy+mts.y*0.5}, p3={(vkeysRect.x-s)*0.5+mts.x*0.5+interfaceSpace1, fy+mts.y*0.5}, p4={vkeysRect.x-s-2*interfaceSpace1, fy+mts.y*0.5};
@@ -999,12 +1036,21 @@ static Vector2 _renderSideInfoTextSeperator(const char* text, Color col, float f
 
 static Vector2 _renderSideInfoTextData(const char* key, const char* val, Color col, float fy, float nsize, int enabled) {
     Vector2 mts = textFontGetSize(GlobalFonts[0].font, key, nsize, 0);
+    if (fy>screenSize.y+1 || fy+mts.y<rollRect.y-1) return mts;
     
     renderFontStringAlign(GlobalFonts[0].font, key, (Vector2){2*interfaceSpace1, fy}, (Vector2){0,0}, nsize, 0, enabled?COLOR_TEXT_3:COLOR_TEXT_4);
     if (enabled) renderFontStringAlign(GlobalFonts[0].font, val, (Vector2){vkeysRect.x-2*interfaceSpace1, fy}, (Vector2){1.0,0}, nsize, 0, blendColors(col, (Color){255,255,255,255}, 0.25));
     else renderFontStringAlign(GlobalFonts[0].font, "---", (Vector2){vkeysRect.x-3*interfaceSpace1, fy}, (Vector2){1,0}, nsize, 0, COLOR_TEXT_4);
 
     return mts;
+}
+
+static void _renderSideInfoCard(float fy, float my, int pairs, Color col) {
+    Rectangle trect = {0.5*interfaceSpace1, fy, vkeysRect.x-interfaceSpace1, (1+pairs)*my+(3+pairs)*interfaceSpace1};
+    if (fy>screenSize.y+1 || fy+trect.height<rollRect.y-1) return;
+
+    trect = rectangleAnd(trect, (Rectangle){0,screenSize.y-bottomHalfHeight,screenSize.x,bottomHalfHeight});
+    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, col);
 }
 
 static const char* _timestampToString(uint32_t timestamp) {
@@ -1028,12 +1074,12 @@ static void renderSideInfo() {
     int selectedInfo = (notesSelected && !isPlaying);
 
     float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
-    float fy=rollRect.y, my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y, bgLerp=0.07;
+    float my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y, bgLerp=0.07;
+    float fy=rollRect.y-my*scrollInfoY;
     Vector2 mts;
     Color backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_0, COLOR_TRACK_THEME_1, 0.5), bgLerp);
 
-    Rectangle trect = {0.5*interfaceSpace1, fy, vkeysRect.x-interfaceSpace1, 5*my+7*interfaceSpace1};
-    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, backgroundCol);
+    _renderSideInfoCard(fy, my, 4, backgroundCol);
     fy += interfaceSpace1;
 
     mts = _renderSideInfoTextSeperator("Control", COLOR_TRACK_THEME_0, fy, nsize);
@@ -1050,7 +1096,7 @@ static void renderSideInfo() {
     mts = _renderSideInfoTextData("Length:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_2, fy, nsize, mouseInfo);
     fy += mts.y+interfaceSpace1;
 
-    if (noteVelocitySlider) {
+    if (noteVelocitySlider && fy<screenSize.y+1 && fy+mts.y>rollRect.y-1) {
         float sldEffect = sliderGetEffectValue(noteVelocitySlider);
         int isDisabled = isSliderDisabled(noteVelocitySlider);
         Color sldbg;
@@ -1070,10 +1116,8 @@ static void renderSideInfo() {
     }
     fy += mts.y+3*interfaceSpace1;
 
-    trect.y=fy;
-    trect.height = 4*my+6*interfaceSpace1;
     backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_3, COLOR_TRACK_THEME_4, 0.5), bgLerp);
-    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, backgroundCol);
+    _renderSideInfoCard(fy, my, 3, backgroundCol);
     fy += interfaceSpace1;
 
     mts = _renderSideInfoTextSeperator("Track", COLOR_TRACK_THEME_3, fy, nsize);
@@ -1082,7 +1126,7 @@ static void renderSideInfo() {
     mts = _renderSideInfoTextData("Notes:", TextFormat("%u", trackNotes), COLOR_TRACK_THEME_4, fy, nsize, 1);
     fy += mts.y+interfaceSpace1;
 
-    if (trackVelocitySlider) {
+    if (trackVelocitySlider && fy<screenSize.y+1 && fy+mts.y>rollRect.y-1) {
         float sldEffect = sliderGetEffectValue(trackVelocitySlider);
         Color sldbg={12,13,19,255};
         Color sldfg=blendColors(COLOR_TRACK_THEME_4, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
@@ -1094,7 +1138,7 @@ static void renderSideInfo() {
     }
     fy += mts.y+interfaceSpace1;
 
-    if (trackPanningSlider) {
+    if (trackPanningSlider && fy<screenSize.y+1 && fy+mts.y>rollRect.y-1) {
         float sldEffect = sliderGetEffectValue(trackPanningSlider);
         Color sldbg={12,13,19,255};
         Color sldfg=blendColors(COLOR_TRACK_THEME_4, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
@@ -1110,10 +1154,8 @@ static void renderSideInfo() {
 
     fy += mts.y+3*interfaceSpace1;
 
-    trect.y=fy;
-    trect.height = 4*my+6*interfaceSpace1;
     backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_5, COLOR_TRACK_THEME_6, 0.5), bgLerp);
-    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, backgroundCol);
+    _renderSideInfoCard(fy, my, 3, backgroundCol);
     fy += interfaceSpace1;
 
     mts = _renderSideInfoTextSeperator("Project", COLOR_TRACK_THEME_5, fy, nsize);
@@ -1260,10 +1302,12 @@ void renderWholeBottomLayoutTypeVertical() {
     renderWhatMightBeAdded();
 
     renderVerticalKeyboard();
+    renderOverlayToHideImperfections1();
     
-    renderOverlayToHideImperfections();
-    renderRollVerticalSlider();
     renderSideInfo();
+    renderOverlayToHideImperfections2();
+    renderRollVerticalSlider();
+    
 
     handlerIntermediateEvents();
     handleClick();

@@ -1,9 +1,4 @@
-#include <backend.h>
-#include "backend_internal.h"
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
+#include "export_internal.h"
 
 
 int getTrackThemeColorIdx(int i);                       // modules/interface/render/tracks.c
@@ -12,25 +7,25 @@ void freeTrackUIs();                                    // modules/interface/ren
 void projectLoadTmpProject(ProjectData newProject);     // modules/backend/project.c
 
 
-static void writeUint32(FILE* fptr, uint32_t data) {
+void writeUint32(FILE* fptr, uint32_t data) {
     for (int i=0; i<4; i++) {
         int t = ((data >> (i<<3)) & 0xFF);
         fputc(t, fptr);
     }
 }
 
-static void writeUint16(FILE* fptr, uint16_t data) {
+void writeUint16(FILE* fptr, uint16_t data) {
     for (int i=0; i<2; i++) {
         int t = ((data >> (i<<3)) & 0xFF);
         fputc(t, fptr);
     }
 }
 
-inline static void writeUint8(FILE* fptr, uint8_t data) {
+void writeUint8(FILE* fptr, uint8_t data) {
     fputc((int)data, fptr);
 }
 
-static int readUint32(FILE* fptr, uint32_t* ret) {
+int readUint32(FILE* fptr, uint32_t* ret) {
     uint32_t tmp = 0;
     for (int i=0; i<4; i++) {
         int c = fgetc(fptr);
@@ -41,7 +36,7 @@ static int readUint32(FILE* fptr, uint32_t* ret) {
     return 0;
 }
 
-static int readUint16(FILE* fptr, uint16_t* ret) {
+int readUint16(FILE* fptr, uint16_t* ret) {
     uint16_t tmp = 0;
     for (int i=0; i<2; i++) {
         int c = fgetc(fptr);
@@ -52,14 +47,14 @@ static int readUint16(FILE* fptr, uint16_t* ret) {
     return 0;
 }
 
-static int readUint8(FILE* fptr, uint8_t* ret) {
+int readUint8(FILE* fptr, uint8_t* ret) {
     int c = fgetc(fptr);
     if (c==EOF) return 1;
     *ret = (uint8_t)c;
     return 0;
 }
 
-static int readString(FILE* fptr, char* buffer, int len) {
+int readString(FILE* fptr, char* buffer, int len) {
     for (int i=0; i<len; i++) {
         int c = fgetc(fptr);
         if (c==EOF) return 1;
@@ -69,7 +64,7 @@ static int readString(FILE* fptr, char* buffer, int len) {
     return 0;
 }
 
-static void writeString(FILE* fptr, const char* string) {
+void writeString(FILE* fptr, const char* string) {
     const char* ch = string;
     while (*ch) {
         writeUint8(fptr, (uint8_t)(*ch));
@@ -367,8 +362,9 @@ static int loadProject(FILE* fptr, const char* filepath) {
 
 
 int exportProjectTo(const char* filename) {
+    if (!filename) return 1;
     FILE* fptr = fopen(filename, "wb");
-    if (!filename) return 1;    // Couldn't open file
+    if (!fptr) return 1;    // Couldn't open file
 
     int ret = writeProject(fptr);
     fclose(fptr);

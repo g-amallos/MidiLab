@@ -454,7 +454,7 @@ void updateBaseLayout() {
         buttonListUpdateSpacing(exportLayout, buttonList4x5ExampleSpacing);
         buttonListUpdateJustList(exportLayout);
 
-        char allowed[] = {0,1,0};
+        char allowed[] = {1,1,0};
         char effects[] = {-1,-1,-1};
 
         buttonListUpdateButtonsEnDisabled(exportLayout, 3, allowed, effects);
@@ -637,6 +637,26 @@ void exportWave() {
     }
 }
 
+void exportMidi() {
+    globalHandlerPause();
+    synthPanic();
+
+    const char* projectTitle = projectGetCurrentTitle();
+    if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
+
+    char* title = stringToFileName(projectTitle, 30);
+    char* conct = concatenateStrings(title, ".mid");
+    free(title);
+
+    const char* path = tinyfd_saveFileDialog("Export MidiLab Project As .MID", conct, 1, (const char *[]){"*.mid"}, "MIDI Format");
+    free(conct);
+
+    if (path) {
+        int failed = exportProjectAsMidi(path);
+        if (!failed) destroyBaseLayout();
+    }
+}
+
 void deferNewProject() {
     globalHandlerPause();
     synthPanic();
@@ -695,7 +715,7 @@ void renderBaseLayout() {
         DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
         DrawRectangleRounded(brect, roundness, 8, col1);
         const char* texts[] = {"MIDI", "WAV", "MP3"};
-        OnClickFunc actions[] = {NULL, exportWave, NULL};
+        OnClickFunc actions[] = {exportMidi, exportWave, NULL};
         int num = buttonListGetNum(exportLayout);
         for (int i=0; i<num; i++) {
             Button btn = buttonListGetButtonAt(exportLayout, i);

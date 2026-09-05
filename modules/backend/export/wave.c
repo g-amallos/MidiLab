@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "synth_internal.h"
-#include "backend_internal.h"
+#include "../synth_internal.h"
+#include "../backend_internal.h"
 #include <math.h>
 
 

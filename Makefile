@@ -1,7 +1,7 @@
 INCLUDE = include
 
 SRCS = $(shell find modules -name "*.c")
-#SRCS := $(filter-out modules/backend/export.c,$(SRCS))
+#SRCS := $(filter-out modules/backend/export/midi.c,$(SRCS))
 OBJS_RAW = $(SRCS:.c=.o)
 #OBJS_RAW = modules/main.o modules/interface/general.o modules/interface/textfont.o modules/utils/utils.o modules/interface/rectangles.o modules/interface/render/backgrounds.o modules/interface/render/controlLine.o
 TARGET = midilab
