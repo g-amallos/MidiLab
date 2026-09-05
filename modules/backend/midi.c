@@ -206,6 +206,7 @@ MidiEvent midiCreateEventForNoteOn(Note note, float volume) {
     if (!event) return NULL;    // malloc failed
 
     event->channel = note->channel;
+    event->track = note->track;
     event->type = MM_NOTE_ON;
     event->note_on.key=note->key;
     event->note_on.velocity=(uint8_t)(volume*(note->velocity));
@@ -219,6 +220,7 @@ MidiEvent midiCreateEventForNoteOff(Note note) {
     if (!event) return NULL;    // malloc failed
 
     event->channel = note->channel;
+    event->track = note->track;
     event->type = MM_NOTE_OFF;
     event->note_off.key=note->key;
     event->note_off.velocity=0;

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <images.h>
+#include <export.h>
 
 
 
@@ -28,16 +29,16 @@ static struct {
     uint8_t channel;
 } releaseEvent;
 
-// rollHoverNoteType: 0 -> note hovering | 1 -> hovering to select | 2 -> hovering to resize | 3 -> hovering to move
+// rollHoverNoteType: 0 -> not hovering | 1 -> hovering to select | 2 -> hovering to resize | 3 -> hovering to move
 
 uint32_t controlNoteSize=(1<<13);
 uint8_t controlNoteVelocity=127;
 
 
 static float wkeyHeight=0, wkeyWidth=0, topPadding=15, space=0, keyScrollTarget=71.5, keyScroll=71.5, wkeyRangef=0, keyRange=0, keyRangeShown=0, blackKeyRelativeWidth=0.55, blackKeyRelativeHeight=0.5, octaveHeight=0, rollKeyHeight=0, rollStartX=0, verticalSliderX=0;
-static float scrollYposMin=0, scrollYposMax=0;
-static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, allowClickInRollRect=0, allowClickInRect=0, mouseInBHLrect=0;
-static Rectangle vkeysRect={0,0,0,0}, clipRect={0,0,0,0}, rollRect={0,0,0,0};
+static float scrollYposMin=0, scrollYposMax=0, scrollInfoTarget=0, scrollInfoY=0;
+static int wkeyRange=0, topKey=0, mouseInRollRect=0, mouseInKeyRect=0, mouseInInfoRect=0, allowClickInRollRect=0, allowClickInRect=0, mouseInBHLrect=0;
+static Rectangle vkeysRect={0,0,0,0}, clipRect={0,0,0,0}, rollRect={0,0,0,0}, infoRect={0,0,0,0};
 
 static double visibleDuration=0, divCurrentTime=0, targetMeasures=0;
 static int beatsInMeasure=0; 
@@ -48,7 +49,7 @@ static float twidths[3] = {0};
 static float rollKeyRelHeights[12] = {16,10,18,10,16,18,10,17,10,17,10,18}, rollKeyHeights[12]={0}, consecutiveRelOffsets[12] = {1.6, 0.3, 1.5, 0.6, 1, 1.8, 0.2, 1.5, 0.4, 1.3, 0.7, 1.1}, consecutiveOffsets[12]={0};
 
 
-static Slider verticalSlider=NULL;
+static Slider verticalSlider=NULL, noteVelocitySlider=NULL, trackVelocitySlider=NULL, trackPanningSlider=NULL;
 
 
 
@@ -105,12 +106,30 @@ void verticalKeyboardInit() {
     Rectangle rect = (Rectangle){20,20,20,20};
     verticalSlider = sliderCreate(rect, 1);
     sliderUpdateCursorOnHover(verticalSlider, MOUSE_CURSOR_RESIZE_NS);
+
+    noteVelocitySlider = sliderCreate(rect, 1);
+    sliderUpdateCursorOnHover(noteVelocitySlider, MOUSE_CURSOR_RESIZE_EW);
+
+    trackVelocitySlider = sliderCreate(rect, 1);
+    sliderUpdateCursorOnHover(trackVelocitySlider, MOUSE_CURSOR_RESIZE_EW);
+
+    trackPanningSlider = sliderCreate(rect, 1);
+    sliderUpdateCursorOnHover(trackPanningSlider, MOUSE_CURSOR_RESIZE_EW);
 }
 
 
 void verticalKeyboardClose() {
     if (verticalSlider) sliderFree(verticalSlider);
     verticalSlider=NULL;
+
+    if (noteVelocitySlider) sliderFree(noteVelocitySlider);
+    noteVelocitySlider=NULL;
+
+    if (trackVelocitySlider) sliderFree(trackVelocitySlider);
+    trackVelocitySlider=NULL;
+
+    if (trackPanningSlider) sliderFree(trackPanningSlider);
+    trackPanningSlider=NULL;
 }
 
 
@@ -125,6 +144,89 @@ void clipKeyScrollTarget() {
     scrollYposMax=126;
     if (keyScrollTarget>126) keyScrollTarget=126;
     if (keyScrollTarget-keyRangeShown<-3.5) keyScrollTarget=keyRangeShown-3.5;
+}
+
+static void clipInfoScrollTarget() {
+    float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
+    float fy=rollRect.y, my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y;
+    int pairs = 10;
+    float height = (3+pairs)*my+(12+pairs)*interfaceSpace1;
+    if (fy+height<screenSize.y) scrollInfoTarget=0;
+    else {
+        if (scrollInfoTarget<0) scrollInfoTarget=0;
+        else if (scrollInfoTarget>0 && fy+height-my*scrollInfoTarget<screenSize.y) scrollInfoTarget=(fy+height-screenSize.y)/my;
+    }
+    
+}
+
+static void updateVelocitySliders() {
+    int isPlaying = globalHandlerIsPlaying();
+    int isSelectedActive = globalHandlerIsSelectGroupActive();
+    int notesSelected = globalHandlerGetNumberOfSelectedNotes();
+    int noteVelSliderAllow = (!isSelectedActive && (!notesSelected || (notesSelected==1 && !isPlaying)));
+
+    float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
+    float my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y;
+    float fy=rollRect.y-my*scrollInfoY;
+    Vector2 mts;
+    mts = textFontGetSize(GlobalFonts[0].font, "C", nsize, 0);
+    fy += 4*mts.y+5*interfaceSpace1;
+
+    if (noteVelocitySlider) {
+        Rectangle rect = {2*interfaceSpace1, fy-1, vkeysRect.x-4*interfaceSpace1, mts.y+2};
+        sliderUpdateRectangle(noteVelocitySlider, rect);
+
+        if (noteVelSliderAllow) sliderEnable(noteVelocitySlider);
+        else sliderDisable(noteVelocitySlider);
+
+        if (mouseInInfoRect) sliderEnableHover(noteVelocitySlider);
+        else sliderDisableHover(noteVelocitySlider);
+        
+        sliderUpdate(noteVelocitySlider, -1);
+
+        if (isSliderDragged(noteVelocitySlider)) {
+            controlNoteVelocity = (uint8_t)(127*sliderUpdateValueCommonHorizontal(noteVelocitySlider));
+            if (notesSelected==1) globalHandlerChangeVelocityOfSelectedNotes(controlNoteVelocity);
+        } else {
+            sliderUpdateSlideValue(noteVelocitySlider, controlNoteVelocity/127.0);
+        }
+    }
+
+    fy += 3*mts.y+6*interfaceSpace1;
+
+    if (trackVelocitySlider) {
+        Rectangle rect = {2*interfaceSpace1, fy-1, vkeysRect.x-4*interfaceSpace1, mts.y+2};
+        sliderUpdateRectangle(trackVelocitySlider, rect);
+
+        if (1) sliderEnable(trackVelocitySlider);
+        else sliderDisable(trackVelocitySlider);
+        if (mouseInInfoRect) sliderEnableHover(trackVelocitySlider);
+        else sliderDisableHover(trackVelocitySlider);
+        sliderUpdate(trackVelocitySlider, -1);
+
+        if (isSliderDragged(trackVelocitySlider)) {
+            trackSetVelocity(trackGetSelectedTrack(), sliderUpdateValueCommonHorizontal(trackVelocitySlider));
+        } else {
+            sliderUpdateSlideValue(trackVelocitySlider, trackGetVelocity(trackGetSelectedTrack()));
+        }
+    }
+    fy += mts.y+interfaceSpace1;
+    if (trackPanningSlider) {
+        Rectangle rect = {2*interfaceSpace1, fy-1, vkeysRect.x-4*interfaceSpace1, mts.y+2};
+        sliderUpdateRectangle(trackPanningSlider, rect);
+
+        if (1) sliderEnable(trackPanningSlider);
+        else sliderDisable(trackPanningSlider);
+        if (mouseInInfoRect) sliderEnableHover(trackPanningSlider);
+        else sliderDisableHover(trackPanningSlider);
+        sliderUpdate(trackPanningSlider, -1);
+
+        if (isSliderDragged(trackPanningSlider)) {
+            trackSetPanning(trackGetSelectedTrack(), sliderUpdateValueCommonHorizontal(trackPanningSlider));
+        } else {
+            sliderUpdateSlideValue(trackPanningSlider, trackGetPanning(trackGetSelectedTrack()));
+        }
+    }
 }
 
 static void updateNecessaryValues();
@@ -172,6 +274,10 @@ void preCalculateNecessaryVerticalKeyboard() {
         if (allowClickInRollRect) setNextMouseCursor(MOUSE_CURSOR_CROSSHAIR);
         else setNextMouseCursor(MOUSE_CURSOR_NOT_ALLOWED);
     }
+
+    infoRect = (Rectangle){0, screenSize.y-bottomHalfUsefulHeight+topPadding, trackLeftWidth-wkeyWidth-1, bottomHalfUsefulHeight-topPadding};
+    mouseInInfoRect = !UIisHoveringOverLayout() && !UIisInTextInput() && !UIexistsFrontLayoutOverlay() && CheckCollisionPointRec(globalMouseHandler.pos, infoRect);
+
     updateNecessaryValues();
 }
 
@@ -223,13 +329,18 @@ static int mouseHoversKey(float y1, float y2, float width) {
 
 
 static void updateRects() {
-    if ((mouseInRollRect || mouseInKeyRect) && globalMouseHandler.scroll!=0 && !(globalMouseHandler.down) && !IsKeyDown(KEY_LEFT_CONTROL)) {
-        keyScrollTarget += 2*globalMouseHandler.scroll;
+    if (globalMouseHandler.scroll!=0 && !(globalMouseHandler.down) && !IsKeyDown(KEY_LEFT_CONTROL)) {
+        if (mouseInRollRect || mouseInKeyRect) keyScrollTarget += 2*globalMouseHandler.scroll;
+        else if (mouseInInfoRect) scrollInfoTarget -= globalMouseHandler.scroll;
     }
+
     clipKeyScrollTarget();
 
     keyScroll += 0.2*(keyScrollTarget-keyScroll);
     topKey = (int)ceil(keyScroll);
+
+    clipInfoScrollTarget();
+    scrollInfoY += 0.2*(scrollInfoTarget-scrollInfoY);
 
     rollKeyHovering=-1;
     pianoKeyHovering=-1;
@@ -321,6 +432,7 @@ void preCalculateVerticalKeyboard() {
 
 
     precomputeRollVerticalSlider();
+    updateVelocitySliders();
 }
 
 
@@ -479,15 +591,19 @@ void setupBackground() {
     DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, h}, backgroundCol1bvl);
 }
 
-
-static void renderOverlayToHideImperfections() {
+static void renderOverlayToHideImperfections1() {
     float x=vkeysRect.x-2*interfaceSpace1;
     DrawRectangleRec((Rectangle){x, vkeysRect.y-topPadding, interfaceSpace1*2, vkeysRect.height+topPadding}, backgroundCol1bvl);
-    DrawRectangleRec((Rectangle){x, screenSize.y-bottomHalfUsefulHeight, screenSize.x-x, topPadding}, backgroundCol1bvl);
+}
+
+static void renderOverlayToHideImperfections2() {
+    float x=vkeysRect.x-0.5*interfaceSpace1;
+    DrawRectangleRec((Rectangle){x, vkeysRect.y-topPadding, interfaceSpace1*0.5, vkeysRect.height+topPadding}, backgroundCol1bvl);
+    DrawRectangleRec((Rectangle){0, screenSize.y-bottomHalfUsefulHeight, screenSize.x, topPadding}, backgroundCol1bvl);
 
     if (keyScroll-keyRangeShown<-2) {
         float h = (keyScroll-keyRangeShown+2)*rollKeyHeight;
-        DrawRectangleRec((Rectangle){x, screenSize.y+h, screenSize.x-x, -h}, backgroundCol1bvl);
+        DrawRectangleRec((Rectangle){0, screenSize.y+h, screenSize.x, -h}, backgroundCol1bvl);
     }
 }
 
@@ -543,6 +659,8 @@ void renderMeasureLinesBackground() {
     if (subBeats) mouseTimestampJumps = piecesInBeat/subBeats;
     else if (measureSkips==1) mouseTimestampJumps = beatSkips*piecesInBeat;
     else mouseTimestampJumps = beatSkips*piecesInBeat;
+
+    globalHandlerSetVisibleMouseJumps(mouseTimestampJumps);
 
 
     Color col1=COLOR_TEXT_1, col2=COLOR_TEXT_3, col3=COLOR_TEXT_4;
@@ -704,7 +822,7 @@ inline static void renderNote(Note note, Color color, int isHovering) {
     double mtw = ((double)(note->duration))/(piecesInBeat*beatsInMeasure)*measureWidth;
 
     Rectangle rect = {mtx, pianoRollKeys[note->key].rollY, mtw, pianoRollKeys[note->key].rollHeight};
-    if (isHovering) DrawRectangleRec(rectangleAnd(rect, rollRect), color);
+    if (isHovering) DrawRectangleRounded(rect, 0.5, 5, color);//DrawRectangleRec(rectangleAnd(rect, rollRect), color);
     else DrawRectangleRounded(rect, 0.75, 5, color);
 
     int space=7;
@@ -723,6 +841,12 @@ inline static int isTimestampWithinNote(Note note, uint32_t timestamp) {
     return (note->timestamp<=timestamp && timestamp-note->timestamp<note->duration);
 }
 
+inline static void _fixMouseCursorIfNeeded(int selGroupActive, int selMoveActive, int selResizeActive) {
+    if (selGroupActive) setNextMouseCursor(MOUSE_CURSOR_CROSSHAIR);
+    else if (selMoveActive) setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+    else if (selResizeActive) setNextMouseCursor(MOUSE_CURSOR_RESIZE_EW);
+}
+
 void renderNotes() {
     Track track = trackGetSelectedTrack();
     uint32_t notesNum = trackGetNumOfNotes(track);
@@ -730,6 +854,11 @@ void renderNotes() {
 
     Color colors[2] = {getTrackThemeColorForWhiteKeys(), getTrackThemeColorForBlackKeys()};
     Color tcol={0,0,0,255};
+
+    int selGroupActive = globalHandlerIsSelectGroupActive();
+    int selMoveActive = globalHandlerMoveSelectedIsActive();
+    int selResizeActive = globalHandlerResizeSelectedIsActive();
+    int somethingActive = (selGroupActive || selMoveActive || selResizeActive);
 
     rollHoveringOverNote = NULL;
     rollHoveringOverNoteIdx = -1;
@@ -749,7 +878,7 @@ void renderNotes() {
 
         tcol = colors[pianoRollKeys[note->key].type];
         int isVisuallySelected = (!isPlaying && globalHandlerIsNoteSelected(note));
-        int isVisuallyHovered = (!isPlaying && !rollHoveringOverNote && isHoveringOverNote(note));
+        int isVisuallyHovered = (!isPlaying && !somethingActive && (!rollHoveringOverNote || isVisuallySelected) && isHoveringOverNote(note));
 
         if (isVisuallySelected) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.5);
         else if (isVisuallyHovered) tcol = blendColors(tcol, (Color){230,230,230,255}, 0.4);
@@ -764,13 +893,21 @@ void renderNotes() {
                 rollHoverNoteType = 2;
                 setNextMouseCursor(MOUSE_CURSOR_RESIZE_EW);
             } else {
-                rollHoverNoteType = 1;
+                rollHoverNoteType = 3;
                 setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
             }
+            /*
+            } else if (isVisuallySelected) {
+                rollHoverNoteType = 3;
+                setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+            } else {
+                rollHoverNoteType = 1;
+                setNextMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+            }*/
         }
         renderNote(note, tcol, (rollHoveringOverNote==note)||isVisuallySelected);
     }
-
+    _fixMouseCursorIfNeeded(selGroupActive, selMoveActive, selResizeActive);
 }
 
 void renderBottomKeyboardTimeLine() {
@@ -802,7 +939,6 @@ void renderBottomKeyboardTimeLine() {
 static void _groupSelectionScrollIfNeeded() {
     float mx=globalMouseHandler.pos.x, my=globalMouseHandler.pos.y;
     float vx=floatClip((mx-rollRect.x)/rollRect.width, 0, 1), vy=floatClip((my-rollRect.y)/rollRect.height, 0, 1);
-    // keyScrollTarget
     double edgeX=0.15, edgeY=0.15;
 
     double ctime = globalHandlerGetTime();
@@ -831,12 +967,46 @@ static void _groupSelectionScrollIfNeeded() {
     clipKeyScrollTarget();
 }
 
+static void _groupSelectionScrollHorizontallyIfNeeded() {
+    Note note = globalHandlerResizeSelectedGetReferenceNote();
+    float mx=globalMouseHandler.pos.x;
+    
+    if (note) {
+        double mtx = divStartX+(((double)(note->timestamp))/(piecesInBeat*beatsInMeasure)-globalHandlerDurationToMeasures(divCurrentTime))*measureWidth;
+        double mtw = ((double)(note->duration))/(piecesInBeat*beatsInMeasure)*measureWidth;
+        mx = mtx+mtw;
+    }
+    
+    float vx=floatClip((mx-rollRect.x)/rollRect.width, 0, 1);
+    double edgeX=0.15;
+
+    double ctime = globalHandlerGetTime();
+    double cdur = globalHandlerGetVisibleDuration();
+
+    if (vx<edgeX) {
+        if (ctime>0) {
+            double speed = (vx/edgeX)-1.0;
+            double offset = 0.015*cdur*speed;
+            globalHandlerSetTime(ctime+offset);
+        } else globalHandlerSetTime(0);
+
+    } else if (vx>1-edgeX) {
+        double speed = (vx-1.0+edgeX)/edgeX;
+        double offset = 0.015*cdur*speed;
+        globalHandlerSetTime(ctime+offset);
+    }
+}
+
 void order2PrecomputeRoll() {
     int isPlaying = globalHandlerIsPlaying();
     int mouseDown = globalMouseHandler.down;
     int groupSelActive = globalHandlerIsSelectGroupActive();
-    if (!isPlaying && mouseDown && groupSelActive) {
+    int groupMoveActive = globalHandlerMoveSelectedIsActive();
+    int groupResizeActive = globalHandlerResizeSelectedIsActive();
+    if (!isPlaying && mouseDown && (groupSelActive || groupMoveActive)) {
         _groupSelectionScrollIfNeeded();
+    } else if (!isPlaying && mouseDown && groupResizeActive) {
+        _groupSelectionScrollHorizontallyIfNeeded();
     }
 
 }
@@ -848,12 +1018,164 @@ static void changeControlDuration(int zx) {
         uint32_t tmp = mouseTimestampJumps*((controlNoteSize/mouseTimestampJumps));
         if (tmp==controlNoteSize) tmp-=mouseTimestampJumps;
         controlNoteSize = tmp;
-    }
+    } else if (zx<0 && controlNoteSize==mouseTimestampJumps && !(mouseTimestampJumps&1)) controlNoteSize = (mouseTimestampJumps>>1);
 }
 
+static Vector2 _renderSideInfoTextSeperator(const char* text, Color col, float fy, float nsize) {
+    Vector2 mts = textFontGetSize(GlobalFonts[0].font, text, nsize, 0);
+    if (fy>screenSize.y+1 || fy+mts.y<rollRect.y-1) return mts;
 
+    float s=0;
+    renderFontStringAlign(GlobalFonts[0].font, text, (Vector2){(vkeysRect.x-s)*0.5, fy}, (Vector2){0.5,0}, nsize, 0, blendColors(col, (Color){255,255,255,255}, 0.25));
+    Vector2 p1={2*interfaceSpace1, fy+mts.y*0.5}, p2={(vkeysRect.x-s)*0.5-mts.x*0.5-interfaceSpace1, fy+mts.y*0.5}, p3={(vkeysRect.x-s)*0.5+mts.x*0.5+interfaceSpace1, fy+mts.y*0.5}, p4={vkeysRect.x-s-2*interfaceSpace1, fy+mts.y*0.5};
+    DrawLineEx(p1, p2, 1.0, col);
+    DrawLineEx(p3, p4, 1.0, col);
+
+    return mts;
+}
+
+static Vector2 _renderSideInfoTextData(const char* key, const char* val, Color col, float fy, float nsize, int enabled) {
+    Vector2 mts = textFontGetSize(GlobalFonts[0].font, key, nsize, 0);
+    if (fy>screenSize.y+1 || fy+mts.y<rollRect.y-1) return mts;
+    
+    renderFontStringAlign(GlobalFonts[0].font, key, (Vector2){2*interfaceSpace1, fy}, (Vector2){0,0}, nsize, 0, enabled?COLOR_TEXT_3:COLOR_TEXT_4);
+    if (enabled) renderFontStringAlign(GlobalFonts[0].font, val, (Vector2){vkeysRect.x-2*interfaceSpace1, fy}, (Vector2){1.0,0}, nsize, 0, blendColors(col, (Color){255,255,255,255}, 0.25));
+    else renderFontStringAlign(GlobalFonts[0].font, "---", (Vector2){vkeysRect.x-3*interfaceSpace1, fy}, (Vector2){1,0}, nsize, 0, COLOR_TEXT_4);
+
+    return mts;
+}
+
+static void _renderSideInfoCard(float fy, float my, int pairs, Color col) {
+    Rectangle trect = {0.5*interfaceSpace1, fy, vkeysRect.x-interfaceSpace1, (1+pairs)*my+(3+pairs)*interfaceSpace1};
+    if (fy>screenSize.y+1 || fy+trect.height<rollRect.y-1) return;
+
+    trect = rectangleAnd(trect, (Rectangle){0,screenSize.y-bottomHalfHeight,screenSize.x,bottomHalfHeight});
+    DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, 0.07*trect.width), 4, col);
+}
+
+static const char* _timestampToString(uint32_t timestamp) {
+    uint32_t msr = timestamp/(beatsInMeasure*piecesInBeat);
+    uint32_t bts = (timestamp-beatsInMeasure*piecesInBeat*msr)/piecesInBeat;
+    float fsb = (timestamp-beatsInMeasure*piecesInBeat*msr-bts*piecesInBeat)/(double)piecesInBeat;
+    return TextFormat("%u:%u:%03u", msr, bts, (uint32_t)(fsb*1000));
+} 
 
 static void renderSideInfo() {
+    int isPlaying = globalHandlerIsPlaying();
+    //int isSelectedActive = globalHandlerIsSelectGroupActive();
+    int notesSelected = globalHandlerGetNumberOfSelectedNotes();
+    uint32_t trackNotes = trackGetNumOfNotes(trackGetSelectedTrack());
+    int tracksNum = projectGetTracksNum();
+    uint32_t totalNotes = projectGetTotalNumberOfNotes();
+    uint32_t totalProjectSize = estimateFileSizeForProject();
+
+
+    int mouseInfo = (!isPlaying && mouseExactTimestamp!=(((uint32_t)1)<<31));
+    int selectedInfo = (notesSelected && !isPlaying);
+
+    float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
+    float my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y, bgLerp=0.07;
+    float fy=rollRect.y-my*scrollInfoY;
+    Vector2 mts;
+    Color backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_0, COLOR_TRACK_THEME_1, 0.5), bgLerp);
+
+    _renderSideInfoCard(fy, my, 4, backgroundCol);
+    fy += interfaceSpace1;
+
+    mts = _renderSideInfoTextSeperator("Control", COLOR_TRACK_THEME_0, fy, nsize);
+    fy += mts.y+interfaceSpace1;
+
+    const char* mnf = NULL;
+    if (mouseInfo) mnf=_timestampToString(mouseExactTimestamp);
+    mts = _renderSideInfoTextData("Mouse:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_1, fy, nsize, mouseInfo);
+    fy += mts.y+interfaceSpace1;
+    mts = _renderSideInfoTextData("Selected:", selectedInfo?(TextFormat("%u", notesSelected)):NULL, COLOR_TRACK_THEME_1, fy, nsize, selectedInfo);
+    fy += mts.y+interfaceSpace1;
+    mnf = NULL;
+    if (mouseInfo) mnf=_timestampToString(controlNoteSize);
+    mts = _renderSideInfoTextData("Length:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_2, fy, nsize, mouseInfo);
+    fy += mts.y+interfaceSpace1;
+
+    if (noteVelocitySlider && fy<screenSize.y+1 && fy+mts.y>rollRect.y-1) {
+        float sldEffect = sliderGetEffectValue(noteVelocitySlider);
+        int isDisabled = isSliderDisabled(noteVelocitySlider);
+        Color sldbg;
+        Color sldfg;
+        if (isDisabled) {
+            sldbg = (Color){9, 10, 13, 255};
+            sldfg = blendColors(COLOR_TRACK_THEME_2, (Color){20,20,20,255}, 0.65);
+        } else {
+            sldbg = (Color){12, 13, 19, 255};
+            sldfg = blendColors(COLOR_TRACK_THEME_2, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
+        }
+        Rectangle trc = sliderGetRectangle(noteVelocitySlider);
+        DrawRectangleRounded(trc, 0.3, 4, sldbg);
+        DrawRectangleRounded(sliderGetRectangleValueCommon(noteVelocitySlider), 0.3, 4, sldfg);
+
+        renderFontStringAlign(GlobalFonts[0].font, "Volume", getRectangleCenter(trc), (Vector2){0.5,0.5}, nsize, 0, isDisabled?COLOR_TEXT_4:blendColors(COLOR_TEXT_3, COLOR_TEXT_1, 0.7*sldEffect));
+    }
+    fy += mts.y+3*interfaceSpace1;
+
+    backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_3, COLOR_TRACK_THEME_4, 0.5), bgLerp);
+    _renderSideInfoCard(fy, my, 3, backgroundCol);
+    fy += interfaceSpace1;
+
+    mts = _renderSideInfoTextSeperator("Track", COLOR_TRACK_THEME_3, fy, nsize);
+    fy += mts.y+interfaceSpace1;
+
+    mts = _renderSideInfoTextData("Notes:", TextFormat("%u", trackNotes), COLOR_TRACK_THEME_4, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
+    if (trackVelocitySlider && fy<screenSize.y+1 && fy+mts.y>rollRect.y-1) {
+        float sldEffect = sliderGetEffectValue(trackVelocitySlider);
+        Color sldbg={12,13,19,255};
+        Color sldfg=blendColors(COLOR_TRACK_THEME_4, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
+        Rectangle trc = sliderGetRectangle(trackVelocitySlider);
+        DrawRectangleRounded(trc, 0.3, 4, sldbg);
+        DrawRectangleRounded(sliderGetRectangleValueCommon(trackVelocitySlider), 0.3, 4, sldfg);
+    
+        renderFontStringAlign(GlobalFonts[0].font, "Volume", getRectangleCenter(trc), (Vector2){0.5,0.5}, nsize, 0, blendColors(COLOR_TEXT_3, COLOR_TEXT_1, 0.7*sldEffect));
+    }
+    fy += mts.y+interfaceSpace1;
+
+    if (trackPanningSlider && fy<screenSize.y+1 && fy+mts.y>rollRect.y-1) {
+        float sldEffect = sliderGetEffectValue(trackPanningSlider);
+        Color sldbg={12,13,19,255};
+        Color sldfg=blendColors(COLOR_TRACK_THEME_4, (Color){0,0,0,255}, 0.35-0.15*sldEffect);
+        Color sldtc=blendColors(COLOR_TEXT_3, COLOR_TEXT_1, 0.7*sldEffect);
+        Rectangle trc = sliderGetRectangle(trackPanningSlider);
+        DrawRectangleRounded(trc, 0.3, 4, sldbg);
+        DrawRectangleRounded(sliderGetRectangleValueCommon(trackPanningSlider), 0.3, 4, sldfg);
+
+        renderFontStringAlign(GlobalFonts[0].font, "L", (Vector2){trc.x+0.5*interfaceSpace1, trc.y+trc.height*0.5}, (Vector2){0,0.5}, nsize, 0, sldtc);
+        renderFontStringAlign(GlobalFonts[0].font, "R", (Vector2){trc.x+trc.width-0.5*interfaceSpace1, trc.y+trc.height*0.5}, (Vector2){1,0.5}, nsize, 0, sldtc);
+        renderFontStringAlign(GlobalFonts[0].font, "Panning", getRectangleCenter(trc), (Vector2){0.5,0.5}, nsize, 0, sldtc);
+    }
+
+    fy += mts.y+3*interfaceSpace1;
+
+    backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_5, COLOR_TRACK_THEME_6, 0.5), bgLerp);
+    _renderSideInfoCard(fy, my, 3, backgroundCol);
+    fy += interfaceSpace1;
+
+    mts = _renderSideInfoTextSeperator("Project", COLOR_TRACK_THEME_5, fy, nsize);
+    fy += mts.y+interfaceSpace1;
+
+    mts = _renderSideInfoTextData("Tracks:", TextFormat("%u", tracksNum), COLOR_TRACK_THEME_6, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
+    mts = _renderSideInfoTextData("Notes:", TextFormat("%u", totalNotes), COLOR_TRACK_THEME_6, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
+    mnf = NULL;
+    if (totalProjectSize<(1<<10)) mnf = TextFormat("%u B", totalProjectSize);
+    else if (totalProjectSize<(1<<20)) mnf = TextFormat("%.1f KB", totalProjectSize/1024.0);
+    else if (totalProjectSize<(1<<30)) mnf = TextFormat("%.1f MB", totalProjectSize/1048576.0);
+    else mnf = TextFormat("%.2fGB", (totalProjectSize/1048576.0)/1024.0);
+
+    mts = _renderSideInfoTextData("Size:", mnf, COLOR_TRACK_THEME_6, fy, nsize, 1);
+    fy += mts.y+interfaceSpace1;
+
     
 }
 
@@ -862,24 +1184,47 @@ static void handlerIntermediateEvents() {
     if (globalHandlerIsPlaying() && globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupClear();
 
     int allowedShortcuts = (!UIisHoveringOverLayout() && !UIisInTextInput());
+    int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
     int delPressed = IsKeyPressed(KEY_DELETE);
-    if (allowedShortcuts && delPressed) {
-        globalHandlerDeleteSelectedNotes();
-    }
+    int aPressed = IsKeyPressed(KEY_A);
+    int cPressed = IsKeyPressed(KEY_C);
+    int xPressed = IsKeyPressed(KEY_X);
+    int vPressed = IsKeyPressed(KEY_V);
+
+
+    if (allowedShortcuts && delPressed) globalHandlerDeleteSelectedNotes();
+    else if (allowedShortcuts && aPressed && controlDown) actionDefer(globalHandlerSelectAllNotes);
+    else if (allowedShortcuts && cPressed && controlDown) actionDefer(globalHandlerCopySelected);
+    else if (allowedShortcuts && xPressed && controlDown) actionDefer(globalHandlerCutSelected);
+    else if (allowedShortcuts && vPressed && controlDown) actionDefer(globalHandlerPasteSelected);
+
+
 
     int zx = IsKeyPressed(KEY_D)-IsKeyPressed(KEY_A);
-    if (zx && allowedShortcuts) changeControlDuration(zx);
+    if (zx && allowedShortcuts && !controlDown) changeControlDuration(zx);
+}
+
+static void _selectSingleNote(Note note) {
+    globalHandlerSelectSingleNote(note);
+    controlNoteVelocity = note->velocity;
+    controlNoteSize = note->duration;
 }
 
 static void handleClick() {
     if (globalMouseHandler.released) {
         if (releaseEvent.wasPressed) {
             releaseEvent.wasPressed = 0;
-            synthProgramNoteOffPanning(releaseEvent.key, releaseEvent.program);
+            synthProgramNoteOffPanning(releaseEvent.key, releaseEvent.program, globalHandlerGetSelectedTrack());
         }
     }
 
     int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
+    //int selectedNotes = globalHandlerGetNumberOfSelectedNotes();
+    int selGroupActive = globalHandlerIsSelectGroupActive();
+    int selMoveActive = globalHandlerMoveSelectedIsActive();
+    int selResizeActive = globalHandlerResizeSelectedIsActive();
+
+
 
     if (globalMouseHandler.pressed) {
         printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
@@ -889,14 +1234,26 @@ static void handleClick() {
                 //printf("Hovering over note: %p | idx=%d\n", (void*)rollHoveringOverNote, rollHoveringOverNoteIdx);
                 if (rollHoveringOverNote) {
                     if (controlDown) globalHandlerToggleSelectedNote(rollHoveringOverNote);
-                    else globalHandlerClearNotesSelected();
+                    //else if (selectedNotes) {
+                        if (rollHoverNoteType==3) { // Move
+                            if (!globalHandlerIsNoteSelected(rollHoveringOverNote)) _selectSingleNote(rollHoveringOverNote);
+                            globalHandlerMoveSelectedPress(rollHoveringOverNote, mouseFkey, mouseExactTimestampForGroupSelection);
+                        } else if (rollHoverNoteType==2) {  // Resize
+                            if (!globalHandlerIsNoteSelected(rollHoveringOverNote)) _selectSingleNote(rollHoveringOverNote);
+                            globalHandlerResizeSelectedPress(rollHoveringOverNote, mouseFkey, mouseExactTimestampForGroupSelection);
+                        } else if (rollHoverNoteType==1) {
+                            _selectSingleNote(rollHoveringOverNote);
+                        }
+                    //} else {
+                    //    _selectSingleNote(rollHoveringOverNote);
+                    //}
                 } else if (controlDown) {
                     globalHandlerSelectGroupPress(mouseFkey, mouseExactTimestampForGroupSelection);
                 } else {
                     Track track = trackGetSelectedTrack();
                     uint8_t program = trackGetProgram(track);
                     Note nt = trackCreateNoteInTrack(track, rollKeyHovering, controlNoteVelocity, mouseTimestamp, controlNoteSize);
-                    synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track));
+                    synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track), globalHandlerGetSelectedTrack());
 
                     releaseEvent.key = rollKeyHovering;
                     releaseEvent.wasPressed = 1;
@@ -909,9 +1266,15 @@ static void handleClick() {
             }
         }
     } else if (globalMouseHandler.down) {
-        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupHold(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selGroupActive) globalHandlerSelectGroupHold(mouseFkey, mouseExactTimestampForGroupSelection);
+        else if (selMoveActive) globalHandlerMoveSelectedHold(mouseFkey, mouseExactTimestampForGroupSelection);
+        else if (selResizeActive) globalHandlerResizeSelectedHold(mouseFkey, mouseExactTimestampForGroupSelection);
+
     } else if (globalMouseHandler.released) {
-        if (globalHandlerIsSelectGroupActive()) globalHandlerSelectGroupRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selGroupActive) globalHandlerSelectGroupRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selMoveActive) globalHandlerMoveSelectedRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+        if (selResizeActive) controlNoteSize = globalHandlerResizeSelectedRelease(mouseFkey, mouseExactTimestampForGroupSelection);
+
     }
     
     if (globalMouseHandler.rightClickPressed) {
@@ -939,10 +1302,12 @@ void renderWholeBottomLayoutTypeVertical() {
     renderWhatMightBeAdded();
 
     renderVerticalKeyboard();
+    renderOverlayToHideImperfections1();
     
-    renderOverlayToHideImperfections();
-    renderRollVerticalSlider();
     renderSideInfo();
+    renderOverlayToHideImperfections2();
+    renderRollVerticalSlider();
+    
 
     handlerIntermediateEvents();
     handleClick();

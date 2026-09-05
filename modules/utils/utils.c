@@ -71,6 +71,12 @@ int intClip(int val, int min, int max) {
     return val;
 }
 
+uint32_t uint32Clip(uint32_t val, uint32_t min, uint32_t max) {
+    if (val>max) return max;
+    if (val<min) return min;
+    return val;
+}
+
 char* concatenateStrings(const char* s1, const char* s2) {
     int l1=strlen(s1), l2=strlen(s2);
     char* str = malloc((l1+l2+1)*sizeof(char));

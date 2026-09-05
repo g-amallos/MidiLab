@@ -229,3 +229,12 @@ int projectClose() {
 
     return 0;
 }
+
+
+uint32_t projectGetTotalNumberOfNotes() {
+    if (!globalProject) return 0;
+    uint32_t ret=0;
+    uint16_t i=0, n=globalProject->tracksNum;
+    for (; i<n; i++) ret+=(globalProject->tracks)[i].numElements;
+    return ret;
+}

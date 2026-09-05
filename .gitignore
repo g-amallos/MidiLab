@@ -7,4 +7,5 @@ tests/
 assets/archive/
 projects/TestProject.mlb
 projects/NewProject.mlb
+projects/*.mid
 *.wav

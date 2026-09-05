@@ -40,6 +40,7 @@ void projectSetCurrentTitle(const char* text);  // Set/Update the title. Copies 
 int projectSetTempo(int tempo);                 // Updates the tempo and returns the tempo that has been set
 int projectGetTempo();
 int projectGetTracksNum();
+uint32_t projectGetTotalNumberOfNotes();
 void projectSetFilepath(const char* filepath);
 void projectUpdateStateSomethingChanged();
 int projectHasUnsavedChanges();
@@ -57,7 +58,7 @@ typedef struct note_data {
     uint8_t key;
     uint8_t velocity;
     uint8_t channel;
-    uint8_t track;          // Not needed field, so we can change that in the future
+    uint8_t track;
     uint32_t timestamp;     // Relative
     uint32_t duration;      // Relative
     double ftimestamp;
@@ -132,6 +133,7 @@ int globalHandlerGetBeatsInMeasure();
 double globalHandlerGetMeasureDuration();
 double globalHandlerGetBeatDuration();
 void globalHandlerSetVisibleDuration(double duration);
+void globalHandlerSetVisibleMouseJumps(uint32_t mouseJumps);
 int globalHandlerIsTimeLineShown();
 double globalHandlerGetLineTime();
 void globalHandlerSetLineTime(double time);
@@ -145,6 +147,7 @@ void globalHandlerClearNotesSelected();
 void globalHandlerAddNoteToSelected(Note note);
 void globalHandlerRemoveSelectedNote(Note note);
 void globalHandlerToggleSelectedNote(Note note);
+void globalHandlerSelectSingleNote(Note note);
 int globalHandlerIsNoteSelected(Note note);
 int globalHandlerGetNumberOfActuallySelectedNotes();
 int globalHandlerGetNumberOfVisuallySelectedNotes();
@@ -158,6 +161,22 @@ uint32_t globalHandlerGetNumberOfSelectedNotes();
 void globalHandlerSelectGroupClear();
 struct roll_rect globalHandlerGetSelectGroupRect();
 struct roll_rect globalHandlerGetCroppedRectangleForSelectedNotes();
+void globalHandlerChangeVelocityOfSelectedNotes(uint8_t velocity);
+void globalHandlerMoveSelectedPress(Note note, float fkey, uint32_t timestamp);
+void globalHandlerMoveSelectedHold(float fkey, uint32_t timestamp);
+void globalHandlerMoveSelectedRelease(float fkey, uint32_t timestamp);
+int globalHandlerMoveSelectedIsActive();
+void globalHandlerResizeSelectedPress(Note note, float fkey, uint32_t timestamp);
+void globalHandlerResizeSelectedHold(float fkey, uint32_t timestamp);
+uint32_t globalHandlerResizeSelectedRelease(float fkey, uint32_t timestamp);
+Note globalHandlerResizeSelectedGetReferenceNote();
+int globalHandlerResizeSelectedIsActive();
+void globalHandlerSelectAllNotes();
+
+void globalHandlerClearClipboard();
+void globalHandlerCopySelected();
+void globalHandlerCutSelected();
+void globalHandlerPasteSelected();
 
 
 /* Actions (backend/actions.c) */

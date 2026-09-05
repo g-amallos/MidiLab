@@ -209,6 +209,21 @@ void trackVectorResizeToFitJustNotes(Track track) {
     }
 }
 
+void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size) {   // size is the number of elements in buff
+    if (!track || !buff) return;
+    uint32_t elm=track->numElements;
+    
+    Note* arr = malloc((elm+size)*sizeof(Note));
+    if (!arr) return;
+
+    _mergeSortedVectors(arr, track->notes, elm, buff, size);
+
+    if (track->notes) free(track->notes);
+    track->notes = arr;
+    track->numElements += size;
+    track->capacity = track->numElements;
+}
+
 void trackHalveCapacity(Track track) {
     if (!track || !(track->notes)) return;
     if (track->numElements < (track->capacity>>2) && track->capacity>32) {

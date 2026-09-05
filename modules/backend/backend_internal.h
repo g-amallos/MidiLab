@@ -54,6 +54,7 @@ struct time_line {
 struct backend_time_handler {
     double time;    // Start of the div has this timestamp, obtained with `globalHandlerGetTime()`
     uint64_t ticks;
+    uint32_t mouseJumps;    // Visual mouse jumps depending on the div zoom
 
     uint16_t tempo;
     uint16_t ppqn;  // Pulses per quarter note
@@ -81,13 +82,23 @@ struct backend_keys_handler {
     struct key_state keys[128];
 };
 
-struct notes_selection {    // Continue from selected notes in handler
+struct reference_note {
+    Note note;
+    uint32_t originalTimestamp;
+    uint32_t minPossibleTimestamp;
+    uint8_t originalKey;
+    uint8_t minPossibleKey;
+    uint8_t maxPossibleKey;    
+};
+
+struct notes_selection {
     uint8_t keyMin;
     uint8_t keyMax;
 
     uint8_t clickHold;
 
     struct roll_rect rollRect;
+    struct reference_note noteReference;
 
     uint32_t timestampStart;
     uint32_t timestampEnd;
@@ -100,6 +111,7 @@ struct notes_selection {    // Continue from selected notes in handler
 struct notes_selector {
     struct notes_selection primary;
     struct notes_selection secondary;
+    struct notes_selection clipboard;
 };
 
 typedef struct backend_state_handler {
@@ -146,6 +158,7 @@ struct midi_event_note_onoff {
 
 struct midi_event { // NOT FINISHED!!!
     int channel;
+    int track;
     enum midi_message_types type;
 
     union {
@@ -193,6 +206,10 @@ void updateWindowProjectTitle();
 
 void trackHalveCapacity(Track track);
 void trackVectorResizeToFitJustNotes(Track track);
+
+void trackSortNotes(Track track);
+void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size);    // buff must have sorted notes
+void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb);
 
 
 #endif

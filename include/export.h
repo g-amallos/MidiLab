@@ -8,4 +8,8 @@ int importProjectFrom(const char* filename);
 
 int exportProjectAsWave(const char* filename);
 
+uint32_t estimateFileSizeForProject();
+
+int exportProjectAsMidi(const char* filename);
+
 #endif

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <tinyfiledialogs.h>
 #include <backend.h>
+#include <synth.h>
 
 
 void updateWindowTitle(const char* title, int saved) {
@@ -28,6 +29,7 @@ void updateWindowTitle(const char* title, int saved) {
 
 int windowShouldCloseDialog() {
     if (projectCanSafelyReplaceContents()) return 1;
+    synthPanic();
     int result = tinyfd_messageBox("Warning", "Are you sure you want to close MidiLab?\nYour current project will be lost.", "yesno", "warning", 0);
     return result==1;    
 }

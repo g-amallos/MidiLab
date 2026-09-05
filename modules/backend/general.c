@@ -12,6 +12,7 @@ int backendInit() {
 
 int backendClose() {
     freeProjectContents(globalProject);
+    globalHandlerClearNotesSelected();
     projectClose();
     return 0;
 }

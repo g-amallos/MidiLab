@@ -4,8 +4,8 @@
 #include <synth.h>
 
 void exportSynthPanic();
-void exportSynthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, float panning);
-void exportSynthProgramNoteOffPanning(uint8_t key, uint8_t program);
+void exportSynthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, float panning, int track);
+void exportSynthProgramNoteOffPanning(uint8_t key, uint8_t program, int track);
 void renderExportAudio(void* buffer, unsigned int frames);
 
 
