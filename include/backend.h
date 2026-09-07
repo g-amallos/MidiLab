@@ -140,6 +140,9 @@ void globalHandlerSetLineTime(double time);
 uint32_t globalHandlerGetLineTimestamp();
 void globalHandlerUpdateTick();
 
+void globalHandlerUpdateSelectedTrack();
+void globalHandlerUpdateAllTracks();
+
 void globalHandlerSetToNextMeasure();
 void globalHandlerSetToPreviousMeasure();
 

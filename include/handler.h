@@ -52,4 +52,8 @@ int startupInputAllowed();
 
 
 
+/* DLLs (handler/dlls.c) */
+
+int dllsSetup();
+
 #endif

@@ -21,7 +21,7 @@ BEGIN
             VALUE "ProductName",      "MidiLab"
             VALUE "ProductVersion",   "1.0.0.0"
 
-            VALUE "Comments",         "Built with Raylib. Used: TinyFileDialogs, TinySoundFont, GeneralUserGSv1.471.sf2"
+            VALUE "Comments",         "Built with Raylib. Used: TinyFileDialogs, FluidSynth, GeneralUserGSv2.0.3.sf2"
         END
     END
     BLOCK "VarFileInfo"

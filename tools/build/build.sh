@@ -5,33 +5,45 @@ set -e
 
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# 2. Go up two levels safely to reach the project root
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# --- Configuration (Relative to Project Root) ---
-DIST_DIR="${PROJECT_ROOT}/dist"
+DIST_DIR="${PROJECT_ROOT}/build/linux"
 ASSETS_DIR="${PROJECT_ROOT}/assets"
+LIB_DIR="${PROJECT_ROOT}/libs/linux"
+
 TARGET_NAME="midilab"
 
-# Determine the executable name based on the OS variable passed to Make
-# (Defaulting to Linux 'midilab', or 'midilab.exe' if os=win is provided to this script)
+
+OS="linux"
 OS_TYPE=""
 EXE_NAME="${TARGET_NAME}"
+DEBUG=""
 
-if [[ "$1" == "os=win" ]]; then
-    OS_TYPE="os=win"
-    EXE_NAME="${TARGET_NAME}.exe"
-fi
+for arg in "$@"; do
+    if [[ "$arg" == "win" || "$arg" == "windows" || "$arg" == "os=win" ]]; then
+        OS="win"
+        OS_TYPE="os=win"
+        EXE_NAME="${TARGET_NAME}.exe"
+        DIST_DIR="${PROJECT_ROOT}/build/win"
+        LIB_DIR="${PROJECT_ROOT}/libs/win"
+    elif [[ "$arg" == "lin" || "$arg" == "linux" || "$arg" == "os=linux" ]]; then
+        OS="linux"
+        OS_TYPE=""
+        EXE_NAME="${TARGET_NAME}"
+        DIST_DIR="${PROJECT_ROOT}/build/linux"
+        LIB_DIR="${PROJECT_ROOT}/libs/linux"
+    elif [[ "$arg" == "debug" ]]; then
+        DEBUG="debug=1"
+    fi
+done
 
 echo "==> Cleaning up previous builds..."
 cd "${PROJECT_ROOT}"
 
-make clean
-rm -rf "${DIST_DIR}"
+#make clean
 
 echo "==> Compiling the project..."
-make ${OS_TYPE}
+make ${OS_TYPE} ${DEBUG}
 
 # Check if the executable was actually built
 if [[ ! -f "${EXE_NAME}" ]]; then
@@ -42,33 +54,60 @@ fi
 echo "==> Creating distribution directory: ${DIST_DIR}/"
 mkdir -p "${DIST_DIR}"
 
-echo "==> Moving executable to distribution directory..."
-mv "${EXE_NAME}" "${DIST_DIR}/"
+echo "==> Copying executable to distribution directory..."
+cp "${EXE_NAME}" "${DIST_DIR}/"
 
-echo "==> Copying assets folder..."
+smart_sync() {
+    local src="$1"
+    local dest="$2"
+    local exclude="$3"
+
+    if command -v rsync &> /dev/null; then
+        if [[ -n "$exclude" ]]; then
+            rsync -a --delete --exclude="$exclude" "$src/" "$dest/"
+        else
+            rsync -a --delete "$src/" "$dest/"
+        fi
+    else
+        mkdir -p "$dest"
+        cp -ru "$src"/* "$dest/"
+    fi
+}
+
+echo "==> Smart-syncing assets folder..."
 if [[ -d "${ASSETS_DIR}" ]]; then
-    cp -r "${ASSETS_DIR}" "${DIST_DIR}/"
+    mkdir -p "${DIST_DIR}/assets"
+    smart_sync "${ASSETS_DIR}" "${DIST_DIR}/assets" "archive"
 else
-    echo "Warning: '${ASSETS_DIR}' directory not found. Skipping copy."
+    echo "Warning: '${ASSETS_DIR}' directory not found. Skipping sync."
 fi
 
+echo "==> Smart-syncing dynamic libraries..."
+if [[ -d "${LIB_DIR}" ]]; then
+    LIB_EXT="so"
+    if [[ "$OS" == "win" ]]; then
+        LIB_EXT="dll"
+    fi
 
-echo "==> Cleaning up unwanted asset subdirectories..."
-# Delete the specific subdirectory from the copied assets folder
-if [[ -d "${DIST_DIR}/assets/archive" ]]; then
-    rm -rf "${DIST_DIR}/assets/archive"
+    if command -v rsync &> /dev/null; then
+        rsync -u --include="/*.${LIB_EXT}" --exclude="/*/" --exclude="*" "${LIB_DIR}/" "${DIST_DIR}/"
+    else
+        # Fallback using update-only copy with unquoted glob
+        shopt -s nullglob
+        cp -u "${LIB_DIR}"/*."${LIB_EXT}" "${DIST_DIR}/" 2>/dev/null || true
+        shopt -u nullglob
+    fi
+else
+    echo "Warning: '${LIB_DIR}' directory not found. Skipping sync."
 fi
 
 echo "==> Creating ZIP archive inside the distribution folder..."
 (
     cd "${DIST_DIR}"
-    # Use literal names here so zip captures them relative to the current directory (dist/)
-    if [[ -d "assets" ]]; then
-        zip -r "${TARGET_NAME}.zip" "${EXE_NAME}" "assets"
-    else
-        zip -r "${TARGET_NAME}.zip" "${EXE_NAME}"
-    fi
+    zip -r "${TARGET_NAME}.zip" . -x "${TARGET_NAME}.zip"
 )
 
 echo "==> Done! Your distribution files are ready in './${DIST_DIR}'"
 ls -la "${DIST_DIR}"
+
+echo "\n\nRun cd ../../build/win/ && ./midilab.exe"

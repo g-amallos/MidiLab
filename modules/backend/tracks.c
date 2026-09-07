@@ -60,6 +60,7 @@ Track trackCreateNew() {
     ret->title = malloc(11*sizeof(char));
     if (ret->title) strncpy(ret->title, "New Track", 11);
 
+    globalHandlerUpdateSelectedTrack();
     projectUpdateStateSomethingChanged();
     return ret;
 }
@@ -109,6 +110,7 @@ float trackGetPanning(Track track) {
 void trackSetPanning(Track track, float panning) {
     if (!track || panning<0 || panning>1) return;
     track->panning=panning;
+    globalHandlerUpdateSelectedTrack();
     projectUpdateStateSomethingChanged();
 }
 
@@ -125,7 +127,8 @@ int trackGetProgram(Track track) {
 void trackSetProgram(Track track, uint8_t program) {    // 0-127: regular midi programs, 128: drums (channel 9)
     if (!track || program>128) return;
     track->program = program;
-    projectUpdateStateSomethingChanged();  
+    globalHandlerUpdateSelectedTrack();
+    projectUpdateStateSomethingChanged();
 }
 
 void trackDeleteAtIdx(int idx) {
@@ -147,7 +150,8 @@ void trackDeleteAtIdx(int idx) {
         if (globalStateHandler) globalStateHandler->keys.type = T_KEYBOARD_NONE;
     }
 
-    projectUpdateStateSomethingChanged();    
+    globalHandlerUpdateAllTracks();
+    projectUpdateStateSomethingChanged();
 }
 
 

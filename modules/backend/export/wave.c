@@ -59,6 +59,13 @@ static int noteCompare(const void* a, const void* b) {
 
     if (na->timestamp>nb->timestamp) return 1;
     if (na->timestamp<nb->timestamp) return -1;
+
+    if (na->velocity>nb->velocity) return 1;
+    if (na->velocity<nb->velocity) return -1;
+
+    if (na->key>nb->key) return 1;
+    if (na->key<nb->key) return -1;
+
     return 0;
 }
 
@@ -92,6 +99,7 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
 
             noteOffEvents[noteIdx] = *nt;
             noteOffEvents[noteIdx].timestamp += noteOffEvents[noteIdx].duration;
+            noteOffEvents[noteIdx].velocity = 0;
 
             allEvents[noteIdx] = nt;                                    // Note on
             allEvents[noteIdx+notesNum] = noteOffEvents+noteIdx;        // Note off
@@ -127,9 +135,11 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
             Note nt = allEvents[eventIdx++];
             Track tr = globalProject->tracks+nt->track;
             if (nt>=noteOffEvents+notesNum || nt<noteOffEvents) {
-                exportSynthProgramNoteOnPanning(nt->key, nt->velocity*0.007874*tr->velocity, tr->program, tr->panning, nt->track);
+                //e xportSynthProgramNoteOnPanning(nt->key, nt->velocity*0.007874*tr->velocity, tr->program, tr->panning, nt->track);
+                exportProgramNoteOnFromTrack(nt->key, nt->velocity*0.007874*tr->velocity, nt->track);
             } else {
-                exportSynthProgramNoteOffPanning(nt->key, tr->program, nt->track);
+                //e xportSynthProgramNoteOffPanning(nt->key, tr->program, nt->track);
+                exportProgramNoteOffFromTrack(nt->key, nt->track);
             }
         }
 

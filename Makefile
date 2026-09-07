@@ -3,14 +3,13 @@ INCLUDE = include
 SRCS = $(shell find modules -name "*.c")
 #SRCS := $(filter-out modules/backend/export/midi.c,$(SRCS))
 OBJS_RAW = $(SRCS:.c=.o)
-#OBJS_RAW = modules/main.o modules/interface/general.o modules/interface/textfont.o modules/utils/utils.o modules/interface/rectangles.o modules/interface/render/backgrounds.o modules/interface/render/controlLine.o
 TARGET = midilab
 
 
 OBJS = $(filter %.o, $(OBJS_RAW))
 BAD_FILES = $(filter-out %.o, $(OBJS_RAW))
 ifneq ($(BAD_FILES),)
-    $(error WARNING: Non-object file detected in OBJS list: [$(BAD_FILES)]. Please use .o extensions only)
+	$(error WARNING: Non-object file detected in OBJS list: [$(BAD_FILES)]. Please use .o extensions only)
 endif
 
 
@@ -22,36 +21,52 @@ CFLAGS = -I$(INCLUDE) $(WARNINGS)
 modules/tinyfiledialogs/tinyfiledialogs.o: CFLAGS += -Wno-pedantic -Wno-cast-function-type -Wno-format
 
 # Platform specific flags
-LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+LDFLAGS = -Llibs/linux -lraylib -lfluidsynth -lGL -lm -lpthread -ldl -lrt -lX11 -Wl,-rpath,'$$ORIGIN/bin/libs'
 OUT = $(TARGET)
 
 ifeq ($(os), win)
-    CC = x86_64-w64-mingw32-gcc
-    WINDRES = x86_64-w64-mingw32-windres
-    OUT = $(TARGET).exe
-    OBJS += resource.o
+	CC = x86_64-w64-mingw32-gcc
+	WINDRES = x86_64-w64-mingw32-windres
+	OUT = $(TARGET).exe
+	OBJS += resource.o
 
-    ifeq ($(debug), 1)
-        # Keeps console window open for stdout/stderr logs
-        LDFLAGS = libs/libraylib_win.a -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -static
-    else
-        # Hides console
-        LDFLAGS = libs/libraylib_win.a -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -static -mwindows
-    endif
+	COMMON_WIN_LIBS = -Llibs/win libs/win/libraylib.a libs/win/libfluidsynth-3.lib -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -lws2_32 -ldsound
+
+	ifeq ($(debug), 1)
+		LDFLAGS = -static-libgcc $(COMMON_WIN_LIBS)
+	else
+		LDFLAGS = -static-libgcc $(COMMON_WIN_LIBS) -mwindows
+	endif
 endif
 
 ifneq ($(filter mem,$(MAKECMDGOALS)),)
-    ifneq ($(os), win)
-        CFLAGS += -fsanitize=address -g
-        LDFLAGS += -fsanitize=address
-    endif
+	ifneq ($(os), win)
+		CFLAGS += -fsanitize=address -g
+		LDFLAGS += -fsanitize=address
+	endif
 endif
 
 
-all: $(OUT)
+all: setup $(OUT) copy_deps
+
+setup:
+	rm -rf bin
+	mkdir -p bin
+	mkdir -p bin/libs
+
+copy_deps: setup
+ifeq ($(os), win)
+	echo "Copying Windows DLLs..."
+	cp -- libs/win/*.dll ./
+#	cp libs/win/libfluidsynth-3.dll bin/libs/
+else
+	@echo "Copying Linux Shared Objects..."
+	cp libs/linux/libfluidsynth.so bin/libs/
+endif
+
 
 $(OUT): $(OBJS)
-	$(CC) $(OBJS) -o $(OUT) $(CFLAGS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(OUT) $(LDFLAGS)
 
 
 %.o: %.c
@@ -64,11 +79,13 @@ endif
 
 clean:
 	rm -f *.o $(OBJS) $(TARGET) $(TARGET).exe resource.o
+	rm -rf bin
+	rm -f -- *.dll
 
 mostlyclean:
 	rm -f *.o $(OBJS) resource.o
 
-run: $(OUT)
+run: all
 	./$(OUT)
 
 

@@ -15,6 +15,8 @@ static Vector2 windowSize = {800, 600};
 
 
 int AppInit() {
+    if (dllsSetup()) return 1;
+
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_ALWAYS_RUN);    // FLAG_WINDOW_UNDECORATED
     
     InitWindow((int)windowSize.x, (int)windowSize.y, APP_NAME);
@@ -39,9 +41,7 @@ int AppInit() {
     PlayAudioStream(stream);
 
     startupScreenRender(screenSize);
-    
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    //SetWindowState(FLAG_WINDOW_UNFOCUSED);
     
     return 0;
 }
@@ -102,8 +102,7 @@ int testIteration() {
 
 
 int main() {
-    AppInit();
-    gameLoop(testIteration);
+    if (!AppInit()) gameLoop(testIteration);
     AppClose();
     return 0;
 }

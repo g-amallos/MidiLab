@@ -148,6 +148,7 @@ void projectLoadTmpProject(ProjectData newProject) {
     projectSetTempo(tempo);
 
     updateCLTextboxes();
+    globalHandlerUpdateAllTracks();
 }
 
 void projectSetFilepath(const char* filepath) {
