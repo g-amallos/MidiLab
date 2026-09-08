@@ -52,16 +52,24 @@ int synthInit() {
 
 
 int synthClose() {
-    if (synthSF) delete_fluid_synth(synthSF);
+    if (synthSF) {
+        if (synthFontId!=-1) fluid_synth_sfunload(synthSF, synthFontId, 1);
+        delete_fluid_synth(synthSF);
+    }
     if (synthSettings) delete_fluid_settings(synthSettings);
     
-    if (exportSF) delete_fluid_synth(exportSF);
+    if (exportSF) {
+        if (exportFontId!=-1) fluid_synth_sfunload(exportSF, exportFontId, 1);
+        delete_fluid_synth(exportSF);
+    }
     if (exportSettings) delete_fluid_settings(exportSettings);
 
     synthSF = NULL;
     exportSF = NULL;
     synthSettings = NULL;
     exportSettings = NULL;
+    synthFontId = -1;
+    exportFontId = -1;
 
     return 0;
 }

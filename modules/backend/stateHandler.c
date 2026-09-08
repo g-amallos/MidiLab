@@ -309,8 +309,9 @@ void globalHandlerUpdateKeyAndPlaySynth(int key, uint8_t velocity) {
 void globalHandlerUpdateSelectedTrack() {
     if (!globalStateHandler) return;
     int trackIdx = globalStateHandler->selectedTrack;
-    struct track_data track = (globalStateHandler->project->tracks)[trackIdx];
-    synthChannelPrefix(trackIdx, track.program, track.panning);
+    //struct track_data track = (globalStateHandler->project->tracks)[trackIdx];
+    Track track = globalStateHandler->project->tracks+trackIdx;
+    synthChannelPrefix(trackIdx, track->program, track->panning);
 }
 
 void globalHandlerUpdateAllTracks() {

@@ -13,5 +13,6 @@ assets/archive/
 
 /libs/win/archive/
 /bin/
+/*.dll
 
 *.wav

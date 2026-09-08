@@ -785,10 +785,10 @@ void order1PrecomputeControlLine() {
     buttonList4x4ExampleRect = (Rectangle){0, 0, floatMax(2.1*lineHeight, 120), buttonList4x5ExampleRect.height*0.8};
     buttonList2x3ExampleRect = (Rectangle){0, 0, floatMax(1.3*lineHeight, 60), buttonList4x5ExampleRect.height*0.6};
 
-    updateControlLineButtons(lineHeight);
+    updateControlLineButtons();
 
     if (!layoutButton && isButtonClicked(openFileButton)) actionDefer(createBaseLayout);
-    if (layoutButton) updateBaseLayout(lineHeight);
+    if (layoutButton) updateBaseLayout();
 }
 
 void order2PrecomputeControlLine() {
@@ -841,7 +841,7 @@ void renderControlLine() {
 
     if (tsignNumBList) renderNumBlist();
     if (tsignDenBList) renderDenBlist();
-    if (layoutButton) renderBaseLayout(lineHeight);
+    if (layoutButton) renderBaseLayout();
 
     renderSaveState();
 }

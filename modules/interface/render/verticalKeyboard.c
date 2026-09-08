@@ -1227,7 +1227,7 @@ static void handleClick() {
 
 
     if (globalMouseHandler.pressed) {
-        printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
+        //printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
         if (mouseInRollRect && allowClickInRollRect) {
             //printf("Clicked: mouseInRollRect=%d, mouseTimestamp=%d, rollKeyHovering=%d\n", mouseInRollRect, mouseTimestamp, rollKeyHovering);
             if (mouseInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
@@ -1282,7 +1282,7 @@ static void handleClick() {
         if (mouseInRollRect && allowClickInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
             if (rollHoveringOverNote) {
                 globalHandlerRemoveSelectedNote(rollHoveringOverNote);
-                trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
+                trackDeleteNoteInTrack(trackGetSelectedTrack(), rollHoveringOverNote);
             }
         }
     }

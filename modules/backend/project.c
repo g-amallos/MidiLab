@@ -65,7 +65,7 @@ int createNewProject() {
     char* newTitle = strdup(s);
     if (!newTitle) return 1;
 
-    freeProjectContents(globalProject);
+    freeProjectContents();
     globalProject->title = newTitle;
     globalProject->saveState.state = S_STATE_UNSAVED_PROJECT;
     globalProject->saveState.filepath = NULL;

@@ -1,6 +1,7 @@
 #include <raylib.h>
 #include <stdint.h>
 #include <images.h>
+#include <stdlib.h>
 
 
 struct image {

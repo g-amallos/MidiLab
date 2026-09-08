@@ -90,6 +90,24 @@ static int writeMidiHeader(FILE* fptr) {
     return 0;
 }
 
+static int writeMidiHeaderForSingleTrack(FILE* fptr) {
+    if (!fptr) return 1;
+
+    char* chunkType = "MThd";
+    uint32_t length = 6;
+    uint16_t format = 0;
+    uint16_t ntracks = 1;
+    uint16_t division = DIVISION;
+
+    writeString(fptr, chunkType);
+    writeUint32BigEndian(fptr, length);
+    writeUint16BigEndian(fptr, format);
+    writeUint16BigEndian(fptr, ntracks);
+    writeUint16BigEndian(fptr, division);
+
+    return 0;
+}
+
 static int writeMidiHeaderForCompactConversion(FILE* fptr, uint8_t tracks) {
     if (!fptr) return 1;
 
@@ -494,6 +512,50 @@ int writeRegularMidi(FILE* fptr) {
     return ret;
 }
 
+int writeMidiForSingleTrack(FILE* fptr, Track track) {
+    if (!fptr || !track) return 1;
+
+    int ret=0;
+    ret += writeMidiHeaderForSingleTrack(fptr);
+
+    char* chunkType = "MTrk";
+    uint32_t length = 0;
+    
+    writeString(fptr, chunkType);
+    long lengthSeek = ftell(fptr);
+    writeUint32BigEndian(fptr, length);
+
+    writeMidiTrackTitleThroughMetaEvent(fptr, track->title);
+    writeMidiTimeSignature(fptr, globalProject->timeSignature);
+    writeMidiTempo(fptr, globalProject->tempo);
+
+    uint8_t channel = (track->program<128?0:9);
+    uint8_t runningStatus = 0;
+
+    ret += writeMidiChannelVolume(fptr, track->velocity, channel);
+    ret += writeMidiPanning(fptr, track->panning, channel, &runningStatus);
+    if (channel!=9) ret += writeMidiProgramChange(fptr, track->program, channel, &runningStatus);
+
+    uint32_t n=(track->numElements<<1);
+    struct note_on_data* arr = _setupTrackNoteEvents(track, channel);
+    
+    if (arr) {
+        for (uint32_t i=0; i<n; i++) ret += writeMidiNoteOnOffEvent(fptr, arr[i], &runningStatus);
+        free(arr);
+    }
+
+    writeMidiEndOfTrack(fptr);
+
+    long trackEndSeek = ftell(fptr);
+    length = trackEndSeek-lengthSeek-4;
+
+    fseek(fptr, lengthSeek, SEEK_SET);
+    writeUint32BigEndian(fptr, length);
+    fseek(fptr, trackEndSeek, SEEK_SET);
+    
+    return ret;
+}
+
 
 static struct tracks_in_channel _setupTracksInChannel(uint8_t channel) {
     return (struct tracks_in_channel){.channel=channel, .isUsed=0, .capacity=0, .size=0, .buffer=NULL};
@@ -583,7 +645,7 @@ static struct midi_channel_export _setupCompactMidiChannels() {
 int writeCompactMidi(FILE* fptr) {
     if (!fptr || !globalProject) return 1;
 
-    printf("Compact Midi:\n");
+    //printf("Compact Midi:\n");
 
     int ret=0;
     struct midi_channel_export channelSettings = _setupCompactMidiChannels();
@@ -593,10 +655,10 @@ int writeCompactMidi(FILE* fptr) {
 
     for (uint8_t i=0; i<16; i++) {
         if (channelSettings.channels[i].isUsed) {
-            printf("Channel #%u:\n", i);
-            for (uint16_t j=0; j<channelSettings.channels[i].size; j++) {
-                printf("- Track %u\n", channelSettings.channels[i].buffer[j]);
-            }
+            //printf("Channel #%u:\n", i);
+            //for (uint16_t j=0; j<channelSettings.channels[i].size; j++) {
+            //    printf("- Track %u\n", channelSettings.channels[i].buffer[j]);
+            //}
             ret += writeMidiTrackForCompactConversion(fptr, &(channelSettings.channels[i]));
         
         }
@@ -613,10 +675,24 @@ int exportProjectAsMidi(const char* filename) {
     FILE* fptr = fopen(filename, "wb");
     if (!fptr) return 1;    // Couldn't open file
 
-    int directMidi= canBeDirectlyConvertedToMidi();
+    int directMidi = canBeDirectlyConvertedToMidi();
     int ret = 0;
     if (directMidi) ret += writeRegularMidi(fptr);
     else ret += writeCompactMidi(fptr);
+    fclose(fptr);
+
+    return ret;
+}
+
+
+int exportTrackAsMidi(const char* filename, Track track) {
+    if (!filename || !track) return 1;
+
+    FILE* fptr = fopen(filename, "wb");
+    if (!fptr) return 1;    // Couldn't open file
+
+    int ret = 0;
+    ret += writeMidiForSingleTrack(fptr, track);
     fclose(fptr);
 
     return ret;
