@@ -1,4 +1,5 @@
 #include "backend_internal.h"
+#include "synth_internal.h"
 #include <stdlib.h>
 #include <string.h>
 #include <synth.h>
@@ -299,9 +300,36 @@ void globalHandlerUpdateKey(int key, uint8_t velocity) {
 void globalHandlerUpdateKeyAndPlaySynth(int key, uint8_t velocity) {
     if (!globalStateHandler || !(globalStateHandler->keys.inputAllowed) || key<0 || key>=128) return;
     globalStateHandler->keys.keys[key].velocity = velocity;
-    //synthProgramNoteOn();
-    struct track_data track = (globalStateHandler->project->tracks)[globalStateHandler->selectedTrack];
-    synthProgramNoteOnPanning(key, 0.007874*velocity, track.program, track.panning, globalStateHandler->selectedTrack);
+    //struct track_data track = (globalStateHandler->project->tracks)[globalStateHandler->selectedTrack];
+    //s ynthProgramNoteOnPanning(key, 0.007874*velocity, track.program, track.panning, globalStateHandler->selectedTrack);
+    if (velocity>0) synthProgramNoteOnFromTrack(key, 0.007874*velocity, globalStateHandler->selectedTrack);
+    else synthProgramNoteOffFromTrack(key, globalStateHandler->selectedTrack);
+}
+
+void globalHandlerUpdateSelectedTrack() {
+    if (!globalStateHandler) return;
+    int trackIdx = globalStateHandler->selectedTrack;
+    //struct track_data track = (globalStateHandler->project->tracks)[trackIdx];
+    Track track = globalStateHandler->project->tracks+trackIdx;
+    synthChannelPrefix(trackIdx, track->program, track->panning);
+}
+
+void globalHandlerUpdateAllTracks() {
+    if (!globalStateHandler || !globalProject) return;
+    int n=globalProject->tracksNum;
+    for (int i=0; i<n; i++) {
+        struct track_data track = (globalProject->tracks)[i];
+        synthChannelPrefix(i, track.program, track.panning);
+    }
+}
+
+void _exportSetupSynthTracks() {
+    if (!globalStateHandler || !globalProject) return;
+    int n=globalProject->tracksNum;
+    for (int i=0; i<n; i++) {
+        struct track_data track = (globalProject->tracks)[i];
+        exportChannelPrefix(i, track.program, track.panning);
+    }
 }
 
 
@@ -396,7 +424,9 @@ static void registerMidiEventsToActionsFrom(uint32_t timestampStart, uint32_t ti
                 note->track = tracki;
                 //printf("Time: %7.4lf | Note On: %u, Velocity=%u, Timestamp=%u | Start=%u, End=%u\n", now, note->key, note->velocity, note->timestamp, timestampStart, timestampEnd);
                 
-                synthProgramNoteOnPanning(note->key, 0.007874*note->velocity*track->velocity, track->program, track->panning, (int)tracki);
+                //s ynthProgramNoteOnPanning(note->key, 0.007874*note->velocity*track->velocity, track->program, track->panning, (int)tracki);
+                //synthProgramNoteOnFromTrack(note->key, 0.007874*note->velocity*track->velocity, (int)tracki);
+                midiActionAdd(midiCreateEventForNoteOn(note, track->velocity), now);
                 midiActionAdd(midiCreateEventForNoteOff(note), now+timestampPiecesToSeconds(note->duration));
             }
         }

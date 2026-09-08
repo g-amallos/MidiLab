@@ -10,6 +10,8 @@
 #include <handler.h>
 #include <math.h>
 #include <synth.h>
+#include <tinyfiledialogs.h>
+#include <export.h>
 
 
 #define TRACK_TITLE_PLACEHOLDER "Track Title"
@@ -205,6 +207,7 @@ Color getTrackThemeColorForBlackKeys() {
 void renderTrackCreateNew() {
     Track ntrack = trackCreateNew();
     int totalTracks = projectGetTracksNum();
+    //globalHandlerSelectTrack(totalTracks-1);
     if (tracks) {
         TrackUI new = realloc(tracks, totalTracks*sizeof(struct track_control_ui));
         if (!new) return;   // We're cooked here
@@ -217,7 +220,6 @@ void renderTrackCreateNew() {
     customizeNewTrackUI(tracks+totalTracks-1);
     textboxLoadText(tracks[totalTracks-1].textbox, trackGetTitle(ntrack));
     sliderUpdateSlideValue(tracks[totalTracks-1].slider, trackGetVelocity(ntrack));
-    globalHandlerSelectTrack(totalTracks-1);
     
     synthPanic();
 }
@@ -432,6 +434,31 @@ void changeSelectedTrackColorApproach1() {
     tracks[sel].theme = trackThemeColors[tracks[sel].themeIdx];
 }
 
+
+void _exportTrackAsMidi() {
+    int idx = globalHandlerGetSelectedTrack();
+    Track track = trackGetSelectedTrack();
+    if (!track) return;
+
+    globalHandlerPause();
+    synthPanic();
+
+    const char* trackTitle = trackGetTitle(track);
+    if (!trackTitle) trackTitle = "Untitled Track";
+
+    char* title = stringToFileName(trackTitle, 30);
+    char* conct = concatenateStrings(title, ".mid");
+    free(title);
+
+    const char* path = tinyfd_saveFileDialog("Export MidiLab Track As .MID", conct, 1, (const char *[]){"*.mid"}, "MIDI Format");
+    free(conct);
+
+    if (path) {
+        int failed = exportTrackAsMidi(path, track);
+        if (!failed) destroyTrackOptionLayout(tracks+idx);
+    }
+}
+
 void precomputeTrackOptionLayout(TrackUI track) {
     if (!track || !(track->btnList)) return;
 
@@ -444,7 +471,7 @@ void precomputeTrackOptionLayout(TrackUI track) {
     buttonListUpdateSpacing(track->btnList, buttonList4x5ExampleSpacing);
     buttonListUpdate(track->btnList);
 
-    OnClickFunc funcs[] = {changeSelectedTrackColorApproach1, NULL, NULL, NULL, deleteSelectedTrack};
+    OnClickFunc funcs[] = {changeSelectedTrackColorApproach1, NULL, NULL, _exportTrackAsMidi, deleteSelectedTrack};
     int num = sizeof(funcs)/sizeof(OnClickFunc);
     for (int i=0; i<num; i++) {
         Button btn = buttonListGetButtonAt(track->btnList, i);

@@ -1214,7 +1214,7 @@ static void handleClick() {
     if (globalMouseHandler.released) {
         if (releaseEvent.wasPressed) {
             releaseEvent.wasPressed = 0;
-            synthProgramNoteOffPanning(releaseEvent.key, releaseEvent.program, globalHandlerGetSelectedTrack());
+            synthProgramNoteOffFromTrack(releaseEvent.key, globalHandlerGetSelectedTrack());
         }
     }
 
@@ -1227,7 +1227,7 @@ static void handleClick() {
 
 
     if (globalMouseHandler.pressed) {
-        printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
+        //printf("mouseInRollRect: %d | allowClickInRollRect: %d | mouseInBHLrect: %d\n", mouseInRollRect, allowClickInRollRect, mouseInBHLrect);
         if (mouseInRollRect && allowClickInRollRect) {
             //printf("Clicked: mouseInRollRect=%d, mouseTimestamp=%d, rollKeyHovering=%d\n", mouseInRollRect, mouseTimestamp, rollKeyHovering);
             if (mouseInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
@@ -1253,7 +1253,8 @@ static void handleClick() {
                     Track track = trackGetSelectedTrack();
                     uint8_t program = trackGetProgram(track);
                     Note nt = trackCreateNoteInTrack(track, rollKeyHovering, controlNoteVelocity, mouseTimestamp, controlNoteSize);
-                    synthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track), globalHandlerGetSelectedTrack());
+                    //s ynthProgramNoteOnPanning(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), program, trackGetPanning(track), globalHandlerGetSelectedTrack());
+                    synthProgramNoteOnFromTrack(rollKeyHovering, 0.007874*controlNoteVelocity*trackGetVelocity(track), globalHandlerGetSelectedTrack());
 
                     releaseEvent.key = rollKeyHovering;
                     releaseEvent.wasPressed = 1;
@@ -1281,7 +1282,7 @@ static void handleClick() {
         if (mouseInRollRect && allowClickInRollRect && mouseTimestamp!=(1<<30) && rollKeyHovering!=-1) {
             if (rollHoveringOverNote) {
                 globalHandlerRemoveSelectedNote(rollHoveringOverNote);
-                trackDeleteNoteInTrackByIdx(trackGetSelectedTrack(), rollHoveringOverNoteIdx);
+                trackDeleteNoteInTrack(trackGetSelectedTrack(), rollHoveringOverNote);
             }
         }
     }

@@ -19,6 +19,9 @@ void synthNoteOn(uint8_t key, float velocity, uint8_t channel);
 void synthProgramNoteOn(uint8_t key, float velocity, uint8_t program);
 void synthProgramNoteOnPanning(uint8_t key, float velocity, uint8_t program, float panning, int track);
 void synthProgramNoteOffPanning(uint8_t key, uint8_t program, int track);
+void synthChannelPrefix(int track, uint8_t program, float panning);
+void synthProgramNoteOnFromTrack(uint8_t key, float velocity, int track);
+void synthProgramNoteOffFromTrack(uint8_t key, int track);
 
 
 void synthExecuteEvent(MidiEvent event);

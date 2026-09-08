@@ -352,7 +352,7 @@ static void _selectorsMergeAndClearNoChecks() {
     struct notes_selection* secondary = &(globalStateHandler->selector.secondary);
 
     if (!(secondary->notesNum)) {
-        printf("Secondary doesn't have any notes\n");
+        //printf("Secondary doesn't have any notes\n");
         _selectorVectorReset(secondary);
         return;
     }

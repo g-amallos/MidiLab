@@ -43,6 +43,7 @@ Track trackCreateNew() {
         if (!(globalProject->tracks)) return NULL;
     }
 
+    //globalStateHandler->selectedTrack = (globalProject->tracksNum)++;
     Track ret = globalProject->tracks+(globalProject->tracksNum)++;
 
     ret->channel = 0;
@@ -60,6 +61,9 @@ Track trackCreateNew() {
     ret->title = malloc(11*sizeof(char));
     if (ret->title) strncpy(ret->title, "New Track", 11);
 
+
+    globalHandlerSelectTrack(globalProject->tracksNum-1);
+    globalHandlerUpdateSelectedTrack();
     projectUpdateStateSomethingChanged();
     return ret;
 }
@@ -109,6 +113,7 @@ float trackGetPanning(Track track) {
 void trackSetPanning(Track track, float panning) {
     if (!track || panning<0 || panning>1) return;
     track->panning=panning;
+    globalHandlerUpdateSelectedTrack();
     projectUpdateStateSomethingChanged();
 }
 
@@ -125,7 +130,8 @@ int trackGetProgram(Track track) {
 void trackSetProgram(Track track, uint8_t program) {    // 0-127: regular midi programs, 128: drums (channel 9)
     if (!track || program>128) return;
     track->program = program;
-    projectUpdateStateSomethingChanged();  
+    globalHandlerUpdateSelectedTrack();
+    projectUpdateStateSomethingChanged();
 }
 
 void trackDeleteAtIdx(int idx) {
@@ -147,31 +153,100 @@ void trackDeleteAtIdx(int idx) {
         if (globalStateHandler) globalStateHandler->keys.type = T_KEYBOARD_NONE;
     }
 
-    projectUpdateStateSomethingChanged();    
+    globalHandlerUpdateAllTracks();
+    projectUpdateStateSomethingChanged();
 }
 
 
 
 void trackSortNotes(Track track);
 
-
-Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration) {   // Not entirely done yet
-    if (!track || note>127 || velocity>127) return NULL;
-
+static int _initTrackVector(Track track) {
+    if (!track) return 1;
     if (!(track->notes)) {
-        track->capacity = 32;
+        uint32_t cap = 32;
+        track->notes = calloc(cap, sizeof(Note));
+        track->capacity = cap*(!!(track->notes));
         track->numElements = 0;
-        track->notes = calloc((track->capacity), sizeof(Note));
     }
+    return !(track->notes);
+}
+
+static int _trackVectorFindWhereNoteShouldBe(Track track, Note note) {
+    if (!track || !(track->notes) || !note) return -1;
+    uint32_t left=0, right=track->numElements;
+    uint32_t target=note->timestamp;
+    while (right>left) {
+        uint32_t center = left+((right-left)>>1);
+        if ((track->notes)[center]==note) return center;
+        if ((track->notes)[center]->timestamp<target) left=center+1;
+        else right=center;
+    }
+    return right;
+}
+
+static int _trackVectorFindNoteLinearlyAfter(Track track, Note note, int idx) {
+    if (idx<0) return idx;
+    uint32_t target=note->timestamp, nidx=(uint32_t)idx;
+    while (nidx<track->numElements && note!=(track->notes)[nidx] && target<=(track->notes)[nidx]->timestamp) nidx++;
+    if (nidx>=track->numElements || note!=(track->notes)[nidx]) return -1;
+    else return (int)nidx;
+}
+
+static int _trackVectorFind(Track track, Note note) {
+    int idx = _trackVectorFindWhereNoteShouldBe(track, note);
+    return _trackVectorFindNoteLinearlyAfter(track, note, idx);
+}
+
+static int _trackVectorDuplicateCapacity(Track track) {
+    uint32_t oldCap = track->capacity;
+    uint32_t newCap = (oldCap<<1);
+
+    Note* arr = realloc(track->notes, newCap*sizeof(Note));
+    if (!arr) return 1;
+
+    track->capacity = newCap;
+    track->notes = arr;
+    return 0;
+}
+
+static int _trackVectorHalveCapacity(Track track) {
+    uint32_t oldCap = track->capacity;
+    uint32_t newCap = (oldCap>>1);
+    if (newCap<32) newCap=32;
+
+    Note* arr = realloc(track->notes, newCap*sizeof(Note));
+    if (!arr) return 1;
+
+    track->capacity = newCap;
+    track->notes = arr;
+    return 0;
+}
+
+static void _trackVectorAdd(Track track, Note note) {
+    if (_initTrackVector(track) || !note) return;
+    int idx = _trackVectorFindWhereNoteShouldBe(track, note);
+    int existIdx = _trackVectorFindNoteLinearlyAfter(track, note, idx);
+
+    if (existIdx>=0) return;
+    if (track->capacity<=track->numElements && _trackVectorDuplicateCapacity(track)) return;
+    memmove(track->notes+idx+1, track->notes+idx, (track->numElements-idx)*sizeof(Note));
+    (track->notes)[idx]=note;
+    (track->numElements)++;
+}
+
+static void _trackVectorRemove(Track track, Note note) {
+    if (_initTrackVector(track) || !note) return;
+    int idx=_trackVectorFind(track, note), num=track->numElements;
+    if (idx<0) return;
+    (track->notes)[idx]=NULL;
+    if (num-idx-1) memmove(track->notes+idx, track->notes+idx+1, (num-idx-1)*sizeof(Note));
+    if (((track->capacity)>>2)>(--(track->numElements))) _trackVectorHalveCapacity(track);
+}
 
 
-    if (track->numElements >= track->capacity) {
-        uint32_t tcap = (track->numElements << 1);
-        Note* tnotes = realloc(track->notes, tcap*sizeof(Note));
-        if (!tnotes) return NULL;    // Reallocation failed
-        track->capacity = tcap;
-        track->notes = tnotes;
-    }
+Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration) {
+    if (!track || note>127 || velocity>127) return NULL;
 
     Note mnote = malloc(sizeof(struct note_data));
     if (!mnote) return NULL;  // Malloc failed
@@ -182,11 +257,8 @@ Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     mnote->duration = duration;
     mnote->channel = track->channel;
 
-    // Should add the fields ftimestamp and fduration but currently not necessary
+    _trackVectorAdd(track, mnote);              // Improved from O(n*log(n)) (or depending on the implementation of qsort from O(n^2) worst-case) to O(n) worst case
     projectUpdateStateSomethingChanged();
-
-    track->notes[(track->numElements)++] = mnote;
-    trackSortNotes(track);
     return mnote;
 }
 
@@ -252,10 +324,8 @@ void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx) {
 
 void trackDeleteNoteInTrack(Track track, Note note) {
     if (!track || !note) return;
-    
-    uint32_t i=0;
-    while (i<track->numElements && track->notes[i]!=note) i++;
-    if (i<track->numElements && track->notes[i]==note) trackDeleteNoteInTrackByIdx(track, i);
+    _trackVectorRemove(track, note);
+    projectUpdateStateSomethingChanged();
 }
 
 

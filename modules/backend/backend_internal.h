@@ -211,5 +211,7 @@ void trackSortNotes(Track track);
 void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size);    // buff must have sorted notes
 void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb);
 
+void _exportSetupSynthTracks();
+
 
 #endif

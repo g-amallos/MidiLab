@@ -5,7 +5,14 @@ err.txt
 
 tests/
 assets/archive/
-projects/TestProject.mlb
-projects/NewProject.mlb
-projects/*.mid
+/build/
+
+/projects/TestProject.mlb
+/projects/NewProject.mlb
+/projects/*.mid
+
+/libs/win/archive/
+/bin/
+/*.dll
+
 *.wav
