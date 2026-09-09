@@ -77,6 +77,7 @@ float trackGetVelocity(Track track);
 void trackSetVelocity(Track track, float velocity);
 int trackGetProgram(Track track);
 void trackDeleteAtIdx(int idx);
+int trackMoveToIndex(Track track, int idx);
 void trackSetProgram(Track track, uint8_t program);
 float trackGetPanning(Track track);
 void trackSetPanning(Track track, float panning);
@@ -239,6 +240,7 @@ void midiClose();
 const char* midiGetProgramTypeString(int program);
 enum icon_title midiGetProgramTypeIcon(int program);
 
+const char* midiGetDrumName(int note);
 const char* midiGetProgramName(int program);
 const char* midiProgramGetName(MidiProgram program);
 const char* midiProgramGetTypeString(MidiProgram program);

@@ -157,6 +157,24 @@ void trackDeleteAtIdx(int idx) {
     projectUpdateStateSomethingChanged();
 }
 
+int trackMoveToIndex(Track track, int idx) {
+    if (!track || idx<0 || idx>=globalProject->tracksNum) return -1;
+    if (track-globalProject->tracks==idx) return idx;
+
+    int old=track-globalProject->tracks, new=idx;
+    struct track_data strack = *track;
+    if (old<new) {
+        memmove(track, track+1, (new-old)*sizeof(struct track_data));
+        (globalProject->tracks)[new] = strack;
+    } else if (old>new) {
+        memmove(globalProject->tracks+new+1, globalProject->tracks+new, (old-new)*sizeof(struct track_data));
+        (globalProject->tracks)[new] = strack;
+    }
+    globalHandlerUpdateAllTracks();
+    projectUpdateStateSomethingChanged();
+    return new;
+}
+
 
 
 void trackSortNotes(Track track);

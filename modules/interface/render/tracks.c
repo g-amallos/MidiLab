@@ -12,6 +12,7 @@
 #include <synth.h>
 #include <tinyfiledialogs.h>
 #include <export.h>
+#include <string.h>
 
 
 #define TRACK_TITLE_PLACEHOLDER "Track Title"
@@ -36,9 +37,13 @@ typedef struct track_control_ui {
     Color theme;
     int themeIdx;
     float effect;
+    uint8_t moving;
+    float y;
+    float shadow;
     enum icon_title icon;
     Textbox textbox;
     Slider slider;
+    Button move;
     Button optionsButton;
     ButtonList btnList;
 } *TrackUI;
@@ -110,6 +115,7 @@ void freeTrackUIs() {
             buttonFree(tracks[i].base);
             buttonFree(tracks[i].rightBase);
             sliderFree(tracks[i].slider);
+            buttonFree(tracks[i].move);
         }
         free(tracks);
         tracks=NULL;
@@ -117,7 +123,7 @@ void freeTrackUIs() {
 }
 
 
-void customizeNewTrackUI(TrackUI tr) {
+void customizeNewTrackUI(TrackUI tr, int idx) {
     if (!tr) return;
     Rectangle rect = (Rectangle){20, 20, 20, 20};
     tr->base = buttonCreate(rect, 0.2);
@@ -130,8 +136,12 @@ void customizeNewTrackUI(TrackUI tr) {
     tr->optionsButton = buttonCreate(rect, 0.2);
     tr->btnList = NULL;
     tr->slider = sliderCreate(rect, 1);
-    sliderUpdateCursorOnHover(tr->slider, MOUSE_CURSOR_RESIZE_EW); 
+    sliderUpdateCursorOnHover(tr->slider, MOUSE_CURSOR_RESIZE_EW);
+    tr->move = buttonCreate(rect, 0.2);
+    tr->moving = 0;
+    tr->y = idx+trackDivLeftRect.height/trackHeight+0.5;
     tr->effect = 0;
+    tr->shadow = 0;
 }
 
 void createTrackUIsFromScratch(uint8_t* colArr) {
@@ -144,7 +154,7 @@ void createTrackUIsFromScratch(uint8_t* colArr) {
     for (int i=0; i<totalTracks; i++) {
         Track track = trackGetAtIdx(i);
         tracks[i].track = track;
-        customizeNewTrackUI(tracks+i);
+        customizeNewTrackUI(tracks+i, i);
         tracks[i].themeIdx = ((int)colArr[i])%(sizeof(trackThemeColors)/sizeof(Color));
         tracks[i].theme = trackThemeColors[tracks[i].themeIdx];
 
@@ -217,7 +227,7 @@ void renderTrackCreateNew() {
         if (!tracks) return;
     }
     tracks[totalTracks-1].track = ntrack;
-    customizeNewTrackUI(tracks+totalTracks-1);
+    customizeNewTrackUI(tracks+totalTracks-1, totalTracks-1);
     textboxLoadText(tracks[totalTracks-1].textbox, trackGetTitle(ntrack));
     sliderUpdateSlideValue(tracks[totalTracks-1].slider, trackGetVelocity(ntrack));
     
@@ -530,6 +540,57 @@ void actionSelectRightTrack() {
     }
 }
 
+void renderTrackMoveToIndex(int old, int new) {
+    int totalTracks = projectGetTracksNum();
+    if (old<0 || old>=totalTracks || new<0 || new>=totalTracks) return;
+    if (old==new) return;
+    if (trackMoveToIndex(trackGetAtIdx(old), new)!=new) return;
+
+    struct track_control_ui strack = tracks[old];
+    if (old<new) {
+        memmove(tracks+old, tracks+old+1, (new-old)*sizeof(struct track_control_ui));
+    } else if (old>new) {
+        memmove(tracks+new+1, tracks+new, (old-new)*sizeof(struct track_control_ui));
+    }
+    //printf("renderTrackMoveToIndex: old=%d, new=%d\n", old, new);
+    tracks[new] = strack;
+    globalHandlerSelectTrack(new);
+}
+
+void clipTrackScrollTarget() {
+    int totalTracks = projectGetTracksNum();
+    float totalHeight = totalTracks*trackHeight+10;
+    if (trackScrollYtarget>totalHeight-trackDivTargetHeight) trackScrollYtarget = totalHeight-trackDivTargetHeight; // totalHeight>trackDivTargetHeight && 
+    if (trackScrollYtarget<0) trackScrollYtarget=0;
+}
+
+void precomputeMovingTrackLeft(int idx) {
+    int totalTracks = projectGetTracksNum();
+    if (idx<0 || idx>=totalTracks) return;
+    TrackUI track = tracks+idx;
+    if (!(track->moving)) return;
+
+    
+    float my=globalMouseHandler.pos.y;
+    float vy=floatClip((my-trackDivLeftRect.y)/trackDivLeftRect.height, 0, 1);
+    double edgeY=0.25;
+
+    if (vy<edgeY) {
+        double speed = (vy/edgeY)-1.0;
+        trackScrollYtarget += 10*speed;
+    } else if (vy>1-edgeY) {
+        double speed = (edgeY+vy-1.0)/edgeY;
+        trackScrollYtarget += 10*speed;
+    }
+    clipTrackScrollTarget();
+    
+    float ny = (trackDivLeftRect.y+trackDivLeftRect.height*vy-controlLineHeight-5-trackCLineHeight+trackScrollY)/trackHeight-0.5;
+    int nidx = intClip(round(ny), 0, totalTracks-1);
+    
+    track->y = ny;
+    if (idx!=nidx) renderTrackMoveToIndex(idx, nidx);
+}
+
 
 void precomputeTrackLeft(int idx) {
     int isSelected=(globalHandlerGetSelectedTrack()==idx), disableHover=(openLayout || !CheckCollisionPointRec(globalMouseHandler.pos, trackDivLeftRect));
@@ -537,8 +598,10 @@ void precomputeTrackLeft(int idx) {
     TrackUI track = tracks+idx;
     Track trackAbstr = trackGetAtIdx(idx);
     track->track = trackAbstr;
+    if (!(track->moving)) track->y += 0.2*((float)idx-track->y);
+    track->shadow += 0.2*(track->moving-track->shadow);
     
-    float ypos = controlLineHeight+5+trackCLineHeight + idx*trackHeight-trackScrollY;
+    float ypos = controlLineHeight+5+trackCLineHeight + track->y*trackHeight-trackScrollY;
     Rectangle baseRect = {interfaceSpace1, ypos+interfaceSpace1*0.5, trackLeftWidth-2*interfaceSpace1, trackHeight-interfaceSpace1};
     buttonUpdateRectangle(track->base, baseRect);
     if (disableHover) buttonDisableHover(track->base);
@@ -616,18 +679,41 @@ void precomputeTrackLeft(int idx) {
 
     // Icon (Program/Instrument)
     track->icon = midiGetProgramTypeIcon(trackGetProgram(track->track));
+
+
+    // Move button
+    Rectangle mvRect = scaleRctangleFromCenter((Rectangle){baseRect.x-0.2*baseRect.height, baseRect.y, baseRect.height, baseRect.height}, 0.48);
+    if (isSelected) buttonEnable(track->move);
+    else buttonDisable(track->move);
+
+    buttonUpdateRectangle(track->move, mvRect);
+    if (disableHover) buttonDisableHover(track->move);
+    else buttonEnableHover(track->move);
+    buttonUpdate(track->move, isSelected?(track->moving?1:-1):0);
+
+    if (isSelected && isButtonDragged(track->move)) track->moving = 1;
+    else track->moving = 0;
 }
 
 
-void renderTrackLeft(int idx) {
+void renderTrackLeft(int idx, int skipMoving) {
     int isSelected = (globalHandlerGetSelectedTrack()==idx);
     TrackUI track = tracks+idx;
+    if (isSelected && skipMoving && track->moving) return;
     
     Rectangle baseRect = buttonGetRectangle(track->base);
-    if (baseRect.y>trackDivVisiblePosMax || baseRect.y+baseRect.height<trackDivVisiblePosMin) return;
+    float shadowPxh = baseRect.height*0.07*track->shadow;
+    if (baseRect.y-shadowPxh>trackDivVisiblePosMax || baseRect.y+baseRect.height+shadowPxh<trackDivVisiblePosMin) return;
 
-    float ypos = controlLineHeight+5+trackCLineHeight + idx*trackHeight-trackScrollY;
+    float ypos = controlLineHeight+5+trackCLineHeight + track->y*trackHeight-trackScrollY;
     float effect = track->effect;
+
+    if (shadowPxh>0.1) {
+        Vector2 extraSh = {shadowPxh, shadowPxh};
+        Color cl = blendColors((Color){0,0,0,255}, track->theme, 0.08*track->shadow);
+        cl.a = (unsigned char)(150.0*track->shadow);
+        DrawRectangleRounded(rectangleIncrease(baseRect, extraSh,extraSh), 0.2, 8, cl);
+    }
 
     Color col1={25,27,30,255}; //col2={36,40,47,255};
     Color blendBackground = blendColors(col1, track->theme, effect*0.1); //blendColors(col1, col2, effect);
@@ -692,6 +778,11 @@ void renderTrackLeft(int idx) {
 
     if (track->icon != T_ICON_END) {
         Rectangle icRect = scaleRctangleFromCenter((Rectangle){baseRect.x-0.2*baseRect.height, baseRect.y, baseRect.height, baseRect.height}, 0.22);
+        if (effect>0.501) {
+            Color tcl = track->theme;
+            tcl.a = (unsigned char)(76*(effect-0.5));
+            DrawCircleV(getRectangleCenter(icRect), icRect.width*1.15*2.0*(effect-0.5), blendColors(tcl, (Color){200,200,200,tcl.a}, 0.04*(effect-0.5)));
+        }
         iconRerder(track->icon, scaleRctangleFromCenter(icRect, 2*normalizeProgramTypeIcon(track->icon)), track->theme);
     }
 
@@ -712,12 +803,20 @@ void renderTrackLeft(int idx) {
     DrawRectangleRounded(rightRect, buttonGetRoundness(track->rightBase), 8, rightBg);
 }
 
+void renderMovingTrack() {
+    int idx = globalHandlerGetSelectedTrack();
+    if (idx<0 || idx>=projectGetTracksNum()) return;
+    TrackUI track = tracks+idx;
+    if (track->moving) renderTrackLeft(idx, 0);
+}
 
 void renderActualTracksLeft() {
     int totalTracks = projectGetTracksNum();
 
     if (totalTracks){
-        for (int i=0; i<totalTracks; i++) renderTrackLeft(i);
+        for (int i=0; i<totalTracks; i++) renderTrackLeft(i, 1);
+        renderMovingTrack();
+
     } else {
         float ypos = controlLineHeight+5+trackCLineHeight;
         renderFontStringAlign(GlobalFonts[0].font, "No Available Tracks", (Vector2){0.5*trackLeftWidth, ypos+0.5*trackHeight}, (Vector2){0.5,0.5}, 0.48*trackCLineHeight, 0, COLOR_TEXT_4);
@@ -795,7 +894,7 @@ void order2PrecomputeTracksLeft() {
     //int mouseInDiv = !UIisHoveringOverLayout() && !UIisInTextInput() && CheckCollisionPointRec(globalMouseHandler.pos, trackDivFullRect);
     int totalTracks = projectGetTracksNum();
     int scrolled =  !UIisHoveringOverLayout() && !UIisInTextInput() && globalMouseHandler.scroll!=0;
-    float totalHeight = totalTracks*trackHeight+10;
+    //float totalHeight = totalTracks*trackHeight+10;
     int controlDown = IsKeyDown(KEY_LEFT_CONTROL);
 
     if (controlDown && !UIisHoveringOverLayout() && !UIisInTextInput()) {
@@ -827,9 +926,10 @@ void order2PrecomputeTracksLeft() {
         }
     }
 
-    if (trackScrollYtarget>totalHeight-trackDivTargetHeight) trackScrollYtarget = totalHeight-trackDivTargetHeight; // totalHeight>trackDivTargetHeight && 
-    if (trackScrollYtarget<0) trackScrollYtarget=0;
-
+    
+    
+    precomputeMovingTrackLeft(globalHandlerGetSelectedTrack());
+    clipTrackScrollTarget();
     trackScrollY += 0.18*(trackScrollYtarget-trackScrollY);
     
     for (int i=0; i<totalTracks; i++) precomputeTrackLeft(i);

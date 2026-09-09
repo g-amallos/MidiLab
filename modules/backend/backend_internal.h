@@ -189,8 +189,15 @@ typedef struct midi_program {
 
 } *MidiProgram;
 
+typedef struct midi_drum {
+    char* name;
+} *MidiDrum;
+
+#define MIDI_DRUM_START 35
+#define MIDI_DRUM_END 81
 
 extern struct midi_program _midiPrograms[129];
+extern struct midi_drum _midiDrums[128];
 
 
 void globalStateHandlerInit();
