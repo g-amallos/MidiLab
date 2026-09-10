@@ -94,7 +94,7 @@ int render() {
         UIupdateTransparentOverlay();
         renderInstrumentPicker();
 
-        //if (globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
+        if (globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
 
         startupScreenRenderIfNeeded(screenSize);
 

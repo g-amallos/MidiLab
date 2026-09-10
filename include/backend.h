@@ -78,6 +78,7 @@ void trackSetVelocity(Track track, float velocity);
 int trackGetProgram(Track track);
 void trackDeleteAtIdx(int idx);
 int trackMoveToIndex(Track track, int idx);
+int trackCanSafelyReplaceContents(Track track);
 void trackSetProgram(Track track, uint8_t program);
 float trackGetPanning(Track track);
 void trackSetPanning(Track track, float panning);

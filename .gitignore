@@ -10,6 +10,7 @@ assets/archive/
 /projects/TestProject.mlb
 /projects/NewProject.mlb
 /projects/*.mid
+/projects/*/
 
 /libs/win/archive/
 /bin/

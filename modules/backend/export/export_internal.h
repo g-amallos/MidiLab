@@ -10,6 +10,24 @@
 
 
 
+
+int getTrackThemeColorIdx(int i);                       // modules/interface/render/tracks.c
+void setTrackThemeColorIdx(int tracki, int themei);     // modules/interface/render/tracks.c
+void updateTrackUItitle(int tracki);                    // modules/interface/render/tracks.c
+void createTrackUIsFromScratch(uint8_t* colArr);        // modules/interface/render/tracks.c
+void freeTrackUIs();                                    // modules/interface/render/tracks.c
+void projectLoadTmpProject(ProjectData newProject);     // modules/backend/project.c
+
+
+
+
+/*  os.c  */
+
+void removeDirectory(const char* dir);
+
+
+
+
 /*  export.c  */
 
 void writeUint32(FILE* fptr, uint32_t data);
@@ -20,6 +38,8 @@ int readUint16(FILE* fptr, uint16_t* ret);
 int readUint8(FILE* fptr, uint8_t* ret);
 int readString(FILE* fptr, char* buffer, int len);
 void writeString(FILE* fptr, const char* string);
+
+int writeProject(FILE* fptr);
 
 
 

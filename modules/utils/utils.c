@@ -87,6 +87,29 @@ char* concatenateStrings(const char* s1, const char* s2) {
     return str;
 }
 
+char* concatenateStrings3(const char* s1, const char* s2, const char* s3) {
+    int l1=strlen(s1), l2=strlen(s2), l3=strlen(s3);
+    char* str = malloc((l1+l2+l3+1)*sizeof(char));
+    if (!str) return NULL;
+    memcpy(str, s1, l1);
+    memcpy(str+l1, s2, l2);
+    memcpy(str+l1+l2, s3, l3);
+    str[l1+l2+l3] = 0;
+    return str;
+}
+
+char* concatenateStrings4(const char* s1, const char* s2, const char* s3, const char* s4) {
+    int l1=strlen(s1), l2=strlen(s2), l3=strlen(s3), l4=strlen(s4);
+    char* str = malloc((l1+l2+l3+l4+1)*sizeof(char));
+    if (!str) return NULL;
+    memcpy(str, s1, l1);
+    memcpy(str+l1, s2, l2);
+    memcpy(str+l1+l2, s3, l3);
+    memcpy(str+l1+l2+l3, s4, l4);
+    str[l1+l2+l3+l4] = 0;
+    return str;
+}
+
 static int allowedCharsInFileName(char c) {
     if (c>='A' && c<='Z') return 1;
     if (c>='a' && c<='z') return 1;

@@ -190,6 +190,19 @@ int getTrackThemeColorIdx(int i) {
     return tracks[i].themeIdx;
 }
 
+void setTrackThemeColorIdx(int tracki, int themei) {
+    int totalTracks = projectGetTracksNum();
+    if (tracki<0 || tracki>=totalTracks) return;
+    tracks[tracki].themeIdx = themei%(sizeof(trackThemeColors)/sizeof(Color));
+    tracks[tracki].theme = trackThemeColors[tracks[tracki].themeIdx];
+}
+
+void updateTrackUItitle(int tracki) {
+    int totalTracks = projectGetTracksNum();
+    if (tracki<0 || tracki>=totalTracks) return;
+    textboxLoadText(tracks[tracki].textbox, trackGetTitle(trackGetAtIdx(tracki)));
+}
+
 Color getTrackThemeColor(int i) {
     int totalTracks = projectGetTracksNum();
     if (i<0 || i>=totalTracks) return (Color){0,0,0,0};
@@ -214,6 +227,22 @@ Color getTrackThemeColorForBlackKeys() {
     return blendColors(theme, (Color){0,0,0,255}, 0.35);
 }
 
+static void scrollToShowSelectedTrack() {
+    int totalTracks = projectGetTracksNum();
+    float totalHeight = totalTracks*trackHeight+10;
+    int idx = globalHandlerGetSelectedTrack();
+    if (idx<0 || idx>=totalTracks) return;
+    
+    float y1=idx*trackHeight, y2=(idx+1)*trackHeight;
+    if (y1>=trackScrollYtarget && y2<=trackScrollYtarget+trackDivTargetHeight) {
+        trackScrollYtarget=trackScrollYtarget;
+    } else if (y1<trackScrollYtarget) trackScrollYtarget=y1;
+    else if (y2>trackScrollYtarget+trackDivTargetHeight-10) trackScrollYtarget=floatMin(y2-trackDivTargetHeight+10, y1);
+
+    if (trackScrollYtarget>totalHeight-trackDivTargetHeight) trackScrollYtarget = totalHeight-trackDivTargetHeight; // totalHeight>trackDivTargetHeight && 
+    if (trackScrollYtarget<0) trackScrollYtarget=0;
+} 
+
 void renderTrackCreateNew() {
     Track ntrack = trackCreateNew();
     int totalTracks = projectGetTracksNum();
@@ -231,6 +260,7 @@ void renderTrackCreateNew() {
     textboxLoadText(tracks[totalTracks-1].textbox, trackGetTitle(ntrack));
     sliderUpdateSlideValue(tracks[totalTracks-1].slider, trackGetVelocity(ntrack));
     
+    scrollToShowSelectedTrack();
     synthPanic();
 }
 
@@ -432,7 +462,7 @@ void deleteSelectedTrack() {
     else globalHandlerSelectTrack(sel);
 
     synthPanic();
-    
+    scrollToShowSelectedTrack();
 }
 
 
@@ -469,6 +499,55 @@ void _exportTrackAsMidi() {
     }
 }
 
+void _importTrackFromFile() {
+    int idx = globalHandlerGetSelectedTrack();
+    Track track = trackGetSelectedTrack();
+    if (!track) return;
+
+    globalHandlerPause();
+    synthPanic();
+
+    const char *path = tinyfd_openFileDialog("Import MidiLab Track", "", 1, (const char *[]){"*.mlt"}, "MidiLab Track", 0);
+    if (path) {
+        int canReplace = trackCanSafelyReplaceContents(track);
+        if (!canReplace) {
+            int result = tinyfd_messageBox("Warning", "Are you sure you want to replace the current track?\nYour current project will be lost.", "yesno", "warning", 0);
+            if (!result) return;
+        }
+
+        printf("Trying to open: %s\n", path);
+        int failed = importTrackFrom(path, idx);
+        if (!failed) {
+            destroyTrackOptionLayout(tracks+idx);
+            scrollToShowSelectedTrack();
+        }
+    }
+}
+
+void _exportTrackToFile() {
+    int idx = globalHandlerGetSelectedTrack();
+    Track track = trackGetSelectedTrack();
+    if (!track) return;
+
+    globalHandlerPause();
+    synthPanic();
+
+    const char* trackTitle = trackGetTitle(track);
+    if (!trackTitle) trackTitle = "Untitled Track";
+
+    char* title = stringToFileName(trackTitle, 30);
+    char* conct = concatenateStrings(title, ".mlt");
+    free(title);
+
+    const char* path = tinyfd_saveFileDialog("Export MidiLab Track", conct, 1, (const char *[]){"*.mlt"}, "MidiLab Track");
+    free(conct);
+    
+    if (path) {
+        int failed = exportTrackTo(path, idx);
+        if (!failed) destroyTrackOptionLayout(tracks+idx);
+    }
+}
+
 void precomputeTrackOptionLayout(TrackUI track) {
     if (!track || !(track->btnList)) return;
 
@@ -481,7 +560,7 @@ void precomputeTrackOptionLayout(TrackUI track) {
     buttonListUpdateSpacing(track->btnList, buttonList4x5ExampleSpacing);
     buttonListUpdate(track->btnList);
 
-    OnClickFunc funcs[] = {changeSelectedTrackColorApproach1, NULL, NULL, _exportTrackAsMidi, deleteSelectedTrack};
+    OnClickFunc funcs[] = {changeSelectedTrackColorApproach1, _importTrackFromFile, _exportTrackToFile, _exportTrackAsMidi, deleteSelectedTrack};
     int num = sizeof(funcs)/sizeof(OnClickFunc);
     for (int i=0; i<num; i++) {
         Button btn = buttonListGetButtonAt(track->btnList, i);
@@ -524,6 +603,7 @@ void actionSelectLeftTrack() {
         if (isButtonClicked(tracks[i].base)) {
             globalHandlerSelectTrack(i);
             globalHandlerSetKeyboardType(T_KEYBOARD_HORIZONTAL);
+            scrollToShowSelectedTrack();
             break;
         }
     }
@@ -535,6 +615,7 @@ void actionSelectRightTrack() {
         if (isButtonClicked(tracks[i].rightBase)) {
             globalHandlerSelectTrack(i);
             globalHandlerSetKeyboardType(T_KEYBOARD_VERTICAL);
+            scrollToShowSelectedTrack();
             break;
         }
     }
@@ -682,7 +763,7 @@ void precomputeTrackLeft(int idx) {
 
 
     // Move button
-    Rectangle mvRect = scaleRctangleFromCenter((Rectangle){baseRect.x-0.2*baseRect.height, baseRect.y, baseRect.height, baseRect.height}, 0.48);
+    Rectangle mvRect = scaleRctangleFromCenter((Rectangle){baseRect.x-0.2*baseRect.height, baseRect.y, baseRect.height, baseRect.height}, 0.45);
     if (isSelected) buttonEnable(track->move);
     else buttonDisable(track->move);
 
@@ -692,17 +773,21 @@ void precomputeTrackLeft(int idx) {
     buttonUpdate(track->move, isSelected?(track->moving?1:-1):0);
 
     if (isSelected && isButtonDragged(track->move)) track->moving = 1;
-    else track->moving = 0;
+    else if (isButtonReleased(track->move)) {
+        track->moving = 0;
+        scrollToShowSelectedTrack();
+    } else track->moving = 0;
 }
 
 
 void renderTrackLeft(int idx, int skipMoving) {
     int isSelected = (globalHandlerGetSelectedTrack()==idx);
     TrackUI track = tracks+idx;
-    if (isSelected && skipMoving && track->moving) return;
+    if (isSelected && skipMoving) return;
     
     Rectangle baseRect = buttonGetRectangle(track->base);
-    float shadowPxh = baseRect.height*0.07*track->shadow;
+    Rectangle rightRect = buttonGetRectangle(track->rightBase);
+    float shadowPxh = baseRect.height*0.06*track->shadow;
     if (baseRect.y-shadowPxh>trackDivVisiblePosMax || baseRect.y+baseRect.height+shadowPxh<trackDivVisiblePosMin) return;
 
     float ypos = controlLineHeight+5+trackCLineHeight + track->y*trackHeight-trackScrollY;
@@ -712,7 +797,10 @@ void renderTrackLeft(int idx, int skipMoving) {
         Vector2 extraSh = {shadowPxh, shadowPxh};
         Color cl = blendColors((Color){0,0,0,255}, track->theme, 0.08*track->shadow);
         cl.a = (unsigned char)(150.0*track->shadow);
-        DrawRectangleRounded(rectangleIncrease(baseRect, extraSh,extraSh), 0.2, 8, cl);
+        Rectangle nrect = rectangleIncrease(baseRect, extraSh,extraSh);
+        DrawRectangleRounded(nrect, getRoundnessForRoundedRectangleTransformation(baseRect, nrect, 0.2, shadowPxh), 8, cl);
+        nrect = rectangleIncrease(rightRect, extraSh,extraSh);
+        DrawRectangleRounded(nrect, getRoundnessForRoundedRectangleTransformation(rightRect, nrect, buttonGetRoundness(track->rightBase), shadowPxh), 8, cl);
     }
 
     Color col1={25,27,30,255}; //col2={36,40,47,255};
@@ -725,6 +813,9 @@ void renderTrackLeft(int idx, int skipMoving) {
     }
     if (!isSelected && isButtonClicked(track->base)) globalHandlerSelectTrack(idx);
 
+    float rightEffect = buttonGetEffectValue(track->rightBase);
+    Color rightBg = blendColors(blendBackground, track->theme, 0.2+0.2*rightEffect);
+    DrawRectangleRounded(rightRect, buttonGetRoundness(track->rightBase), 8, rightBg);
 
     // Textbox
     Rectangle tbxRect = textboxGetRectangle(track->textbox);
@@ -780,8 +871,10 @@ void renderTrackLeft(int idx, int skipMoving) {
         Rectangle icRect = scaleRctangleFromCenter((Rectangle){baseRect.x-0.2*baseRect.height, baseRect.y, baseRect.height, baseRect.height}, 0.22);
         if (effect>0.501) {
             Color tcl = track->theme;
-            tcl.a = (unsigned char)(76*(effect-0.5));
-            DrawCircleV(getRectangleCenter(icRect), icRect.width*1.15*2.0*(effect-0.5), blendColors(tcl, (Color){200,200,200,tcl.a}, 0.04*(effect-0.5)));
+            tcl.a = (unsigned char)(56*(effect-0.5));
+            tcl = blendColors(tcl, (Color){200,200,200,tcl.a}, 0.04*(effect-0.5));
+            //DrawCircleV(getRectangleCenter(icRect), icRect.width*1.15*2.0*(effect-0.5), tcl);
+            DrawRectangleRounded(buttonGetRectangle(track->move), 1.0-(effect-0.5), 8, tcl);
         }
         iconRerder(track->icon, scaleRctangleFromCenter(icRect, 2*normalizeProgramTypeIcon(track->icon)), track->theme);
     }
@@ -793,21 +886,13 @@ void renderTrackLeft(int idx, int skipMoving) {
     Color opbg = blendColors(blendBackground, (Color){45,49,57,255}, opEffect);
     if (opEffect>1e-3) DrawRectangleRounded(scaleRctangleFromCenter(opRect, lerp(0.3, 1, opEffect)), buttonGetRoundness(track->optionsButton), 8, opbg);
     iconRerder(T_ICON_OPTIONS, scaleRctangleFromCenter(opRect, 0.75*lerp(0.9, 0.95, opEffect)), blendColors(track->theme, COLOR_TEXT_1, opEffect));
-
-    //if (track->btnList) renderTrackOptionLayout(track);
-
-    Rectangle rightRect = buttonGetRectangle(track->rightBase);
-    //printf("Rect: %f, %f, %f, %f\n", rightRect.x, rightRect.y, rightRect.width, rightRect.height);
-    float rightEffect = buttonGetEffectValue(track->rightBase);
-    Color rightBg = blendColors(blendBackground, track->theme, 0.2+0.2*rightEffect);
-    DrawRectangleRounded(rightRect, buttonGetRoundness(track->rightBase), 8, rightBg);
 }
 
 void renderMovingTrack() {
     int idx = globalHandlerGetSelectedTrack();
     if (idx<0 || idx>=projectGetTracksNum()) return;
-    TrackUI track = tracks+idx;
-    if (track->moving) renderTrackLeft(idx, 0);
+    //TrackUI track = tracks+idx;
+    renderTrackLeft(idx, 0);
 }
 
 void renderActualTracksLeft() {

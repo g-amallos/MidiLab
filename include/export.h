@@ -8,6 +8,9 @@ typedef struct track_data* Track;
 int exportProjectTo(const char* filename);
 int exportProjectToFilepath();
 int importProjectFrom(const char* filename);
+int importTrackFrom(const char* filename, int idx);
+int exportTrackTo(const char* filename, int idx);
+int exportAll(const char* directory);
 
 int exportProjectAsWave(const char* filename);
 

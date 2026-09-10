@@ -1,10 +1,6 @@
 #include "export_internal.h"
+#define DEFAULT_PROJECT_TITLE "Untitled Project"
 
-
-int getTrackThemeColorIdx(int i);                       // modules/interface/render/tracks.c
-void createTrackUIsFromScratch(uint8_t* colArr);        // modules/interface/render/tracks.c
-void freeTrackUIs();                                    // modules/interface/render/tracks.c
-void projectLoadTmpProject(ProjectData newProject);     // modules/backend/project.c
 
 
 void writeUint32(FILE* fptr, uint32_t data) {
@@ -275,7 +271,7 @@ static int writeTrack(FILE* fptr, Track track, int trackIdx) {
     return ret;
 }
 
-static int writeProject(FILE* fptr) {
+int writeProject(FILE* fptr) {
     int ret = writeProjectHeader(fptr);
     uint16_t tracks = globalProject->tracksNum;
     for (uint16_t i=0; i<tracks; i++) ret+=writeTrack(fptr, globalProject->tracks+i, i);
@@ -397,4 +393,42 @@ uint32_t estimateFileSizeForProject() {
     uint16_t tracks = globalProject->tracksNum;
     for (uint16_t i=0; i<tracks; i++) size += 17+strlen((globalProject->tracks)[i].title)+12*(globalProject->tracks)[i].numElements;
     return size;
+}
+
+
+static int loadTrack(FILE* fptr, int idx) {
+    if (idx<0 || !globalProject || idx>=globalProject->tracksNum) return 1;
+    struct track_data track;
+    uint8_t color=0;
+    int ret = readTrack(fptr, &track, &color);    
+    if (ret) return ret;
+
+    trackLoadTmpTrack(globalProject->tracks+idx, &track);
+    setTrackThemeColorIdx(idx, (int)color);
+    updateTrackUItitle(idx);
+    projectUpdateStateSomethingChanged();
+    return 0;
+}
+
+
+int importTrackFrom(const char* filename, int idx) {
+    if (idx<0 || !globalProject || idx>=globalProject->tracksNum || !(globalProject->tracks)) return 1;
+    FILE* fptr = fopen(filename, "rb");
+    if (!filename) return 1;    // Couldn't open file
+
+    int ret = loadTrack(fptr, idx);
+
+    fclose(fptr);
+    return ret;
+}
+
+int exportTrackTo(const char* filename, int idx) {
+    if (idx<0 || !globalProject || idx>=globalProject->tracksNum || !(globalProject->tracks)) return 1;
+    FILE* fptr = fopen(filename, "wb");
+    if (!filename) return 1;    // Couldn't open file
+
+    int ret = writeTrack(fptr, globalProject->tracks+idx, idx);
+
+    fclose(fptr);
+    return ret;
 }

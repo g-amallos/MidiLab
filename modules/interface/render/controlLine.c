@@ -17,7 +17,7 @@
 
 
 float controlLineHeight=0, buttonList4x5ExampleSpacing=0, buttonListTSExampleSpacing=0;
-Rectangle buttonList4x5ExampleRect={0,0,0,0}, buttonList1x4ExampleRect={0,0,0,0}, buttonList1x6ExampleRect={0,0,0,0}, buttonList4x4ExampleRect={0,0,0,0}, buttonList2x3ExampleRect={0,0,0,0};
+Rectangle buttonList4x5ExampleRect={0,0,0,0}, buttonList1x4ExampleRect={0,0,0,0}, buttonList1x6ExampleRect={0,0,0,0}, buttonList4x4ExampleRect={0,0,0,0}, buttonList2x4ExampleRect={0,0,0,0};
 
 Button openFileButton = NULL;
 ButtonList layoutButton = NULL, tsignNumBList=NULL, tsignDenBList=NULL, projectLayout=NULL, exportLayout=NULL;
@@ -112,8 +112,8 @@ void createProjectLayout() {
 void createExportLayout() {
     if (!exportLayout) {
         Rectangle rect = buttonListGetRect(layoutButton);
-        buttonList2x3ExampleRect.x = rect.x+rect.width+interfaceSpace1;
-        exportLayout = buttonListCreate(buttonList2x3ExampleRect, 3, 0.18, buttonList4x5ExampleSpacing, 1);
+        buttonList2x4ExampleRect.x = rect.x+rect.width+interfaceSpace1;
+        exportLayout = buttonListCreate(buttonList2x4ExampleRect, 4, 0.18, buttonList4x5ExampleSpacing, 1);
     }
     buttonListAttachChildLayout(layoutButton, &exportLayout);
 }
@@ -447,17 +447,17 @@ void updateBaseLayout() {
     }
 
     if (exportLayout) {
-        buttonList2x3ExampleRect.y = buttonList4x5ExampleRect.y+buttonList4x5ExampleRect.height-buttonList2x3ExampleRect.height;
-        buttonList2x3ExampleRect.x = buttonList4x5ExampleRect.x+buttonList4x5ExampleRect.width+interfaceSpace1;
+        buttonList2x4ExampleRect.y = buttonList4x5ExampleRect.y+buttonList4x5ExampleRect.height-buttonList2x4ExampleRect.height;
+        buttonList2x4ExampleRect.x = buttonList4x5ExampleRect.x+buttonList4x5ExampleRect.width+interfaceSpace1;
 
-        buttonListUpdateRect(exportLayout, buttonList2x3ExampleRect);
+        buttonListUpdateRect(exportLayout, buttonList2x4ExampleRect);
         buttonListUpdateSpacing(exportLayout, buttonList4x5ExampleSpacing);
         buttonListUpdateJustList(exportLayout);
 
-        char allowed[] = {1,1,0};
-        char effects[] = {-1,-1,-1};
+        char allowed[] = {1,1,0,1};
+        char effects[] = {-1,-1,-1,-1};
 
-        buttonListUpdateButtonsEnDisabled(exportLayout, 3, allowed, effects);
+        buttonListUpdateButtonsEnDisabled(exportLayout, 4, allowed, effects);
 
         if (buttonListShouldDelete(exportLayout)) destroyExportLayout();
     }
@@ -599,7 +599,7 @@ void exportProjectByCtrlS() {
     }
 }
 
-void importProject() {
+static void importProject() {
     globalHandlerPause();
     synthPanic();
 
@@ -617,7 +617,7 @@ void importProject() {
     }
 }
 
-void exportWave() {
+static void exportWave() {
     globalHandlerPause();
     synthPanic();
 
@@ -637,7 +637,7 @@ void exportWave() {
     }
 }
 
-void exportMidi() {
+static void exportMidi() {
     globalHandlerPause();
     synthPanic();
 
@@ -653,6 +653,16 @@ void exportMidi() {
 
     if (path) {
         int failed = exportProjectAsMidi(path);
+        if (!failed) destroyBaseLayout();
+    }
+}
+
+static void _exportAll() {
+    globalHandlerPause();
+    synthPanic();
+    const char* path = tinyfd_selectFolderDialog("Export Everything In Directory", "");
+    if (path) {
+        int failed = exportAll(path);
         if (!failed) destroyBaseLayout();
     }
 }
@@ -714,12 +724,12 @@ void renderBaseLayout() {
         float roundness = buttonListGetRoundness(exportLayout);
         DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
         DrawRectangleRounded(brect, roundness, 8, col1);
-        const char* texts[] = {"MIDI", "WAV", "MP3"};
-        OnClickFunc actions[] = {exportMidi, exportWave, NULL};
+        const char* texts[] = {"MIDI", "WAV", "MP3", "ALL"};
+        OnClickFunc actions[] = {exportMidi, exportWave, NULL, _exportAll};
         int num = buttonListGetNum(exportLayout);
         for (int i=0; i<num; i++) {
             Button btn = buttonListGetButtonAt(exportLayout, i);
-            renderBaseLayoutButton(btn, texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.14, T_ICON_END);
+            renderBaseLayoutButton(btn, texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.11, T_ICON_END);
             if (actions[i] && isButtonClicked(btn)) actionDefer(actions[i]);
         }
         DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);
@@ -783,7 +793,7 @@ void order1PrecomputeControlLine() {
     buttonListTSExampleSpacing = floatMax(0.032*lineHeight, 4.8);
 
     buttonList4x4ExampleRect = (Rectangle){0, 0, floatMax(2.1*lineHeight, 120), buttonList4x5ExampleRect.height*0.8};
-    buttonList2x3ExampleRect = (Rectangle){0, 0, floatMax(1.3*lineHeight, 60), buttonList4x5ExampleRect.height*0.6};
+    buttonList2x4ExampleRect = (Rectangle){0, 0, floatMax(1.3*lineHeight, 60), buttonList4x5ExampleRect.height*0.8};
 
     updateControlLineButtons();
 

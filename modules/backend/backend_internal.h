@@ -210,6 +210,7 @@ double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate);
 void projectSetSaveStatus(enum project_saved_state status);
 const char* projectGetSavedFilepath();
 void updateWindowProjectTitle();
+void trackLoadTmpTrack(Track dest, Track src);
 
 void trackHalveCapacity(Track track);
 void trackVectorResizeToFitJustNotes(Track track);

@@ -47,21 +47,17 @@ ifneq ($(filter mem,$(MAKECMDGOALS)),)
 endif
 
 
-all: setup $(OUT) copy_deps
+all: $(OUT) copy_deps
 
-setup:
-	rm -rf bin
-	mkdir -p bin
-	mkdir -p bin/libs
 
-copy_deps: setup
+copy_deps:
 ifeq ($(os), win)
 	echo "Copying Windows DLLs..."
 	cp -- libs/win/*.dll ./
 #	cp libs/win/libfluidsynth-3.dll bin/libs/
 else
 	@echo "Copying Linux Shared Objects..."
-	cp libs/linux/libfluidsynth.so bin/libs/
+	cp libs/linux/libfluidsynth.so ./
 endif
 
 

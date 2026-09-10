@@ -21,14 +21,18 @@ void freeTrackContents(Track track) {   // Doesn't free self
     
     if (track->notes) {
         freeTrackNotes(track);
-        track->numElements = 0;
         free(track->notes);
         track->notes = NULL;
     }
-
+    track->numElements = 0;
     track->capacity = 0;
 }
 
+void trackLoadTmpTrack(Track dest, Track src) {
+    if (!dest || !src) return;
+    freeTrackContents(dest);
+    *dest = *src;
+}
 
 
 Track trackCreateNew() {
@@ -173,6 +177,12 @@ int trackMoveToIndex(Track track, int idx) {
     globalHandlerUpdateAllTracks();
     projectUpdateStateSomethingChanged();
     return new;
+}
+
+int trackCanSafelyReplaceContents(Track track) {
+    if (!track) return 0;
+    if (globalProject->saveState.state==S_STATE_SAVED && globalProject->saveState.filepath) return 1;
+    return track->numElements==0;
 }
 
 

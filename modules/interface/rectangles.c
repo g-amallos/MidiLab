@@ -92,6 +92,10 @@ float getRoundnessForRoundedRectangle(Rectangle rect, float radius) {
     return 2*radius/md;
 }
 
+float getRoundnessForRoundedRectangleTransformation(Rectangle old, Rectangle new, float oldRoundness, float radiusOffset) {
+    return getRoundnessForRoundedRectangle(new, getRadiusForRoundedRectangle(old, oldRoundness)+radiusOffset);
+}
+
 
 Rectangle rectangleClip(Rectangle source, Rectangle clip) {
     float x1=clip.x, x2=clip.x+clip.width, y1=clip.y, y2=clip.y+clip.height;
