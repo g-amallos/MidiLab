@@ -370,28 +370,23 @@ void quantizeLineAction() {
 }
 
 
-void renderTrackCLine() {
-    DrawRectangleV((Vector2){0, controlLineHeight}, (Vector2){trackLeftWidth, trackCLineHeight}, COLOR_TRACK_C_LINE_BACKGROUND);
-
+static void precomputeTrackCLine() {
     float buttonHeight = 0.7*trackCLineHeight, ypos=controlLineHeight+0.15*trackCLineHeight;
     float space = floatMax(interfaceSpace1, 0.25*trackLeftWidth);
+    
+
+    /*  addTrackButton  */
+
     Rectangle rect = {interfaceSpace1, ypos,  trackLeftWidth-2*space, buttonHeight};
     buttonUpdateRectangle(addTrackButton, rect);
+    if (tracksCanCreateNew()) buttonEnable(addTrackButton);
+    else buttonDisable(addTrackButton);
     buttonUpdate(addTrackButton, -1);
-
-    float roundness = buttonGetRoundness(addTrackButton);
-    float effect = buttonGetEffectValue(addTrackButton);
-    Color col1 = {23, 25, 29, 255}, col2={32, 35, 40, 255};
-    Color blend1 = blendColors(col1, col2, effect);
-    DrawRectangleRounded(rect, roundness, 8, blend1);
-
-    Rectangle icRect = {rect.x+interfaceSpace1, controlLineHeight+0.25*trackCLineHeight, 0.5*trackCLineHeight, 0.5*trackCLineHeight};
-    renderFontStringAlign(GlobalFonts[0].font, "Add Track", (Vector2){0.5*(icRect.x+icRect.width+rect.x+rect.width), controlLineHeight+0.5*trackCLineHeight}, (Vector2){0.5,0.5}, 0.42*trackCLineHeight, 0, COLOR_TEXT_1);
-    iconRerder(T_ICON_ADD, icRect, COLOR_TEXT_1);
     
     if (isButtonClicked(addTrackButton)) actionDefer(renderTrackCreateNew);
 
 
+    /*  timeLineDragButton  */
 
     rect = (Rectangle){trackLeftWidth, controlLineHeight,  screenSize.x-trackLeftWidth, trackCLineHeight};
     buttonUpdateRectangle(timeLineDragButton, rect);
@@ -400,11 +395,11 @@ void renderTrackCLine() {
     else if (!globalHandlerIsPlaying() && isButtonReleased(timeLineDragButton)) actionDefer(quantizeLineAction);
 
 
+    /*  bottomViewButtons[3]  */
 
     int tracksNum = projectGetTracksNum(), trackSel=globalHandlerGetSelectedTrack();
     enum keyboard_render_types kbType = globalStateHandlerGetKeyboardType();
     int isSel[3] = {kbType==T_KEYBOARD_NONE, kbType==T_KEYBOARD_HORIZONTAL, kbType==T_KEYBOARD_VERTICAL};
-    enum icon_title icons[3] = {T_ICON_VIEW_NONE, T_ICON_KEYBOARD, T_ICON_VIEW_ROLL};
     OnClickFunc actions[3] = {selectBottomViewNone, selectBottomViewHorizontal, selectBottomViewVertical};
     for (int i=0; i<3; i++) {
         Button btn = bottomViewButtons[i];
@@ -417,8 +412,34 @@ void renderTrackCLine() {
         buttonUpdate(btn, isSelected?1:-1);
 
         if (!isSelected && isButtonClicked(btn)) actionDefer(actions[i]);
+    }
+}
 
-        // Button render
+void renderTrackCLine() {
+    DrawRectangleV((Vector2){0, controlLineHeight}, (Vector2){trackLeftWidth, trackCLineHeight}, COLOR_TRACK_C_LINE_BACKGROUND);
+
+    Rectangle rect = buttonGetRectangle(addTrackButton);
+    int isEnabled = isButtonEnabled(addTrackButton);
+    float roundness = buttonGetRoundness(addTrackButton);
+    float effect = buttonGetEffectValue(addTrackButton);
+    Color col1 = {23, 25, 29, 255}, col2={32, 35, 40, 255};
+    Color blend1;
+    if (isEnabled) blend1 = blendColors(col1, col2, effect);
+    else blend1 = blendColors(col1, (Color){0,0,0,255}, 1-0.3*effect);
+
+    DrawRectangleRounded(rect, roundness, 8, blend1);
+
+    Rectangle icRect = {rect.x+interfaceSpace1, controlLineHeight+0.25*trackCLineHeight, 0.5*trackCLineHeight, 0.5*trackCLineHeight};
+    renderFontStringAlign(GlobalFonts[0].font, "Add Track", (Vector2){0.5*(icRect.x+icRect.width+rect.x+rect.width), controlLineHeight+0.5*trackCLineHeight}, (Vector2){0.5,0.5}, 0.42*trackCLineHeight, 0, isEnabled?COLOR_TEXT_1:COLOR_TEXT_4);
+    iconRerder(T_ICON_ADD, icRect, isEnabled?COLOR_TEXT_1:COLOR_TEXT_4);
+
+
+
+    int tracksNum = projectGetTracksNum(), trackSel=globalHandlerGetSelectedTrack();
+    enum icon_title icons[3] = {T_ICON_VIEW_NONE, T_ICON_KEYBOARD, T_ICON_VIEW_ROLL};
+    for (int i=0; i<3; i++) {
+        Button btn = bottomViewButtons[i];
+        Rectangle rect=buttonGetRectangle(btn);
         float effect=buttonGetEffectValue(btn);
         Color bkg=blendColors((Color){20,20,20,255}, (Color){35,35,35,255}, effect);
         DrawRectangleRounded(scaleRctangleFromCenter(rect, 0.6+0.4*effect), buttonGetRoundness(btn), 4, bkg);
@@ -427,13 +448,12 @@ void renderTrackCLine() {
         iconRerder(icons[i], scaleRctangleFromCenter(rect, 0.8), frg);
     }
 
-    ypos = controlLineHeight+trackCLineHeight;
+    int ypos = controlLineHeight+trackCLineHeight;
     //DrawRectangleGradientV(0, ypos, trackLeftWidth, interfaceSpace1, (Color){5,5,5,160}, (Color){5,5,5,0});
     //DrawLineEx((Vector2){0, ypos}, (Vector2){trackLeftWidth, ypos}, 2, COLOR_TEXT_4);
 
     DrawRectangleGradientV(0, ypos, screenSize.x+2, interfaceSpace1, (Color){5,5,5,160}, (Color){5,5,5,0});
     DrawLineEx((Vector2){0, ypos}, (Vector2){screenSize.x+2, ypos}, 2, COLOR_TEXT_4);
-
 }
 
 void createTrackOptionLayout(TrackUI track) {
@@ -1012,7 +1032,7 @@ void order2PrecomputeTracksLeft() {
     }
 
     
-    
+    precomputeTrackCLine();
     precomputeMovingTrackLeft(globalHandlerGetSelectedTrack());
     clipTrackScrollTarget();
     trackScrollY += 0.18*(trackScrollYtarget-trackScrollY);

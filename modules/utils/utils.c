@@ -13,6 +13,8 @@ double lerp(double a, double b, double t) {
 }
 
 double trigInterpolation(double a, double b, double t) {
+    if (t>=1) return b;
+    if (t<=0) return a;
     t = sin(PI*0.5*t);
     t*=t;
     return lerp(a, b, t);

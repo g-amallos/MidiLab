@@ -32,12 +32,13 @@ struct mouse_handler {
 extern struct mouse_handler globalMouseHandler;
 void setNextMouseCursor(int cursor);
 void updateMouseCursor();
-void updateMouseHandler();
+void updateMouseHandler(int allowUserInput);
 
 
 void updateWindowTitle(const char* title, int saved);
 int windowShouldCloseDialog();
 int windowToggleFullscreenIfNecessary();
+int windowRenderBackgroundProcess();
 
 
 

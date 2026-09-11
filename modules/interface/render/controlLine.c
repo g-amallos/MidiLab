@@ -10,6 +10,7 @@
 #include <images.h>
 #include <synth.h>
 #include <export.h>
+#include <threads.h>
 
 
 #define DEFAULT_PROJECT_TITLE "Untitled Project (1)"
@@ -632,7 +633,7 @@ static void exportWave() {
     free(conct);
 
     if (path) {
-        int failed = exportProjectAsWave(path);
+        int failed = threadRequestExportWave(path);
         if (!failed) destroyBaseLayout();
     }
 }
@@ -662,7 +663,7 @@ static void _exportAll() {
     synthPanic();
     const char* path = tinyfd_selectFolderDialog("Export Everything In Directory", "");
     if (path) {
-        int failed = exportAll(path);
+        int failed = threadRequestExportAll(path);
         if (!failed) destroyBaseLayout();
     }
 }

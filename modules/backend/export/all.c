@@ -2,6 +2,7 @@
 #include <utils.h>
 #include <raylib.h>
 #include <string.h>
+#include <threads.h>
 
 #define DEFAULT_PROJECT_TITLE "Untitled Project"
 #define DEFAULT_TRACK_TITLE "New Track"
@@ -34,11 +35,11 @@ static int _exportProjectToDirectory(const char* directory) {
     return ret;
 }
 
-static int _exportWaveToDirectory(const char* directory) {
+static int _exportWaveToDirectory(const char* directory, int totalJobs, int currentJob) {
     if (!directory) return 1;
     
     char* fullpath = _generateStringFilepathFor(directory, ".wav");
-    int ret = exportProjectAsWave(fullpath);
+    int ret = exportProjectAsWaveForExportAll(fullpath, totalJobs, currentJob);
     free(fullpath);
     return ret;
 }
@@ -110,7 +111,7 @@ static int _exportTrackAllTo(const char* dir, int idx) {
     return ret;
 }
 
-static int _exportTracks(const char* directory) {
+static int _exportTracks(const char* directory, int totalJobs, int jobsAlreadyDone) {
     if (!globalProject || !(globalProject->tracksNum) || !(globalProject->tracks)) return 1;
 
     int num = globalProject->tracksNum;
@@ -119,6 +120,9 @@ static int _exportTracks(const char* directory) {
 
     int ret=0;
     for (int i=0; i<num; i++) {
+        char* desc = strdup(TextFormat("Exporting Track #%d...", i+1));
+        threadEditProcess(NULL, desc, (jobsAlreadyDone+(double)i)/totalJobs, totalJobs, jobsAlreadyDone+i);
+        if (desc) free(desc);
         ret += _exportTrackAllTo(tracksDir, i);
     }
     free(tracksDir);
@@ -127,14 +131,23 @@ static int _exportTracks(const char* directory) {
 
 int exportAll(const char* directory) {
     if (!directory || !globalProject) return 1;
+
+    int totalJobs = 4+globalProject->tracksNum;
+    threadEditProcess(NULL, "Directory Setup..", 0, totalJobs, 0);
     char* dir = _setupDirectoryConversion(directory);
     if (!dir) return 1;
 
-    int ret=0;
+    
+    int ret = 0;
+    threadEditProcess(NULL, "Exporting .WAV...", 1.0/totalJobs, totalJobs, 1);
+    ret += _exportWaveToDirectory(dir, totalJobs, 1);
+
+    threadEditProcess(NULL, "Exporting .MLB...", 2.0/totalJobs, totalJobs, 2);
     ret += _exportProjectToDirectory(dir);
-    ret += _exportWaveToDirectory(dir);
+    
+    threadEditProcess(NULL, "Exporting .MID...", 3.0/totalJobs, totalJobs, 3);
     ret += _exportMidiToDirectory(dir);
-    ret += _exportTracks(dir);
+    ret += _exportTracks(dir, totalJobs, 4);
 
     free(dir);
 

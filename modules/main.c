@@ -5,6 +5,7 @@
 #include <backend.h>
 #include <synth.h>
 #include <images.h>
+#include <threads.h>
 
 
 #define APP_NAME "MidiLab"
@@ -52,6 +53,7 @@ int AppClose() {
     iconsClose();
     imagesClose();
     backendClose();
+    threadsClose();
     
 
     StopAudioStream(stream);
@@ -70,7 +72,7 @@ int AppClose() {
 
 int gameLoop(int (*func)()) {
     while (1) {
-        if (WindowShouldClose() && windowShouldCloseDialog()) break;
+        if (WindowShouldClose() && windowShouldCloseDialog() && !(threadIsThereActiveBackgroundProcess())) break;
         func();
     }
     return 0;
@@ -79,10 +81,11 @@ int gameLoop(int (*func)()) {
 
 int testIteration() {
     startupScreenUpdate();
-    int inputAllowed = startupInputAllowed();
+    int isActiveBackgroundProcess = threadIsThereActiveBackgroundProcess();
+    int inputAllowed = (!isActiveBackgroundProcess && startupInputAllowed());
     int renderAllowed = startupRenderAllowed();
 
-    updateRenderGlobalVariables();      // First update global values
+    updateRenderGlobalVariables(inputAllowed);      // First update global values
 
     if (inputAllowed && renderAllowed) {
         globalHandlerUpdateTick();

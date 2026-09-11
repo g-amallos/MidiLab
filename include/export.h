@@ -1,6 +1,8 @@
 #ifndef EXPORT_H
 #define EXPORT_H
 
+#include <stdint.h>
+
 
 typedef struct track_data* Track;
 

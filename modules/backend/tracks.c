@@ -34,6 +34,15 @@ void trackLoadTmpTrack(Track dest, Track src) {
     *dest = *src;
 }
 
+uint16_t tracksGetMaxTracks() {
+    return 128;
+}
+
+int tracksCanCreateNew() {
+    if (!globalProject) return 0;
+    return (globalProject->tracksNum<tracksGetMaxTracks());
+}
+
 
 Track trackCreateNew() {
     if (!globalProject) return NULL;

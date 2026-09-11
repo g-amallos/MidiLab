@@ -43,6 +43,12 @@ int writeProject(FILE* fptr);
 
 
 
+/*  wave.c  */
+
+int exportProjectAsWaveForExportAll(const char* filename, int totalJobs, int currentJob);
+
+
+
 /*  midi.c  */
 
 enum midi_meta_type {

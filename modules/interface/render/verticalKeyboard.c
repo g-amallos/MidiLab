@@ -149,8 +149,8 @@ void clipKeyScrollTarget() {
 static void clipInfoScrollTarget() {
     float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
     float fy=rollRect.y, my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y;
-    int pairs = 10;
-    float height = (3+pairs)*my+(12+pairs)*interfaceSpace1;
+    int pairs = 11;
+    float height = (3+pairs)*my+(12+pairs)*interfaceSpace1+rollKeyHeight;
     if (fy+height<screenSize.y) scrollInfoTarget=0;
     else {
         if (scrollInfoTarget<0) scrollInfoTarget=0;
@@ -614,7 +614,7 @@ static void renderOverlayToHideImperfections2() {
 
     if (keyScroll-keyRangeShown<-2) {
         float h = (keyScroll-keyRangeShown+2)*rollKeyHeight;
-        DrawRectangleRec((Rectangle){0, screenSize.y+h, screenSize.x, -h}, backgroundCol1bvl);
+        DrawRectangleRec((Rectangle){vkeysRect.x, screenSize.y+h, screenSize.x, -h}, backgroundCol1bvl);
     }
 }
 

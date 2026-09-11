@@ -90,6 +90,8 @@ void trackDeleteNoteInTrack(Track track, Note note);
 uint32_t trackPiecesInBeat();
 uint32_t trackGetNumOfNotes(Track track);
 Note* trackGetNotes(Track track);
+uint16_t tracksGetMaxTracks();
+int tracksCanCreateNew();
 
 
 /* Handler (backend/stateHandler.c) */
