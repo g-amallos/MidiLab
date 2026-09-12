@@ -13,7 +13,7 @@
 
 int getTrackThemeColorIdx(int i);                       // modules/interface/render/tracks.c
 void setTrackThemeColorIdx(int tracki, int themei);     // modules/interface/render/tracks.c
-void updateTrackUItitle(int tracki);                    // modules/interface/render/tracks.c
+void updateTrackUItitleAndPreview(int tracki);          // modules/interface/render/tracks.c
 void createTrackUIsFromScratch(uint8_t* colArr);        // modules/interface/render/tracks.c
 void freeTrackUIs();                                    // modules/interface/render/tracks.c
 void projectLoadTmpProject(ProjectData newProject);     // modules/backend/project.c

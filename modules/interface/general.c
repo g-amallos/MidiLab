@@ -4,6 +4,8 @@
 #include <raymath.h>
 #include <math.h>
 #include <threads.h>
+#include <macros.h>
+
 
 
 float interfaceSpace1=0, interfaceSpace2=0;
@@ -96,7 +98,7 @@ int render() {
         UIupdateTransparentOverlay();
         renderInstrumentPicker();
 
-        if (globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
+        if (IS_DEBUG && globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
 
         windowRenderBackgroundProcess();
         startupScreenRenderIfNeeded(screenSize);

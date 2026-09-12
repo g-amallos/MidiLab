@@ -109,6 +109,7 @@ static int readProjectHeader(FILE* fptr, ProjectData toLoad) {
     uint32_t numOfTracks=0;
     ret += readUint32(fptr, &numOfTracks);
 
+    if (numOfTracks>tracksGetMaxTracks()) return 1;
 
     if (!ret) {
         //fprintf(stdout, "Parsing Project Header:\n- titleLength: %u\n- title: %s\n- tempo: %u\n- timeSignature: %u/%u\n- numOfTracks: %u\n", titleLength, title, tempo, tsNumerator, tsDenominator, numOfTracks);
@@ -405,7 +406,7 @@ static int loadTrack(FILE* fptr, int idx) {
 
     trackLoadTmpTrack(globalProject->tracks+idx, &track);
     setTrackThemeColorIdx(idx, (int)color);
-    updateTrackUItitle(idx);
+    updateTrackUItitleAndPreview(idx);
     projectUpdateStateSomethingChanged();
     return 0;
 }

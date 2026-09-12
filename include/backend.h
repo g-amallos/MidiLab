@@ -92,6 +92,10 @@ uint32_t trackGetNumOfNotes(Track track);
 Note* trackGetNotes(Track track);
 uint16_t tracksGetMaxTracks();
 int tracksCanCreateNew();
+int trackGetMinKey(Track track);
+int trackGetMaxKey(Track track);
+uint32_t trackGetTimestampEnd(Track track);
+void tracksUpdateAllValues();
 
 
 /* Handler (backend/stateHandler.c) */
@@ -142,7 +146,9 @@ int globalHandlerIsTimeLineShown();
 double globalHandlerGetLineTime();
 void globalHandlerSetLineTime(double time);
 uint32_t globalHandlerGetLineTimestamp();
+uint32_t globalHandlerGetTimestamp();
 void globalHandlerUpdateTick();
+uint32_t secondsToTimestamp(double seconds);
 
 void globalHandlerUpdateSelectedTrack();
 void globalHandlerUpdateAllTracks();

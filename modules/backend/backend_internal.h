@@ -28,6 +28,11 @@ typedef struct track_data {
     float velocity;
     float panning;
 
+    uint8_t keyMin;
+    uint8_t keyMax;
+    uint32_t timestampStart;
+    uint32_t timestampEnd;
+
     uint32_t capacity;      // Allocating more than needed, for fewer realloc calls
     uint32_t numElements;      // Number of actual saved note data (the first n in the array)
     Note* notes;

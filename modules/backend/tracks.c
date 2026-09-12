@@ -26,12 +26,85 @@ void freeTrackContents(Track track) {   // Doesn't free self
     }
     track->numElements = 0;
     track->capacity = 0;
+    track->keyMax = 0;
+    track->keyMin = 0;
+    track->timestampStart = 0;
+    track->timestampEnd = 0;
+}
+
+static void _trackVectorUpdateValues(Track track) {
+    if (!track) return;
+    if (!(track->notes) || !(track->numElements)) {
+        track->keyMin=0;
+        track->keyMax=0;
+        track->timestampStart=0;
+        track->timestampEnd=0;
+        return;
+    }
+
+    track->timestampStart = (track->notes)[0]->timestamp;
+    uint8_t keyMin=128, keyMax=0;
+    uint32_t timestampEnd=0, idx=0, num=track->numElements;
+    for (; idx<num; idx++) {
+        Note nt = (track->notes)[idx];
+        if (nt->timestamp+nt->duration>timestampEnd) timestampEnd=nt->timestamp+nt->duration;
+        if (nt->key>keyMax) keyMax=nt->key;
+        if (nt->key<keyMin) keyMin=nt->key;
+    }
+
+    track->keyMax = keyMax;
+    track->keyMin = keyMin;
+    track->timestampEnd = timestampEnd;
+}
+
+void tracksUpdateAllValues() {
+    if (!globalProject) return;
+    uint16_t n=globalProject->tracksNum;
+    for (uint16_t i=0; i<n; i++) {
+        _trackVectorUpdateValues(globalProject->tracks+i);
+    }
+}
+
+static void _trackVectorUpdateValuesOnNoteAddition(Track track, Note note) {
+    if (!track || !(track->notes)) return;
+    if (!(track->numElements)) {
+        track->keyMin = note->key;
+        track->keyMax = note->key;
+        track->timestampStart = note->timestamp;
+        track->timestampEnd = note->timestamp+note->duration;
+    } else {
+        if (track->keyMin>note->key) track->keyMin=note->key;
+        if (track->keyMax<note->key) track->keyMax=note->key;
+        if (track->timestampStart>note->timestamp) track->timestampStart=note->timestamp;
+        if (track->timestampEnd<note->timestamp+note->duration) track->timestampEnd=note->timestamp+note->duration;
+    }
+}
+
+static void _trackVectorUpdateValuesOnNoteRemoval(Track track, Note note) {
+    if (!track) return;
+    if (!(track->numElements) || note->key<=track->keyMin || note->key>=track->keyMax || note->timestamp<=track->timestampStart || note->timestamp+note->duration>=track->timestampEnd) _trackVectorUpdateValues(track);
+}
+
+int trackGetMinKey(Track track) {
+    if (!track || !(track->numElements)) return -1;
+    return track->keyMin;
+}
+
+int trackGetMaxKey(Track track) {
+    if (!track || !(track->numElements)) return -1;
+    return track->keyMax;
+}
+
+uint32_t trackGetTimestampEnd(Track track) {
+    if (!track || !(track->numElements)) return 0;
+    return track->timestampEnd;
 }
 
 void trackLoadTmpTrack(Track dest, Track src) {
     if (!dest || !src) return;
     freeTrackContents(dest);
     *dest = *src;
+    _trackVectorUpdateValues(dest);
 }
 
 uint16_t tracksGetMaxTracks() {
@@ -66,6 +139,11 @@ Track trackCreateNew() {
 
     ret->velocity = 0.75;
     ret->panning = 0.5;
+
+    ret->keyMax = 0;
+    ret->keyMin = 0;
+    ret->timestampStart = 0;
+    ret->timestampEnd = 0;
 
     ret->capacity = 32;
     ret->numElements = 0;
@@ -269,16 +347,19 @@ static void _trackVectorAdd(Track track, Note note) {
     if (track->capacity<=track->numElements && _trackVectorDuplicateCapacity(track)) return;
     memmove(track->notes+idx+1, track->notes+idx, (track->numElements-idx)*sizeof(Note));
     (track->notes)[idx]=note;
+    _trackVectorUpdateValuesOnNoteAddition(track, note);
     (track->numElements)++;
 }
 
-static void _trackVectorRemove(Track track, Note note) {
-    if (_initTrackVector(track) || !note) return;
+static int _trackVectorRemove(Track track, Note note) {
+    if (_initTrackVector(track) || !note) return 1;
     int idx=_trackVectorFind(track, note), num=track->numElements;
-    if (idx<0) return;
+    if (idx<0) return 1;
     (track->notes)[idx]=NULL;
     if (num-idx-1) memmove(track->notes+idx, track->notes+idx+1, (num-idx-1)*sizeof(Note));
     if (((track->capacity)>>2)>(--(track->numElements))) _trackVectorHalveCapacity(track);
+    _trackVectorUpdateValuesOnNoteRemoval(track, note);
+    return 0;
 }
 
 
@@ -331,6 +412,7 @@ void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size) {   // size 
     track->notes = arr;
     track->numElements += size;
     track->capacity = track->numElements;
+    _trackVectorUpdateValues(track);
 }
 
 void trackHalveCapacity(Track track) {
@@ -361,7 +443,7 @@ void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx) {
 
 void trackDeleteNoteInTrack(Track track, Note note) {
     if (!track || !note) return;
-    _trackVectorRemove(track, note);
+    if (!_trackVectorRemove(track, note)) free(note);
     projectUpdateStateSomethingChanged();
 }
 

@@ -21,6 +21,7 @@
 float trackHeight=0, trackLeftWidth=0, trackCLineHeight=0, trackDivTargetHeight=0, trackScrollY=0, trackScrollYtarget=0, trackDivVisiblePosMin=0, trackDivVisiblePosMax=0;
 int openLayout=0;
 int timelineMeasureSkipsTop=1, timelineMeasureSkipsBottom=1, timelineBeatsSkipsTop=1, timelineBeatsSkipsBottom=1;
+static int previouslySelectedTrack=-1, shouldUpdateAllTextures=0;
 
 
 Rectangle trackDivLeftRect={0,0,0,0}, trackDivRightRect={0,0,0,0}, trackDivFullRect={0,0,0,0};
@@ -46,6 +47,8 @@ typedef struct track_control_ui {
     Button move;
     Button optionsButton;
     ButtonList btnList;
+
+    RenderTexture2D preview;
 } *TrackUI;
 
 TrackUI tracks = NULL;
@@ -116,6 +119,9 @@ void freeTrackUIs() {
             buttonFree(tracks[i].rightBase);
             sliderFree(tracks[i].slider);
             buttonFree(tracks[i].move);
+
+            if (tracks[i].preview.id) UnloadRenderTexture(tracks[i].preview);
+            tracks[i].preview.id = 0;
         }
         free(tracks);
         tracks=NULL;
@@ -142,6 +148,59 @@ void customizeNewTrackUI(TrackUI tr, int idx) {
     tr->y = idx+trackDivLeftRect.height/trackHeight+0.5;
     tr->effect = 0;
     tr->shadow = 0;
+
+    tr->preview = (RenderTexture2D){0};
+}
+
+static inline int _trackPreviewPixelsPerBeat() {
+    return 8;
+}
+
+void trackUIgenerateTrackPreview(int idx) {
+    int totalTracks = projectGetTracksNum();
+    if (idx<0 || idx>=totalTracks) return;
+
+    if (tracks[idx].preview.id) UnloadRenderTexture(tracks[idx].preview);
+    tracks[idx].preview.id = 0;
+    Track track = trackGetAtIdx(idx);
+    uint32_t notesNum = trackGetNumOfNotes(track);
+    if (notesNum<=0) return;
+
+    int keyMin = trackGetMinKey(track);
+    int keyMax = trackGetMaxKey(track);
+    if (keyMin<0 || keyMax<0 || keyMin>keyMax) return;
+
+    double pixPerBeat = _trackPreviewPixelsPerBeat();
+    uint32_t timestampEnd = trackGetTimestampEnd(track);
+    uint32_t pcsInBts = trackPiecesInBeat();
+    int width = (int)(timestampEnd*pixPerBeat/pcsInBts);
+    int height = keyMax-keyMin+1;
+    
+
+    
+    int pad = 1+((height<20)?((20-height)/2):0);
+    keyMin -= pad;
+    keyMax += pad;
+    height = keyMax-keyMin+1;
+    
+
+    TrackUI tr = tracks+idx;
+    tr->preview = LoadRenderTexture(width, height);
+    if (!(tr->preview.id)) return;
+
+    SetTextureFilter(tr->preview.texture, TEXTURE_FILTER_POINT);
+
+    Note* notes = trackGetNotes(track);
+    BeginTextureMode(tr->preview);
+    ClearBackground(BLANK);
+    
+    for (uint32_t i=0; i<notesNum; i++) {
+        Note nt = notes[i];
+        int x = (int)(nt->timestamp*pixPerBeat/pcsInBts);
+        int w=(int)(((nt->timestamp+nt->duration)*pixPerBeat/pcsInBts)-x), y=nt->key-keyMin;
+        DrawRectangle(x, y, w, 1, WHITE);
+    }
+    EndTextureMode();
 }
 
 void createTrackUIsFromScratch(uint8_t* colArr) {
@@ -160,10 +219,13 @@ void createTrackUIsFromScratch(uint8_t* colArr) {
 
         textboxLoadText(tracks[i].textbox, trackGetTitle(track));
         sliderUpdateSlideValue(tracks[i].slider, trackGetVelocity(track));
+
+        //trackUIgenerateTrackPreview(i);
     }
 
     globalHandlerSelectTrack(1);
     synthPanic();
+    shouldUpdateAllTextures = 1;
 }
 
 void renderTracksLeftClose() {
@@ -197,10 +259,11 @@ void setTrackThemeColorIdx(int tracki, int themei) {
     tracks[tracki].theme = trackThemeColors[tracks[tracki].themeIdx];
 }
 
-void updateTrackUItitle(int tracki) {
+void updateTrackUItitleAndPreview(int tracki) {
     int totalTracks = projectGetTracksNum();
     if (tracki<0 || tracki>=totalTracks) return;
     textboxLoadText(tracks[tracki].textbox, trackGetTitle(trackGetAtIdx(tracki)));
+    trackUIgenerateTrackPreview(tracki);
 }
 
 Color getTrackThemeColor(int i) {
@@ -276,6 +339,9 @@ void renderTrackDeleteAtIdx(int idx) {
     sliderFree(tracks[idx].slider);
     buttonFree(tracks[idx].base);
     buttonFree(tracks[idx].rightBase);
+
+    if (tracks[idx].preview.id) UnloadRenderTexture(tracks[idx].preview);
+    tracks[idx].preview.id = 0;
 
     for (int i=idx; i<totalTracks-1; i++) {
         tracks[i] = tracks[i+1];
@@ -837,6 +903,19 @@ void renderTrackLeft(int idx, int skipMoving) {
     Color rightBg = blendColors(blendBackground, track->theme, 0.2+0.2*rightEffect);
     DrawRectangleRounded(rightRect, buttonGetRoundness(track->rightBase), 8, rightBg);
 
+    if (track->preview.id) {
+        //float tbpx = 0.1;
+        float pixOffset = getRadiusForRoundedRectangle(rightRect, buttonGetRoundness(track->rightBase));
+        double beatDur = globalHandlerGetBeatDuration(), pixPerBeat = _trackPreviewPixelsPerBeat();
+        float x=pixPerBeat*globalHandlerGetTime()/beatDur, w=pixPerBeat*globalHandlerGetVisibleDuration()*(rightRect.width/(trackDivRightRect.width-rightRect.x+trackDivRightRect.x))/beatDur;
+        float tx=floatMin(x, track->preview.texture.width);
+        float tw=floatMin(x+w, track->preview.texture.width)-tx;
+        Rectangle source = {tx, 0, tw, track->preview.texture.height};
+        Rectangle dest = {rightRect.x, rightRect.y+pixOffset, rightRect.width*tw/(x+w-tx), rightRect.height-2*pixOffset};
+        if (x<track->preview.texture.width) DrawTexturePro(track->preview.texture, source, dest, (Vector2){0,0}, 0, blendColors(track->theme, (Color){255,255,255,255}, 0.2+0.3*rightEffect));
+    }
+    
+
     // Textbox
     Rectangle tbxRect = textboxGetRectangle(track->textbox);
     int focusedTbx = isTextboxFocused(track->textbox);
@@ -977,6 +1056,20 @@ void renderTrackSlider() {
 
 }
 
+static void _eventListenerForTrackTextures() {
+    int selTr = globalHandlerGetSelectedTrack();
+    int totalTracks = projectGetTracksNum();
+    if (shouldUpdateAllTextures) {
+        printf("Run `_eventListenerForTrackTextures`: totalTracks=%d\n", totalTracks);
+        shouldUpdateAllTextures=0;
+        for (int i=0; i<totalTracks; i++) trackUIgenerateTrackPreview(i);
+    } else if (selTr!=previouslySelectedTrack) {
+        if (previouslySelectedTrack<totalTracks && previouslySelectedTrack>=0) trackUIgenerateTrackPreview(previouslySelectedTrack);
+        if (selTr>=0 && selTr<totalTracks) trackUIgenerateTrackPreview(selTr);
+    }
+    previouslySelectedTrack=selTr;
+}
+
 void order1PrecomputeTracksLeft() {
     trackCLineHeight = floatMax(controlLineHeight*0.7, 30);
     trackHeight = floatMax(85, screenSize.y*0.085);
@@ -984,6 +1077,8 @@ void order1PrecomputeTracksLeft() {
     int totalTracks = projectGetTracksNum();
     openLayout=0;
     for (int i=0; i<totalTracks; i++) if (tracks[i].btnList) {openLayout=1; break;}
+
+    _eventListenerForTrackTextures();
 }
 
 void order2PrecomputeTracksLeft() {
@@ -1209,8 +1304,6 @@ void renderTracksTimeLine() {
 
 
 void renderTracksLeft() {
-    
-
     
     renderActualTracksLeft();
     renderTrackSlider();
