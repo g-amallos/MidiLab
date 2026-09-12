@@ -3,13 +3,16 @@
 #include <handler.h>
 #include <raymath.h>
 #include <math.h>
+#include <threads.h>
+#include <macros.h>
+
 
 
 float interfaceSpace1=0, interfaceSpace2=0;
 Vector2 screenSize = {.x=0, .y=0};
 
 int renderInit() {
-    updateRenderGlobalVariables();
+    updateRenderGlobalVariables(0);
 
     textFontInit();
     bottomHalfLayoutInit();
@@ -34,7 +37,7 @@ int renderClose() {
 
 
 
-int updateRenderGlobalVariables() {
+int updateRenderGlobalVariables(int userInputAllowed) {
     windowToggleFullscreenIfNecessary();
 
     int newX = GetScreenWidth();
@@ -45,7 +48,7 @@ int updateRenderGlobalVariables() {
     screenSize.x = newX;
     screenSize.y = newY;
 
-    updateMouseHandler();
+    updateMouseHandler(userInputAllowed);
 
     return 0;
 }
@@ -70,7 +73,8 @@ void renderFPS() {
 }
 
 int render() {
-    int allowedInput = startupInputAllowed();
+    int activeBackgroundProcess = threadIsThereActiveBackgroundProcess();
+    int allowedInput = (!activeBackgroundProcess && startupInputAllowed());
     
     UIiterationReset();
     if (allowedInput) SetWindowOpacity(1-0.5*GlobalInactivityHandler.opacity);
@@ -94,8 +98,9 @@ int render() {
         UIupdateTransparentOverlay();
         renderInstrumentPicker();
 
-        //if (globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
+        if (IS_DEBUG && globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
 
+        windowRenderBackgroundProcess();
         startupScreenRenderIfNeeded(screenSize);
 
     EndDrawing();

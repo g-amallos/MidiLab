@@ -149,8 +149,8 @@ void clipKeyScrollTarget() {
 static void clipInfoScrollTarget() {
     float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
     float fy=rollRect.y, my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y;
-    int pairs = 10;
-    float height = (3+pairs)*my+(12+pairs)*interfaceSpace1;
+    int pairs = 11;
+    float height = (3+pairs)*my+(12+pairs)*interfaceSpace1+rollKeyHeight;
     if (fy+height<screenSize.y) scrollInfoTarget=0;
     else {
         if (scrollInfoTarget<0) scrollInfoTarget=0;
@@ -170,7 +170,7 @@ static void updateVelocitySliders() {
     float fy=rollRect.y-my*scrollInfoY;
     Vector2 mts;
     mts = textFontGetSize(GlobalFonts[0].font, "C", nsize, 0);
-    fy += 4*mts.y+5*interfaceSpace1;
+    fy += 5*mts.y+6*interfaceSpace1;
 
     if (noteVelocitySlider) {
         Rectangle rect = {2*interfaceSpace1, fy-1, vkeysRect.x-4*interfaceSpace1, mts.y+2};
@@ -495,6 +495,11 @@ void renderVerticalKeyboard() {
     float halfLineThickness = 0.5*lineThickness;
     //float radius = getRadiusForRoundedRectangle((Rectangle){0, 0, w, pianoRollKeys[5].pianoHeight}, 0.25)-4;
 
+    int isDrums = (midiGetProgramType(trackGetProgram(trackGetSelectedTrack()))==MPT_DRUMS);
+    int isValidNote = 0;
+    float textSize = 0.17*w*bkWmult;
+    const char* title = NULL;
+
 
     for (int j=0; j<2; j++) {
         for (int i=0; i<128; i++) {
@@ -511,27 +516,33 @@ void renderVerticalKeyboard() {
             }
 
             if (!pianoRollKeys[i].shown) continue;
+            if (isDrums) title = midiGetDrumName(i);
+            isValidNote = !isDrums || title;
+            Rectangle nrect = {x, pianoRollKeys[i].pianoY, w, pianoRollKeys[i].pianoHeight};
+            float cy = pianoRollKeys[i].pianoY+0.5*pianoRollKeys[i].pianoHeight;
 
             
             if (j) {
-                Rectangle nrect = {x, pianoRollKeys[i].pianoY, w*bkWmult, pianoRollKeys[i].pianoHeight};
+                nrect.width*=bkWmult;
                 nrect=getClippedRect(nrect);
+                Color baseColor = isValidNote?COLOR_KEYBOARD_H_KEY_SELECTED_BLACK:COLOR_KEYBOARD_H_KEY_N_SELECTED_BLACK;
 
-                Color col=blendColors(COLOR_KEYBOARD_H_KEY_SELECTED_BLACK, COLOR_KEYBOARD_H_KEY_SELECTED_BLACK_HOVERED, pianoRollKeys[i].pianoEffect);
-                DrawRectangleRounded(nrect, 0.25, 4, col);                
-
+                Color col=blendColors(baseColor, isValidNote?COLOR_KEYBOARD_H_KEY_SELECTED_BLACK_HOVERED:baseColor, pianoRollKeys[i].pianoEffect);
+                DrawRectangleRounded(nrect, 0.25, 4, col);
                 
             } else {
-                Rectangle nrect = {x, pianoRollKeys[i].pianoY, w, pianoRollKeys[i].pianoHeight};
                 nrect=getClippedRect(nrect);
+                Color baseColor = isValidNote?COLOR_KEYBOARD_H_KEY_SELECTED_WHITE:COLOR_KEYBOARD_H_KEY_N_SELECTED_WHITE;
 
-                Color col=blendColors(COLOR_KEYBOARD_H_KEY_SELECTED_WHITE, COLOR_KEYBOARD_H_KEY_SELECTED_WHITE_HOVERED, pianoRollKeys[i].pianoEffect);
+                Color col=blendColors(baseColor, isValidNote?COLOR_KEYBOARD_H_KEY_SELECTED_WHITE_HOVERED:baseColor, pianoRollKeys[i].pianoEffect);
                 DrawRectangleRounded(nrect, 0.25, 4, col);
 
-                if (!mod && isHorizontalThickLineWithinTheRect(pianoRollKeys[i].pianoY+0.15*pianoRollKeys[i].pianoHeight, 0.7*pianoRollKeys[i].pianoHeight)) {
+                if (!isDrums && !mod && isHorizontalThickLineWithinTheRect(pianoRollKeys[i].pianoY+0.15*pianoRollKeys[i].pianoHeight, 0.7*pianoRollKeys[i].pianoHeight)) {
                     renderFontStringAlign(GlobalFonts[0].font, TextFormat("C%d", i/12), (Vector2){vkeysRect.x+vkeysRect.width-interfaceSpace1*2, pianoRollKeys[i].pianoY+0.5*pianoRollKeys[i].pianoHeight}, (Vector2){1, 0.5}, 0.65*pianoRollKeys[i].pianoHeight, 0, COLOR_KEYBOARD_H_KEY_SELECTED_BLACK);
                 }
             }
+            if (title) renderFontStringAlign(GlobalFonts[0].font, title, (Vector2){x+nrect.width-0.5*interfaceSpace1, cy}, (Vector2){1, 0.5}, textSize, 0, (j?COLOR_TEXT_1:COLOR_TEXT_5));
+
             //renderFontStringAlign(GlobalFonts[0].font, TextFormat("%d", pianoRollKeys[i].key), (Vector2){x+5, pianoRollKeys[i].pianoY+0.5*pianoRollKeys[i].pianoHeight}, (Vector2){0,0.5}, 20, 0, (Color){125,125,125,255});
         }
     }
@@ -592,8 +603,8 @@ void setupBackground() {
 }
 
 static void renderOverlayToHideImperfections1() {
-    float x=vkeysRect.x-2*interfaceSpace1;
-    DrawRectangleRec((Rectangle){x, vkeysRect.y-topPadding, interfaceSpace1*2, vkeysRect.height+topPadding}, backgroundCol1bvl);
+    //float x=vkeysRect.x-2*interfaceSpace1;
+    DrawRectangleRec((Rectangle){0, vkeysRect.y-topPadding, vkeysRect.x, vkeysRect.height+topPadding}, backgroundCol1bvl);
 }
 
 static void renderOverlayToHideImperfections2() {
@@ -603,7 +614,7 @@ static void renderOverlayToHideImperfections2() {
 
     if (keyScroll-keyRangeShown<-2) {
         float h = (keyScroll-keyRangeShown+2)*rollKeyHeight;
-        DrawRectangleRec((Rectangle){0, screenSize.y+h, screenSize.x, -h}, backgroundCol1bvl);
+        DrawRectangleRec((Rectangle){vkeysRect.x, screenSize.y+h, screenSize.x, -h}, backgroundCol1bvl);
     }
 }
 
@@ -1045,6 +1056,14 @@ static Vector2 _renderSideInfoTextData(const char* key, const char* val, Color c
     return mts;
 }
 
+static Vector2 _renderSideInfoSingleText(const char* text, Color col, float fy, float nsize) {
+    Vector2 mts = textFontGetSize(GlobalFonts[0].font, text, nsize, 0);
+    if (fy>screenSize.y+1 || fy+mts.y<rollRect.y-1) return mts;
+    
+    renderFontStringAlign(GlobalFonts[0].font, text, (Vector2){vkeysRect.x*0.5, fy}, (Vector2){0.5,0}, nsize, 0, blendColors(col, (Color){255,255,255,255}, 0.25));
+    return mts;
+}
+
 static void _renderSideInfoCard(float fy, float my, int pairs, Color col) {
     Rectangle trect = {0.5*interfaceSpace1, fy, vkeysRect.x-interfaceSpace1, (1+pairs)*my+(3+pairs)*interfaceSpace1};
     if (fy>screenSize.y+1 || fy+trect.height<rollRect.y-1) return;
@@ -1068,10 +1087,13 @@ static void renderSideInfo() {
     int tracksNum = projectGetTracksNum();
     uint32_t totalNotes = projectGetTotalNumberOfNotes();
     uint32_t totalProjectSize = estimateFileSizeForProject();
+    char* noteNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 
     int mouseInfo = (!isPlaying && mouseExactTimestamp!=(((uint32_t)1)<<31));
     int selectedInfo = (notesSelected && !isPlaying);
+    int isDrums = (midiGetProgramType(trackGetProgram(trackGetSelectedTrack()))==MPT_DRUMS);
+    int key = (rollKeyHovering>=0)?rollKeyHovering:pianoKeyHovering;
 
     float nsize = 0.11*floatMin(vkeysRect.x, 0.4*screenSize.y);
     float my=textFontGetSize(GlobalFonts[0].font, "C", nsize, 0).y, bgLerp=0.07;
@@ -1079,7 +1101,7 @@ static void renderSideInfo() {
     Vector2 mts;
     Color backgroundCol = blendColors(COLOR_BACKGROUND_1, blendColors(COLOR_TRACK_THEME_0, COLOR_TRACK_THEME_1, 0.5), bgLerp);
 
-    _renderSideInfoCard(fy, my, 4, backgroundCol);
+    _renderSideInfoCard(fy, my, 5, backgroundCol);
     fy += interfaceSpace1;
 
     mts = _renderSideInfoTextSeperator("Control", COLOR_TRACK_THEME_0, fy, nsize);
@@ -1088,6 +1110,16 @@ static void renderSideInfo() {
     const char* mnf = NULL;
     if (mouseInfo) mnf=_timestampToString(mouseExactTimestamp);
     mts = _renderSideInfoTextData("Mouse:", mouseInfo?mnf:NULL, COLOR_TRACK_THEME_1, fy, nsize, mouseInfo);
+    fy += mts.y+interfaceSpace1;
+    if (isDrums) {
+        const char* title = (key>=0)?midiGetDrumName(key):NULL;
+        if (title) mts = _renderSideInfoSingleText(title, COLOR_TRACK_THEME_1, fy, nsize);
+        else mts = _renderSideInfoTextData("Key:", NULL, COLOR_TRACK_THEME_1, fy, nsize, title!=NULL);
+    } else {
+        mnf = NULL;
+        if (key>=0) mnf=TextFormat("%s%d", noteNames[key%12], key/12);
+        mts = _renderSideInfoTextData("Key:", mnf, COLOR_TRACK_THEME_1, fy, nsize, key>=0);
+    }
     fy += mts.y+interfaceSpace1;
     mts = _renderSideInfoTextData("Selected:", selectedInfo?(TextFormat("%u", notesSelected)):NULL, COLOR_TRACK_THEME_1, fy, nsize, selectedInfo);
     fy += mts.y+interfaceSpace1;

@@ -77,6 +77,8 @@ float trackGetVelocity(Track track);
 void trackSetVelocity(Track track, float velocity);
 int trackGetProgram(Track track);
 void trackDeleteAtIdx(int idx);
+int trackMoveToIndex(Track track, int idx);
+int trackCanSafelyReplaceContents(Track track);
 void trackSetProgram(Track track, uint8_t program);
 float trackGetPanning(Track track);
 void trackSetPanning(Track track, float panning);
@@ -88,6 +90,12 @@ void trackDeleteNoteInTrack(Track track, Note note);
 uint32_t trackPiecesInBeat();
 uint32_t trackGetNumOfNotes(Track track);
 Note* trackGetNotes(Track track);
+uint16_t tracksGetMaxTracks();
+int tracksCanCreateNew();
+int trackGetMinKey(Track track);
+int trackGetMaxKey(Track track);
+uint32_t trackGetTimestampEnd(Track track);
+void tracksUpdateAllValues();
 
 
 /* Handler (backend/stateHandler.c) */
@@ -138,7 +146,9 @@ int globalHandlerIsTimeLineShown();
 double globalHandlerGetLineTime();
 void globalHandlerSetLineTime(double time);
 uint32_t globalHandlerGetLineTimestamp();
+uint32_t globalHandlerGetTimestamp();
 void globalHandlerUpdateTick();
+uint32_t secondsToTimestamp(double seconds);
 
 void globalHandlerUpdateSelectedTrack();
 void globalHandlerUpdateAllTracks();
@@ -239,6 +249,7 @@ void midiClose();
 const char* midiGetProgramTypeString(int program);
 enum icon_title midiGetProgramTypeIcon(int program);
 
+const char* midiGetDrumName(int note);
 const char* midiGetProgramName(int program);
 const char* midiProgramGetName(MidiProgram program);
 const char* midiProgramGetTypeString(MidiProgram program);

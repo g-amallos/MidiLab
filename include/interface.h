@@ -57,6 +57,7 @@ void renderRoundedRectangleLinesCentered(Vector2 pos, Vector2 dim, Color col, fl
 int checkCollisionPointRoundedRect(Vector2 point, Rectangle rect, float roundness);
 float getRadiusForRoundedRectangle(Rectangle rect, float roundness);
 float getRoundnessForRoundedRectangle(Rectangle rect, float radius);
+float getRoundnessForRoundedRectangleTransformation(Rectangle old, Rectangle new, float oldRoundness, float radiusOffset);
 Rectangle rectangleClip(Rectangle source, Rectangle clip);
 Rectangle rectangleIncrease(Rectangle rect, Vector2 topLeft, Vector2 bottomRight);
 

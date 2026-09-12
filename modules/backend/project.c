@@ -144,6 +144,8 @@ void projectLoadTmpProject(ProjectData newProject) {
     freeProjectContents();
     *globalProject = *newProject;
 
+    tracksUpdateAllValues();
+
     globalHandlerSetTimeSignature(ts);
     projectSetTempo(tempo);
 

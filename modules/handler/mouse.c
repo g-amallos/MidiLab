@@ -28,7 +28,7 @@ void updateMouseCursor() {
     SetMouseCursor(nextMouseCursor);
 }
 
-void updateMouseHandler() {
+static void _regularMouseUpdate() {
     setNextMouseCursor(MOUSE_CURSOR_ARROW);
     globalMouseHandler.pos = GetMousePosition();
     globalMouseHandler.dpos = GetMouseDelta();
@@ -38,4 +38,19 @@ void updateMouseHandler() {
     globalMouseHandler.down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     globalMouseHandler.released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
     globalMouseHandler.scroll = GetMouseWheelMoveV().y;
+}
+
+static void _noUserInputMouseUpdate() {
+    globalMouseHandler.pos = (Vector2){-10,-10};
+    globalMouseHandler.dpos = (Vector2){0,0};
+    globalMouseHandler.pressed = 0;
+    globalMouseHandler.rightClickPressed = 0;
+    globalMouseHandler.down = 0;
+    globalMouseHandler.released = 0;
+    globalMouseHandler.scroll = 0;
+}
+
+void updateMouseHandler(int allowUserInput) {
+    if (allowUserInput) _regularMouseUpdate();
+    else _noUserInputMouseUpdate();
 }

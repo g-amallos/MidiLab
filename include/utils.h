@@ -25,6 +25,8 @@ int intClip(int val, int min, int max);
 uint32_t uint32Clip(uint32_t val, uint32_t min, uint32_t max);
 
 char* concatenateStrings(const char* s1, const char* s2);
+char* concatenateStrings3(const char* s1, const char* s2, const char* s3);
+char* concatenateStrings4(const char* s1, const char* s2, const char* s3, const char* s4);
 char* stringToFileName(const char* str, int max);
 char* stringStrip(const char* str);
 int stringCompareWrapper(const char* str1, const char* str2);

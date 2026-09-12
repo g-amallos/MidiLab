@@ -28,6 +28,11 @@ typedef struct track_data {
     float velocity;
     float panning;
 
+    uint8_t keyMin;
+    uint8_t keyMax;
+    uint32_t timestampStart;
+    uint32_t timestampEnd;
+
     uint32_t capacity;      // Allocating more than needed, for fewer realloc calls
     uint32_t numElements;      // Number of actual saved note data (the first n in the array)
     Note* notes;
@@ -189,8 +194,15 @@ typedef struct midi_program {
 
 } *MidiProgram;
 
+typedef struct midi_drum {
+    char* name;
+} *MidiDrum;
+
+#define MIDI_DRUM_START 35
+#define MIDI_DRUM_END 81
 
 extern struct midi_program _midiPrograms[129];
+extern struct midi_drum _midiDrums[128];
 
 
 void globalStateHandlerInit();
@@ -203,6 +215,7 @@ double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate);
 void projectSetSaveStatus(enum project_saved_state status);
 const char* projectGetSavedFilepath();
 void updateWindowProjectTitle();
+void trackLoadTmpTrack(Track dest, Track src);
 
 void trackHalveCapacity(Track track);
 void trackVectorResizeToFitJustNotes(Track track);

@@ -149,6 +149,11 @@ double timestampPiecesToSeconds(uint32_t pieces) {
     return pieces*globalStateHandler->time.beatDuration/trackPiecesInBeat();
 }
 
+uint32_t secondsToTimestamp(double seconds) {
+    if (seconds<0) return 0;
+    return seconds*trackPiecesInBeat()/globalStateHandler->time.beatDuration;
+}
+
 double timestampPiecesToSamples(uint32_t pieces, uint32_t sampleRate) {
     return (sampleRate*(uint64_t)pieces)*globalStateHandler->time.beatDuration/trackPiecesInBeat();
 }
@@ -177,6 +182,11 @@ double globalHandlerGetLineTime() {
 uint32_t globalHandlerGetLineTimestamp() {
     if (!globalStateHandler) return 0;
     return globalStateHandler->time.timeline.timestamp;
+}
+
+uint32_t globalHandlerGetTimestamp() {
+    if (!globalStateHandler) return 0;
+    return secondsToTimestamp(globalStateHandler->time.time);
 }
 
 double globalHandlerDurationToMeasures(double seconds) {

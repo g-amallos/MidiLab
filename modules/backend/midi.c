@@ -6,6 +6,7 @@
 
 
 struct midi_program _midiPrograms[129] = {{NULL,0,0}};
+struct midi_drum _midiDrums[128] = {NULL,};
 
 const char* programTypeStrings[MPT_END] = {
     [MPT_PIANO] = "Piano",
@@ -101,16 +102,46 @@ void midiFreeInstruments() {
     }
 }
 
+void midiLoadDrums() {
+    FILE* fptr = fopen("assets/midi/drums.txt", "r");
+    if (!fptr) return;
+
+    char buffer[256];
+    int num = MIDI_DRUM_END-MIDI_DRUM_START+1;
+    for (int i = 0; i<num && fgets(buffer, sizeof(buffer), fptr); i++) {
+        buffer[strcspn(buffer, "\r\n")] = 0;
+
+        char* str = malloc(strlen(buffer) + 1);
+        if (!str) continue;
+        
+        strcpy(str, buffer);
+        _midiDrums[i+MIDI_DRUM_START].name = str;
+    }
+    fclose(fptr);
+}
+
+void midiFreeDrums() {
+    for (int i=0; i<128; i++) {
+        if (_midiDrums[i].name) free(_midiDrums[i].name);
+        _midiDrums[i].name = NULL;
+    }
+}
 
 void midiInit() {
     midiLoadInstruments();
+    midiLoadDrums();
 }
 
 
 void midiClose() {
     midiFreeInstruments();
+    midiFreeDrums();
 }
 
+const char* midiGetDrumName(int note) {
+    if (note<MIDI_DRUM_START || note>MIDI_DRUM_END) return NULL;
+    return _midiDrums[note].name;
+}
 
 const char* midiGetProgramName(int program) {
     if (program<0 || program>128) return NULL;

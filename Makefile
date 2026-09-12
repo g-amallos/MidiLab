@@ -24,6 +24,10 @@ modules/tinyfiledialogs/tinyfiledialogs.o: CFLAGS += -Wno-pedantic -Wno-cast-fun
 LDFLAGS = -Llibs/linux -lraylib -lfluidsynth -lGL -lm -lpthread -ldl -lrt -lX11 -Wl,-rpath,'$$ORIGIN/bin/libs'
 OUT = $(TARGET)
 
+ifeq ($(debug), 1)
+	CFLAGS += -DDEBUG
+endif
+
 ifeq ($(os), win)
 	CC = x86_64-w64-mingw32-gcc
 	WINDRES = x86_64-w64-mingw32-windres
@@ -47,21 +51,17 @@ ifneq ($(filter mem,$(MAKECMDGOALS)),)
 endif
 
 
-all: setup $(OUT) copy_deps
+all: $(OUT) copy_deps
 
-setup:
-	rm -rf bin
-	mkdir -p bin
-	mkdir -p bin/libs
 
-copy_deps: setup
+copy_deps:
 ifeq ($(os), win)
 	echo "Copying Windows DLLs..."
 	cp -- libs/win/*.dll ./
 #	cp libs/win/libfluidsynth-3.dll bin/libs/
 else
 	@echo "Copying Linux Shared Objects..."
-	cp libs/linux/libfluidsynth.so bin/libs/
+	cp libs/linux/libfluidsynth.so ./
 endif
 
 

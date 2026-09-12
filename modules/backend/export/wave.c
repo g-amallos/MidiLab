@@ -4,6 +4,8 @@
 #include "../synth_internal.h"
 #include "../backend_internal.h"
 #include <math.h>
+#include <threads.h>
+#include <utils.h>
 
 
 #define BUFFER_FRAMES 4096
@@ -74,7 +76,7 @@ static void sortNotes(Note* buffer, uint32_t elements) {
     qsort(buffer, elements, sizeof(Note), noteCompare);
 }
 
-static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
+static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate, float jobPercentage, float jobOffset) {
     uint32_t notesNum = 0;
     uint16_t tracksNum = globalProject->tracksNum;
     for (uint16_t i=0; i<tracksNum; i++) notesNum+=(globalProject->tracks)[i].numElements;
@@ -108,11 +110,11 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
         }
     }
 
-    sortNotes(allEvents, eventsNum);    
+    sortNotes(allEvents, eventsNum);
 
     double pieceToSample = timestampPiecesToSamples(1, sampleRate);
     double sampleToPieces = samplesToTimestampPieces(1, sampleRate);
-    uint32_t eventIdx=0, sampleIdx=0, curTimestamp=0, frames=0;
+    uint32_t eventIdx=0, sampleIdx=0, curTimestamp=0, frames=0, maxTimestamp=allEvents[eventsNum-1]->timestamp;
     double fCurTimestamp=0, fframes=0;
 
     int16_t* wavBuffer = malloc(BUFFER_FRAMES*2*sizeof(int16_t));
@@ -158,6 +160,7 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
 
         renderExportAudio(wavBuffer, frames);
         fwrite(wavBuffer, sizeof(int16_t)*2, frames, fptr);
+        threadEditProcessPercentage(floatClip(jobOffset+jobPercentage*(fCurTimestamp/maxTimestamp), 0.0, 1.0));
     }
 
     exportSynthPanic();
@@ -175,7 +178,26 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate) {
 }
 
 
-int exportProjectAsWave(const char* filename) {         // In the future, I might make it in a different thread
+int exportProjectAsWave(const char* filename) {
+    if (!filename) return 1;
+
+    FILE* fptr = fopen(filename, "wb");
+    if (!fptr) return 1;
+
+    threadEditProcessPercentage(0);
+    threadEditProcessDescription(TextFormat("Exporting WAVE to %s...", GetFileName(filename)));
+
+    uint32_t sampleRate = 44100;
+    writeWavHeader(fptr, sampleRate);
+    uint32_t samples = simulateAudio(fptr, sampleRate, 1.0, 0.0);
+    updateWavHeader(fptr, samples);
+
+    fclose(fptr);
+    return (samples==0);
+}
+
+
+int exportProjectAsWaveForExportAll(const char* filename, int totalJobs, int currentJob) {
     if (!filename) return 1;
 
     FILE* fptr = fopen(filename, "wb");
@@ -183,7 +205,7 @@ int exportProjectAsWave(const char* filename) {         // In the future, I migh
 
     uint32_t sampleRate = 44100;
     writeWavHeader(fptr, sampleRate);
-    uint32_t samples = simulateAudio(fptr, sampleRate);
+    uint32_t samples = simulateAudio(fptr, sampleRate, 1.0/totalJobs, currentJob/(float)totalJobs);
     updateWavHeader(fptr, samples);
 
     fclose(fptr);
