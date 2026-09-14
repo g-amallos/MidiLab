@@ -9,6 +9,9 @@
 
 
 
+struct duration_data visualizerGetDurationData();           // modules/interface/render/visualizer.c
+
+
 struct backend_state_handler _globalHandler = {
     .time = {
         .time = 0,
@@ -95,7 +98,8 @@ struct backend_state_handler _globalHandler = {
             .notesNum = 0,
             .notes = NULL
         }
-    }
+    },
+    .renderType = ART_REGULAR
 };
 
 
@@ -145,8 +149,12 @@ void globalHandlerSetLineTime(double time) {
 }
 
 
-double timestampPiecesToSeconds(uint32_t pieces) {
+static double timestampPiecesToSeconds(uint32_t pieces) {
     return pieces*globalStateHandler->time.beatDuration/trackPiecesInBeat();
+}
+
+double globalHandlerTimestampToSeconds(uint32_t timestamp) {
+    return timestampPiecesToSeconds(timestamp);
 }
 
 uint32_t secondsToTimestamp(double seconds) {
@@ -464,6 +472,14 @@ void globalHandlerUpdateTick() {
         th = globalStateHandler->time;
         globalStateHandler->time.time = doubleMax(0*oldT*newT, th.timeline.time-0.35*th.visibleDuration);
 
+        if (globalStateHandler->renderType==ART_VISUALIZER) {
+            struct duration_data dur = visualizerGetDurationData();
+            if (newTst>dur.timestamp) {
+                globalHandlerPause();
+                globalHandlerSetLineTime(dur.time);
+            }
+        }
+
     } else {
 
     }
@@ -508,4 +524,17 @@ void globalHandlerSetToPreviousMeasure() {
 void globalHandlerSetVisibleMouseJumps(uint32_t mouseJumps) {
     if (!globalStateHandler) return;
     globalStateHandler->time.mouseJumps = mouseJumps;
+}
+
+
+void globalHandlerSetRenderType(enum app_render_type type) {
+    if (!globalStateHandler) return;
+    if (type==ART_REGULAR || type==ART_VISUALIZER) {
+        globalStateHandler->renderType = type;
+    }
+}
+
+enum app_render_type globalHandlerGetRenderType() {
+    if (!globalStateHandler) return ART_NONE;
+    return globalStateHandler->renderType;
 }

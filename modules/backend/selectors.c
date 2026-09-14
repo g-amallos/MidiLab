@@ -7,6 +7,14 @@
 
 
 
+static void updateSelectedTracksValues() {
+    if (!globalStateHandler || !globalProject || !(globalProject->tracks) || globalProject->tracksNum<=0) return;
+    int idx = globalStateHandler->selectedTrack;
+    if (idx<0 || idx>=globalProject->tracksNum) return;
+    trackRecalculateValues(globalProject->tracks+idx);
+}
+
+
 static void _freeNoteSelector() {
     if (globalStateHandler->selector.primary.notes) free(globalStateHandler->selector.primary.notes);
     if (globalStateHandler->selector.secondary.notes) free(globalStateHandler->selector.secondary.notes);
@@ -728,6 +736,7 @@ void globalHandlerMoveSelectedRelease(float fkey, uint32_t timestamp) {
     _selectorMoveHold(&(globalStateHandler->selector.primary), fkey, timestamp);
     globalStateHandler->selector.primary.clickHold = 0;
     globalStateHandler->selector.primary.noteReference = (struct reference_note){NULL,};
+    updateSelectedTracksValues();
 }
 
 int globalHandlerMoveSelectedIsActive() {
@@ -752,6 +761,7 @@ uint32_t globalHandlerResizeSelectedRelease(float fkey, uint32_t timestamp) {
     uint32_t ret=(1<<10);
     if (globalStateHandler->selector.primary.noteReference.note) ret=globalStateHandler->selector.primary.noteReference.note->duration;
     globalStateHandler->selector.primary.noteReference = (struct reference_note){NULL,};
+    updateSelectedTracksValues();
     return ret;
 }
 
@@ -784,10 +794,12 @@ void globalHandlerCutSelected() {
     if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return;
     _selectorVectorCut(&(globalStateHandler->selector.clipboard), &(globalStateHandler->selector.primary));
     projectUpdateStateSomethingChanged();
+    updateSelectedTracksValues();
 }
 
 void globalHandlerPasteSelected() {
     if (!globalStateHandler || !(globalStateHandler->selector.clipboard.notesNum)) return;
     _selectorVectorPaste(&(globalStateHandler->selector.primary), &(globalStateHandler->selector.clipboard));
     projectUpdateStateSomethingChanged();
+    updateSelectedTracksValues();
 }

@@ -226,6 +226,10 @@ void updateWindowProjectTitle() {
     }
 }
 
+uint16_t projectGetMaxTitleLength() {
+    return 40;
+}
+
 
 int projectClose() {
     if (_title) free(_title);
@@ -240,4 +244,16 @@ uint32_t projectGetTotalNumberOfNotes() {
     uint16_t i=0, n=globalProject->tracksNum;
     for (; i<n; i++) ret+=(globalProject->tracks)[i].numElements;
     return ret;
+}
+
+
+struct duration_data projectGetDuration() {
+    if (!globalProject) return (struct duration_data){0,0};
+    uint32_t maxDur=0;
+    uint16_t n=globalProject->tracksNum;
+    for (uint16_t i=0; i<n; i++) {
+        uint32_t td = trackGetTimestampEnd(globalProject->tracks+i);
+        if (td>maxDur) maxDur=td;
+    }
+    return (struct duration_data){.timestamp=maxDur, .time=globalHandlerTimestampToSeconds(maxDur)};
 }

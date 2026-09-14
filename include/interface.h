@@ -177,6 +177,20 @@ void destroyInstrumentPicker();
 void precalculateInstrumentPicker();
 void renderInstrumentPicker();
 
+
+
+/* Visualizer (interface/render/visualizer.c) */
+
+void visualizerInit();
+void visualizerClose();
+void order2PrecomputeVisualizer();
+void renderVisualizer();
+
+
+
+
+
+
 /* Colors (here) */
 
 

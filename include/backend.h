@@ -29,6 +29,12 @@ int backendClose();     // Close and free the backend
 
 /* Project (backend/project.c) */
 
+struct duration_data {
+    uint32_t timestamp;
+    double time;
+};
+
+
 extern ProjectData globalProject;               // The reference the whole program will use for the project
 
 int createNewProject();                         // Updates the global loaded project to a new one
@@ -41,6 +47,7 @@ int projectSetTempo(int tempo);                 // Updates the tempo and returns
 int projectGetTempo();
 int projectGetTracksNum();
 uint32_t projectGetTotalNumberOfNotes();
+uint16_t projectGetMaxTitleLength();
 void projectSetFilepath(const char* filepath);
 void projectUpdateStateSomethingChanged();
 int projectHasUnsavedChanges();
@@ -48,7 +55,7 @@ int projectHasSavedFilepath();
 int projectIsPracticallyEmpty();
 int projectCanSafelyReplaceContents();
 int projectClose();
-
+struct duration_data projectGetDuration();
 
 
 /* Track (backend/tracks.c) */
@@ -91,6 +98,7 @@ uint32_t trackPiecesInBeat();
 uint32_t trackGetNumOfNotes(Track track);
 Note* trackGetNotes(Track track);
 uint16_t tracksGetMaxTracks();
+uint16_t trackGetMaxTitleLength();
 int tracksCanCreateNew();
 int trackGetMinKey(Track track);
 int trackGetMaxKey(Track track);
@@ -99,6 +107,12 @@ void tracksUpdateAllValues();
 
 
 /* Handler (backend/stateHandler.c) */
+
+enum app_render_type {
+    ART_REGULAR,
+    ART_VISUALIZER,
+    ART_NONE
+};
 
 enum keyboard_render_types {
     T_KEYBOARD_HORIZONTAL,
@@ -140,6 +154,7 @@ double globalHandlerMeasuresToDuration(double measures);
 int globalHandlerGetBeatsInMeasure();
 double globalHandlerGetMeasureDuration();
 double globalHandlerGetBeatDuration();
+double globalHandlerTimestampToSeconds(uint32_t timestamp);
 void globalHandlerSetVisibleDuration(double duration);
 void globalHandlerSetVisibleMouseJumps(uint32_t mouseJumps);
 int globalHandlerIsTimeLineShown();
@@ -149,6 +164,10 @@ uint32_t globalHandlerGetLineTimestamp();
 uint32_t globalHandlerGetTimestamp();
 void globalHandlerUpdateTick();
 uint32_t secondsToTimestamp(double seconds);
+enum app_render_type globalHandlerGetRenderType();
+void globalHandlerSetRenderType(enum app_render_type type);
+
+
 
 void globalHandlerUpdateSelectedTrack();
 void globalHandlerUpdateAllTracks();

@@ -75,10 +75,12 @@ int synthClose() {
 }
 
 
+void recordAudioFrames(float* buffer, int samples);          // backend/fft.c
 
 void audioInputCallback(void *buffer, unsigned int frames) {
     if (synthSF) {
         fluid_synth_write_float(synthSF, frames, buffer, 0, 2, buffer, 1, 2);
+        recordAudioFrames(buffer, (int)frames);
     }
 }
 

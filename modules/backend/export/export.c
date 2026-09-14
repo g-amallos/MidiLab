@@ -95,6 +95,7 @@ static int readProjectHeader(FILE* fptr, ProjectData toLoad) {
 
     uint16_t titleLength = 0;
     ret += readUint16(fptr, &titleLength);
+    if (ret || titleLength>projectGetMaxTitleLength()) return 1;
     
     char* title = malloc((titleLength+1)*sizeof(char));
     ret += readString(fptr, title, titleLength);
@@ -214,6 +215,8 @@ static int readTrack(FILE* fptr, Track track, uint8_t* col) {
 
     uint8_t titleLength=0;
     ret += readUint8(fptr, &titleLength);
+
+    if (ret || (uint16_t)titleLength>trackGetMaxTitleLength()) return 1;
 
     char* title = malloc((titleLength+1)*sizeof(char));
     ret += readString(fptr, title, titleLength);
