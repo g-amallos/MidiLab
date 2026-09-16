@@ -21,7 +21,7 @@ CFLAGS = -I$(INCLUDE) $(WARNINGS)
 modules/tinyfiledialogs/tinyfiledialogs.o: CFLAGS += -Wno-pedantic -Wno-cast-function-type -Wno-format
 
 # Platform specific flags
-LDFLAGS = -Llibs/linux -lraylib -lfluidsynth -lGL -lm -lpthread -ldl -lrt -lX11 -Wl,-rpath,'$$ORIGIN/bin/libs'
+LDFLAGS = -Llibs/linux -lraylib libs/linux/libmp3lame.a -lfluidsynth -lGL -lm -lpthread -ldl -lrt -lX11 -Wl,-rpath,'$$ORIGIN/bin/libs'
 OUT = $(TARGET)
 
 ifeq ($(debug), 1)
@@ -34,7 +34,7 @@ ifeq ($(os), win)
 	OUT = $(TARGET).exe
 	OBJS += resource.o
 
-	COMMON_WIN_LIBS = -Llibs/win libs/win/libraylib.a libs/win/libfluidsynth-3.lib -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -lws2_32 -ldsound
+	COMMON_WIN_LIBS = -Llibs/win libs/win/libraylib.a libs/win/libmp3lame.a libs/win/libfluidsynth-3.lib -lgdi32 -lwinmm -lopengl32 -lole32 -lcomdlg32 -lws2_32 -ldsound
 
 	ifeq ($(debug), 1)
 		LDFLAGS = -static-libgcc $(COMMON_WIN_LIBS)

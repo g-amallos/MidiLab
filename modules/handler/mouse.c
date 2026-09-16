@@ -41,6 +41,7 @@ static void _regularMouseUpdate() {
 }
 
 static void _noUserInputMouseUpdate() {
+    setNextMouseCursor(MOUSE_CURSOR_ARROW);
     globalMouseHandler.pos = (Vector2){-10,-10};
     globalMouseHandler.dpos = (Vector2){0,0};
     globalMouseHandler.pressed = 0;

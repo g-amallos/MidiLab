@@ -18,5 +18,6 @@ assets/archive/
 /*.dll
 
 *.wav
+*.mp3
 
 /experiments/fft/assets/test.txt

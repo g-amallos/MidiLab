@@ -113,7 +113,7 @@ int render() {
 
     EndDrawing();
 
-    if (allowedInput) updateMouseCursor();
+    updateMouseCursor();
 
     return 0;
 }

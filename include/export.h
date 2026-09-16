@@ -15,6 +15,7 @@ int exportTrackTo(const char* filename, int idx);
 int exportAll(const char* directory);
 
 int exportProjectAsWave(const char* filename);
+int exportProjectAsMP3(const char* filename);
 
 uint32_t estimateFileSizeForProject();
 

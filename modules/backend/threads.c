@@ -155,6 +155,16 @@ static void* _exportWave(void* args) {
     return NULL;
 }
 
+static void* _exportMP3(void* args) {
+    threadEditProcess(NULL, NULL, 0.0, 0, 0);
+    int ret = exportProjectAsMP3((const char*)args);
+    printf("EXPORT MP3: %d\n", ret);
+    
+    if (args) free(args);
+    _clearBackgroundThread();
+    return NULL;
+}
+
 
 int threadRequestExportAll(const char* directory) {
     if (!(_threadCanCreateNewThread())) return 1;
@@ -166,4 +176,10 @@ int threadRequestExportWave(const char* filename) {
     if (!(_threadCanCreateNewThread())) return 1;
 
     return _initThread(strdup("Export Wave"), _exportWave, strdup(filename));
+}
+
+int threadRequestExportMP3(const char* filename) {
+    if (!(_threadCanCreateNewThread())) return 1;
+
+    return _initThread(strdup("Export MP3"), _exportMP3, strdup(filename));
 }

@@ -308,14 +308,14 @@ static void _visualizer3(int num, float* buffer) {
 }
 
 static void _visualizer4(int num, float* buffer) {
-    int iters = num>>5;
+    int iters = num>>4;
     int totalStringPieces=visualizerRect.width*0.15;
     float x=visualizerRect.x+visualizerRectRadius, cy=visualizerRect.y+0.5*visualizerRect.height, factor=3.2*visualizerRect.height/num, w=(visualizerRect.width-2*visualizerRectRadius)/totalStringPieces;
     float thickness=floatMax(1.0, 0.5*w), minY=visualizerRect.y+visualizerRectRadius, maxY=visualizerRect.y+visualizerRect.height-visualizerRectRadius, h=0.5*visualizerRect.height-visualizerRectRadius;
     Vector2 oldPos={0,0}, newPos={x,cy};
     
 
-    float ranPhase = fmod(GetTime()*0.4, M_TAU);
+    float ranPhase = fmod(globalHandlerGetLineTime()*0.4, M_TAU);
     float startR = 0.0;
     for (int j=1; j<iters; j++) startR += buffer[j]*sin(ranPhase*j);
     startR = factor*startR;
