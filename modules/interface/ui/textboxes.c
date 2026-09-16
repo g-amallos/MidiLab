@@ -263,8 +263,28 @@ void _pressedDelete(Textbox tbx) {
     if (tbx->cursorIdx<tbx->lastCharIdx) _removeCharAtIdx(tbx, tbx->cursorIdx);
 }
 
+int _isCharValidForTitle(char n) {
+    return n>=32 && n<=126;
+}
+
+int _isCharValidForPosInt(char n) {
+    if (n<'0' || n>'9') return 0;
+    return 1;
+}
+
+int _isValidString(Textbox tbx, int size, const char* text) {
+    if (size>tbx->maxInputChars) return 0;
+    if (tbx->inputType == T_IN_STRING) {
+        for (int i=0; i<size; i++) if (!_isCharValidForTitle(text[i])) return 0;
+    } else if (tbx->inputType == T_IN_POSITIVE_INTEGER) {
+        for (int i=0; i<size; i++) if (!_isCharValidForPosInt(text[i])) return 0;
+    }
+    return 1;
+}
+
 void _loadText(Textbox tbx, const char* text) {
     int size = strlen(text);
+    if (!_isValidString(tbx, size, text)) return;
     char* newText = malloc((size+1)*sizeof(char));
     if (!newText) return;
 
@@ -291,20 +311,10 @@ void textboxLoadPositiveInt(Textbox tbx, int pint) {
 }
 
 
-int _isCharValidForTitle(char n) {
-    return n>=32 && n<=126;
-}
-
-int _isCharValidForPosInt(char* text, char n) {
-    if (n<'0' || n>'9') return 0;
-    //if (n=='0') if (*text) return 0;
-    return 1+text[0]*0;
-}
-
 int _allowedCharInputForCurrentState(Textbox tbx, char n) {
     if (!tbx) return 0;
     if (tbx->inputType == T_IN_STRING) return _isCharValidForTitle(n);
-    else if (tbx->inputType == T_IN_POSITIVE_INTEGER) return _isCharValidForPosInt(tbx->text, n);
+    else if (tbx->inputType == T_IN_POSITIVE_INTEGER) return _isCharValidForPosInt(n);
     return 0;
 }
 

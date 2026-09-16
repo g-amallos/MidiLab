@@ -28,6 +28,10 @@ Rectangle timeRect={0,0,0,0};
 
 
 
+
+
+
+
 float lineHeight = 0;
 
 
@@ -578,11 +582,12 @@ void exportProjectToSavedFilepath() {
 
 void exportProjectByCtrlS() {
     if (!projectHasUnsavedChanges()) return;
-    //globalHandlerPause();
-    //synthPanic();
     
     if (projectHasSavedFilepath()) exportProjectToFilepath();
     else {
+        globalHandlerPause();
+        synthPanic();
+
         const char* projectTitle = projectGetCurrentTitle();
         if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
 

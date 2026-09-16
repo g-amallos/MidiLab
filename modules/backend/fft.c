@@ -139,7 +139,7 @@ static void _bitReverseCopy(uint32_t n, float* buffa, Complex* buffA) {
 }
 
 // https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms
-void _wikipediaAlgorithm(FFTheader fft) {
+void _wikipediaAlgorithm(FFTheader fft, float* maxIntensity) {
     if (!fft) return;
 
     volatile float* a = wavBuffer;
@@ -169,14 +169,17 @@ void _wikipediaAlgorithm(FFTheader fft) {
         }
     }
 
+    float maxInt = 0;
     for (uint32_t k=0; k<N2; k++) {
         fft->smooth[k] += 0.2*(complexMagnitude(fft->intensity[k])-fft->smooth[k]);
+        if (fft->smooth[k]>maxInt) maxInt=fft->smooth[k];
     }
+    if (maxIntensity) *maxIntensity = maxInt;
 }
 
 
-void FFTupdate() {
-    _wikipediaAlgorithm(fft);
+void FFTupdate(float* maxIntensity) {
+    _wikipediaAlgorithm(fft, maxIntensity);
 }
 
 float* FFTgetIntensityBufferForHeader(FFTheader fft, int* num) {
@@ -187,4 +190,13 @@ float* FFTgetIntensityBufferForHeader(FFTheader fft, int* num) {
 
 float* FFTgetIntensityBuffer(int* num) {
     return FFTgetIntensityBufferForHeader(fft, num);
+}
+
+int FFTgetBufferLength() {
+    if (fft) return fft->freqN;
+    else return SAMPLES_WINDOW_SIZE/2;
+}
+
+float FFTgetDeltaFrequency() {
+    return SAMPLE_RATE/(float)SAMPLES_WINDOW_SIZE;
 }

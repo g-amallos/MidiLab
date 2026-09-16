@@ -31,6 +31,7 @@ char* concatenateStrings4(const char* s1, const char* s2, const char* s3, const 
 char* stringToFileName(const char* str, int max);
 char* stringStrip(const char* str);
 int stringCompareWrapper(const char* str1, const char* str2);
+int isStringValidForTitle(const char* str, int maxLength);
 
 
 #endif

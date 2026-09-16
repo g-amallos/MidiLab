@@ -99,7 +99,8 @@ struct backend_state_handler _globalHandler = {
             .notes = NULL
         }
     },
-    .renderType = ART_REGULAR
+    .renderType = ART_REGULAR,
+    .visualizerType = VISUALIZER_TYPE_1
 };
 
 
@@ -242,8 +243,10 @@ void globalHandlerPlay() {
 void globalHandlerPause() {
     if (!globalStateHandler) return;
     globalStateHandler->time.timeline.playing = 0;
-    globalStateHandler->time.timeline.time = globalStateHandler->time.timeline.prePlayTime;
-    globalStateHandler->time.timeline.timestamp = globalStateHandler->time.timeline.prePlayTimestamp;
+    if (globalStateHandler->renderType==ART_REGULAR) {
+        globalStateHandler->time.timeline.time = globalStateHandler->time.timeline.prePlayTime;
+        globalStateHandler->time.timeline.timestamp = globalStateHandler->time.timeline.prePlayTimestamp;
+    }
 }
 
 void globalHandlerEnableLoop() {
@@ -537,4 +540,38 @@ void globalHandlerSetRenderType(enum app_render_type type) {
 enum app_render_type globalHandlerGetRenderType() {
     if (!globalStateHandler) return ART_NONE;
     return globalStateHandler->renderType;
+}
+
+enum visualizer_type globalHandlerGetVisualizerType() {
+    if (!globalStateHandler) return VISUALIZER_TYPE_1;
+    return globalStateHandler->visualizerType;
+}
+
+void globalHandlerSetVisualizerType(enum visualizer_type visType) {
+    if (!globalStateHandler) return;
+    if (visType==VISUALIZER_TYPE_1 || visType==VISUALIZER_TYPE_2 || visType==VISUALIZER_TYPE_3 || visType==VISUALIZER_TYPE_4) {
+        globalStateHandler->visualizerType = visType;
+    }
+}
+
+void globalHandlerToggleNextVisualization() {
+    if (!globalStateHandler) return;
+    switch (globalStateHandler->visualizerType) {
+        case VISUALIZER_TYPE_1: {
+            globalStateHandler->visualizerType = VISUALIZER_TYPE_2;
+            return;
+        }
+        case VISUALIZER_TYPE_2: {
+            globalStateHandler->visualizerType = VISUALIZER_TYPE_3;
+            return;
+        }
+        case VISUALIZER_TYPE_3: {
+            globalStateHandler->visualizerType = VISUALIZER_TYPE_4;
+            return;
+        }
+        case VISUALIZER_TYPE_4: {
+            globalStateHandler->visualizerType = VISUALIZER_TYPE_1;
+            return;
+        }
+    }
 }

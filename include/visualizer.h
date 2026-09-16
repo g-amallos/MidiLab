@@ -11,8 +11,10 @@ int FFTclose();
 FFTheader FFTcreateHeader();
 void FFTcloseHeader(FFTheader fft);
 void FFTupdateFrameWindow(FFTheader fft);
-void FFTupdate();
+void FFTupdate(float* maxIntensity);
 float* FFTgetIntensityBufferForHeader(FFTheader fft, int* num);
 float* FFTgetIntensityBuffer(int* num);
+int FFTgetBufferLength();
+float FFTgetDeltaFrequency();
 
 #endif

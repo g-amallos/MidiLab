@@ -128,6 +128,7 @@ typedef struct backend_state_handler {
 
     struct notes_selector selector;
     enum app_render_type renderType;
+    enum visualizer_type visualizerType;
 
 } *StateHandler;
 

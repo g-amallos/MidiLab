@@ -93,6 +93,7 @@ void renderExportAudio(void* buffer, unsigned int frames) {
 
 void synthPanic() {
     if (synthSF) {
+        midiActionRemoveAll();
         fluid_synth_system_reset(synthSF);
         globalHandlerUpdateAllTracks();
     }

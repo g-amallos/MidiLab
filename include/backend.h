@@ -114,6 +114,13 @@ enum app_render_type {
     ART_NONE
 };
 
+enum visualizer_type {
+    VISUALIZER_TYPE_1,
+    VISUALIZER_TYPE_2,
+    VISUALIZER_TYPE_3,
+    VISUALIZER_TYPE_4
+};
+
 enum keyboard_render_types {
     T_KEYBOARD_HORIZONTAL,
     T_KEYBOARD_VERTICAL,
@@ -166,7 +173,9 @@ void globalHandlerUpdateTick();
 uint32_t secondsToTimestamp(double seconds);
 enum app_render_type globalHandlerGetRenderType();
 void globalHandlerSetRenderType(enum app_render_type type);
-
+enum visualizer_type globalHandlerGetVisualizerType();
+void globalHandlerSetVisualizerType(enum visualizer_type visType);
+void globalHandlerToggleNextVisualization();
 
 
 void globalHandlerUpdateSelectedTrack();

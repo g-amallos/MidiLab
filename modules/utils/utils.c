@@ -169,3 +169,18 @@ int stringCompareWrapper(const char* str1, const char* str2) {
     else if (str1 && !str2) return 1;
     else return 0;
 }
+
+static int _isCharValidForTitle(char n) {
+    return n>=32 && n<=126;
+}
+
+int isStringValidForTitle(const char* str, int maxLength) {
+    if (maxLength<0 || !str) return 0;
+
+    int len = strlen(str);
+    if (len>maxLength) return 0;
+    for (int i=0; i<len; i++) {
+        if (!_isCharValidForTitle(str[i])) return 0;
+    }
+    return 1;
+}
