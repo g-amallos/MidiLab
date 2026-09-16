@@ -12,11 +12,11 @@
 
 
 
-int instrumentPickerExists=0, instrumentPickerSelectedType=MPT_PIANO, instrumentPickerSelectedProgram=0, instrumentPickerTrack=-1;
-float pickerSize = 0.2;
-Button instrumentPickerLayout = NULL;
-Button instrumentPickerTypeButtons[MPT_END] = {NULL};
-Button instrumentPickerProgramButtons[8] = {NULL};
+static int instrumentPickerExists=0, instrumentPickerSelectedType=MPT_PIANO, instrumentPickerSelectedProgram=0, instrumentPickerTrack=-1;
+static float pickerSize = 0.2;
+static Button instrumentPickerLayout = NULL;
+static Button instrumentPickerTypeButtons[MPT_END] = {NULL};
+static Button instrumentPickerProgramButtons[8] = {NULL};
 
 
 
@@ -99,6 +99,8 @@ void selectInstrumentAction() {
 void precalculateInstrumentPicker() {
     if (!instrumentPickerExists || !instrumentPickerLayout) return;
     pickerSize += 0.18*(1-pickerSize);
+
+    if (globalHandlerGetRenderType()!=ART_REGULAR) return;
 
     float oh=floatMax(500, 0.5*screenSize.y), ow=floatMax(600, 0.4*screenSize.x);
     float height=oh*pickerSize;

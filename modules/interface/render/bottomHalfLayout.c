@@ -51,6 +51,8 @@ void order1PrecomputeBottomHalfLayout() {
     if (kbType==T_KEYBOARD_NONE) buttonDisable(bottomResizeButton);
     else buttonEnable(bottomResizeButton);
 
+    if (globalHandlerGetRenderType()!=ART_REGULAR) return;
+
 
     if (oldType!=kbType) {
         if (oldType==T_KEYBOARD_NONE) updateBottomHalfSize(0.7*screenSize.y);

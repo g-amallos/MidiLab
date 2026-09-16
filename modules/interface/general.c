@@ -62,8 +62,14 @@ void order1Precompute() {
 
 void order2Precompute() {
     order2PrecomputeControlLine();
-    order2PrecomputeTracksLeft();
-    order2PrecomputeBottomHalfLayout();
+
+    if (globalHandlerGetRenderType()==ART_REGULAR) {
+        order2PrecomputeTracksLeft();
+        order2PrecomputeBottomHalfLayout();
+    } else {
+        order2PrecomputeVisualizer();
+    }
+
 }
 
 void renderFPS() {
@@ -83,20 +89,22 @@ int render() {
     order1Precompute();
     order2Precompute();
 
+    enum app_render_type apprt = globalHandlerGetRenderType();
+
     BeginDrawing();
         renderMainBackground();
-        renderTracksLeft();
-        renderBottomHalfLayout();
-        
-        
-        renderLayoutLines();
-        
-        renderTracksLeftLayoutsIfAny();
 
-        renderControlLine();
-
-        UIupdateTransparentOverlay();
-        renderInstrumentPicker();
+        if (apprt==ART_REGULAR) {
+            renderTracksLeft();
+            renderBottomHalfLayout();
+            renderLayoutLines();
+            renderTracksLeftLayoutsIfAny();
+            renderControlLine();
+            UIupdateTransparentOverlay();
+            renderInstrumentPicker();
+        } else if (apprt==ART_VISUALIZER) {
+            renderVisualizer();
+        }
 
         if (IS_DEBUG && globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
 

@@ -20,6 +20,7 @@ float floatMax(float a, float b);
 float floatMin(float a, float b);
 uint32_t uint32Min(uint32_t a, uint32_t b);
 uint32_t uint32Max(uint32_t a, uint32_t b);
+int intMax(int a, int b);
 float floatClip(float val, float min, float max);
 int intClip(int val, int min, int max);
 uint32_t uint32Clip(uint32_t val, uint32_t min, uint32_t max);
@@ -30,6 +31,7 @@ char* concatenateStrings4(const char* s1, const char* s2, const char* s3, const 
 char* stringToFileName(const char* str, int max);
 char* stringStrip(const char* str);
 int stringCompareWrapper(const char* str1, const char* str2);
+int isStringValidForTitle(const char* str, int maxLength);
 
 
 #endif

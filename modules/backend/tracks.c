@@ -57,6 +57,10 @@ static void _trackVectorUpdateValues(Track track) {
     track->timestampEnd = timestampEnd;
 }
 
+void trackRecalculateValues(Track track) {
+    _trackVectorUpdateValues(track);
+}
+
 void tracksUpdateAllValues() {
     if (!globalProject) return;
     uint16_t n=globalProject->tracksNum;
@@ -64,6 +68,12 @@ void tracksUpdateAllValues() {
         _trackVectorUpdateValues(globalProject->tracks+i);
     }
 }
+
+/*
+uint32_t trackGetDurationTimestamp(Track track) {
+    if (!track) return 0;
+    return track->timestampEnd;
+}*/
 
 static void _trackVectorUpdateValuesOnNoteAddition(Track track, Note note) {
     if (!track || !(track->notes)) return;
@@ -109,6 +119,10 @@ void trackLoadTmpTrack(Track dest, Track src) {
 
 uint16_t tracksGetMaxTracks() {
     return 128;
+}
+
+uint16_t trackGetMaxTitleLength() {
+    return 22;
 }
 
 int tracksCanCreateNew() {

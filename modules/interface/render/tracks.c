@@ -1,5 +1,6 @@
 #include <interface.h>
 #include <backend.h>
+#include <raylib.h>
 #include <raymath.h>
 #include <colors.h>
 #include <utils.h>
@@ -21,7 +22,7 @@
 float trackHeight=0, trackLeftWidth=0, trackCLineHeight=0, trackDivTargetHeight=0, trackScrollY=0, trackScrollYtarget=0, trackDivVisiblePosMin=0, trackDivVisiblePosMax=0;
 int openLayout=0;
 int timelineMeasureSkipsTop=1, timelineMeasureSkipsBottom=1, timelineBeatsSkipsTop=1, timelineBeatsSkipsBottom=1;
-static int previouslySelectedTrack=-1, shouldUpdateAllTextures=0;
+static int previouslySelectedTrack=-1, shouldUpdateAllTextures=0, maxTextureSize=0;
 
 
 Rectangle trackDivLeftRect={0,0,0,0}, trackDivRightRect={0,0,0,0}, trackDivFullRect={0,0,0,0};
@@ -75,6 +76,9 @@ float normalizeProgramTypeIcon(enum icon_title iconType) {
     }
 }
 
+static int getMaxTextureSize() {
+    return 16384;
+}
 
 
 void initProgramTypeColors() {
@@ -106,6 +110,7 @@ void renderTracksLeftInit() {
     for (int i=0; i<3; i++) bottomViewButtons[i]=buttonCreate(rect, 0.25);
 
     initProgramTypeColors();
+    maxTextureSize = getMaxTextureSize();
 }
 
 void freeTrackUIs() {
@@ -138,7 +143,7 @@ void customizeNewTrackUI(TrackUI tr, int idx) {
     tr->themeIdx = GetRandomValue(0, cols-1);
     tr->theme = trackThemeColors[tr->themeIdx];
     tr->icon = T_ICON_PIANO;
-    tr->textbox = textboxCreate(rect, 0.3, T_IN_STRING, 22);
+    tr->textbox = textboxCreate(rect, 0.3, T_IN_STRING, (int)trackGetMaxTitleLength());
     tr->optionsButton = buttonCreate(rect, 0.2);
     tr->btnList = NULL;
     tr->slider = sliderCreate(rect, 1);
@@ -153,7 +158,9 @@ void customizeNewTrackUI(TrackUI tr, int idx) {
 }
 
 static inline int _trackPreviewPixelsPerBeat() {
-    return 8;
+    if (maxTextureSize>=16384) return 8;
+    else if (maxTextureSize>=8192) return 4;
+    else return 2;
 }
 
 void trackUIgenerateTrackPreview(int idx) {
@@ -173,9 +180,8 @@ void trackUIgenerateTrackPreview(int idx) {
     double pixPerBeat = _trackPreviewPixelsPerBeat();
     uint32_t timestampEnd = trackGetTimestampEnd(track);
     uint32_t pcsInBts = trackPiecesInBeat();
-    int width = (int)(timestampEnd*pixPerBeat/pcsInBts);
+    int width = intMax((int)(timestampEnd*pixPerBeat/pcsInBts), maxTextureSize);
     int height = keyMax-keyMin+1;
-    
 
     
     int pad = 1+((height<20)?((20-height)/2):0);

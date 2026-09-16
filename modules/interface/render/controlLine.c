@@ -28,6 +28,10 @@ Rectangle timeRect={0,0,0,0};
 
 
 
+
+
+
+
 float lineHeight = 0;
 
 
@@ -35,7 +39,7 @@ void controlLineInit() {
     Rectangle rect = {20, 20, 80, 30};
     openFileButton = buttonCreate(rect, 0.25);
 
-    projectTitleTextbox = textboxCreate(rect, 0.25, T_IN_STRING, 40);
+    projectTitleTextbox = textboxCreate(rect, 0.25, T_IN_STRING, (int)projectGetMaxTitleLength());
     textboxLoadText(projectTitleTextbox, projectGetCurrentTitle());
 
     tempoTextbox = textboxCreate(rect, 0.25, T_IN_POSITIVE_INTEGER, 4);
@@ -295,9 +299,6 @@ void renderPrevPlayPauseNext() {
 
 
 void updateControlLineButtons() {
-    float offsetXY = 0.1*lineHeight;
-    float offsetXY_2 = 0.4*lineHeight;
-    interfaceSpace1 = offsetXY, interfaceSpace2 = offsetXY_2;
     Rectangle rect = {0.2*lineHeight, 0.2*lineHeight, 0.6*lineHeight, 0.6*lineHeight};
     buttonUpdateRectangle(openFileButton, rect);
     int target = (layoutButton)?1:-1;
@@ -318,15 +319,15 @@ void updateControlLineButtons() {
 
         if (btns[i]==loopButton && globalHandlerIsLoopEnabled()) buttonUpdate(btns[i], 1);
         else buttonUpdate(btns[i], -1);
-        rect.x += offsetXY+rect.width;
+        rect.x += interfaceSpace1+rect.width;
     }
 
-    rect.x+=offsetXY_2-offsetXY;
+    rect.x+=interfaceSpace2-interfaceSpace1;
     rect.width = floatMin(2*lineHeight, 0.08*screenSize.x);
     timeRect = rect;
 
 
-    rect.x += offsetXY_2+rect.width;
+    rect.x += interfaceSpace2+rect.width;
     //rect.height = 0.75*lineHeight, rect.y=0.125*lineHeight;
     rect.width = floatMin(2*lineHeight, 0.1*screenSize.x);
     textboxUpdateRectangle(tempoTextbox, rect);
@@ -341,14 +342,14 @@ void updateControlLineButtons() {
     }
 
 
-    rect.x += offsetXY_2+rect.width;
+    rect.x += interfaceSpace2+rect.width;
     rect.width = 0.4*lineHeight;
     buttonUpdateRectangle(tsignatureNumButton, rect);
     buttonUpdate(tsignatureNumButton, tsignNumBList?1:-1);
     if (!tsignNumBList && isButtonClicked(tsignatureNumButton)) actionDefer(createTimeSignatureNumeratorLayout);
 
 
-    rect.x += offsetXY+rect.width;
+    rect.x += interfaceSpace1+rect.width;
     buttonUpdateRectangle(tsignatureDenButton, rect);
     buttonUpdate(tsignatureDenButton, tsignDenBList?1:-1);
     if (!tsignDenBList && isButtonClicked(tsignatureDenButton)) actionDefer(createTimeSignatureDenominatorLayout);
@@ -361,7 +362,7 @@ void updateControlLineButtons() {
     const char* projectTitle = isTextboxFocused(projectTitleTextbox)?textboxGetText(projectTitleTextbox):projectGetCurrentTitle();
     if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
     
-    rect.x += offsetXY_2+rect.width;
+    rect.x += interfaceSpace2+rect.width;
     float endX=screenSize.x-interfaceSpace1;
     Vector2 dims = textFontGetSize(GlobalFonts[0].font, projectTitle, 0.36*lineHeight, 0);
     Vector2 centerX = {0.5*(rect.x+endX), 0.5*lineHeight}; float spacing=floatMax(60, 1.2*lineHeight);
@@ -581,11 +582,12 @@ void exportProjectToSavedFilepath() {
 
 void exportProjectByCtrlS() {
     if (!projectHasUnsavedChanges()) return;
-    //globalHandlerPause();
-    //synthPanic();
     
     if (projectHasSavedFilepath()) exportProjectToFilepath();
     else {
+        globalHandlerPause();
+        synthPanic();
+
         const char* projectTitle = projectGetCurrentTitle();
         if (!projectTitle) projectTitle = DEFAULT_PROJECT_TITLE;
 
@@ -668,6 +670,12 @@ static void _exportAll() {
     }
 }
 
+static void _openVisualizer() {
+    visualizerInit();
+    globalHandlerSetRenderType(ART_VISUALIZER);
+    destroyBaseLayout();
+}
+
 void deferNewProject() {
     globalHandlerPause();
     synthPanic();
@@ -690,7 +698,7 @@ void renderBaseLayout() {
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
     DrawRectangleRounded(brect, roundness, 8, col1);
     const char* texts[] = {"Project", "Edit", "View", "Settings", "Export"};
-    OnClickFunc actions[] = {createProjectLayout, NULL, NULL, NULL, createExportLayout};
+    OnClickFunc actions[] = {createProjectLayout, NULL, _openVisualizer, NULL, createExportLayout};
     int num = buttonListGetNum(layoutButton);
     for (int i=0; i<num; i++) {
         Button btn = buttonListGetButtonAt(layoutButton, i);
@@ -786,6 +794,9 @@ void order1PrecomputeControlLine() {
     if (screenSize.y/screenSize.x>0.666) tl = screenSize.x*0.666;
     controlLineHeight = (lineHeight = floatMin(0.08*tl, 100));
 
+    interfaceSpace1 = 0.1*lineHeight;
+    interfaceSpace2 = 0.4*lineHeight;
+
     buttonList4x5ExampleRect = (Rectangle){0.2*lineHeight, 0.9*lineHeight, floatMax(2*lineHeight, 120), floatMax(3*lineHeight, 180)};
     buttonList4x5ExampleSpacing = floatMax(0.08*lineHeight, 4.8);
 
@@ -796,6 +807,8 @@ void order1PrecomputeControlLine() {
     buttonList4x4ExampleRect = (Rectangle){0, 0, floatMax(2.1*lineHeight, 120), buttonList4x5ExampleRect.height*0.8};
     buttonList2x4ExampleRect = (Rectangle){0, 0, floatMax(1.3*lineHeight, 60), buttonList4x5ExampleRect.height*0.8};
 
+    if (globalHandlerGetRenderType()!=ART_REGULAR) return;
+
     updateControlLineButtons();
 
     if (!layoutButton && isButtonClicked(openFileButton)) actionDefer(createBaseLayout);
@@ -803,7 +816,7 @@ void order1PrecomputeControlLine() {
 }
 
 void order2PrecomputeControlLine() {
-
+    if (globalHandlerGetRenderType()!=ART_REGULAR) return;
 }
 
 static void renderSaveState() {

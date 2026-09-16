@@ -1,4 +1,6 @@
 #include "export_internal.h"
+#include <utils.h>
+
 #define DEFAULT_PROJECT_TITLE "Untitled Project"
 
 
@@ -93,11 +95,13 @@ static int writeProjectHeader(FILE* fptr) {
 static int readProjectHeader(FILE* fptr, ProjectData toLoad) {
     int ret=0;
 
-    uint16_t titleLength = 0;
+    uint16_t titleLength=0, maxTitleLength=projectGetMaxTitleLength();
     ret += readUint16(fptr, &titleLength);
+    if (ret || titleLength>maxTitleLength) return 1;
     
     char* title = malloc((titleLength+1)*sizeof(char));
     ret += readString(fptr, title, titleLength);
+    if (!isStringValidForTitle(title, maxTitleLength)) return 1;
 
     uint16_t tempo = 0;
     ret += readUint16(fptr, &tempo);
@@ -212,11 +216,14 @@ static int readNote(FILE* fptr, Note* note) {
 static int readTrack(FILE* fptr, Track track, uint8_t* col) {
     int ret=0;
 
-    uint8_t titleLength=0;
+    uint8_t titleLength=0, maxTitleLength=trackGetMaxTitleLength();
     ret += readUint8(fptr, &titleLength);
+
+    if (ret || (uint16_t)titleLength>maxTitleLength) return 1;
 
     char* title = malloc((titleLength+1)*sizeof(char));
     ret += readString(fptr, title, titleLength);
+    if (!isStringValidForTitle(title, maxTitleLength)) return 1;
 
     uint32_t u32volume=0, u32panning=0;
     float fvolume=0, fpanning=0;
