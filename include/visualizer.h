@@ -2,6 +2,10 @@
 #define VISUALIZER_H
 #include <stdint.h>
 
+
+
+/* FFT  (modules/backend/fft.c) */
+
 typedef struct fft_data* FFTheader;
 
 
@@ -27,6 +31,16 @@ void recordExportAudioSilence(int samples);
 float* FFTexportGetIntensityBuffer(int* num);
 void FFTexportZeroOutBuffers();
 void FFTexportUpdate(float* maxIntensity);
+
+
+
+/* Visualizer  (interface/render/visualizer.c) */
+
+void visualizationRenderSimInit();
+void visualizationRenderSimClose();
+void visualizationRenderSimPrecomputeValues(float maxIntensity);
+void visualizationRenderSimRender();
+Image visualizationSimGetImage();
 
 
 #endif

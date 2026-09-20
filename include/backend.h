@@ -111,6 +111,7 @@ void tracksUpdateAllValues();
 enum app_render_type {
     ART_REGULAR,
     ART_VISUALIZER,
+    ART_VERTICAL_TILES,
     ART_NONE
 };
 

@@ -532,7 +532,7 @@ void globalHandlerSetVisibleMouseJumps(uint32_t mouseJumps) {
 
 void globalHandlerSetRenderType(enum app_render_type type) {
     if (!globalStateHandler) return;
-    if (type==ART_REGULAR || type==ART_VISUALIZER) {
+    if (type==ART_REGULAR || type==ART_VISUALIZER || type==ART_VERTICAL_TILES) {
         globalStateHandler->renderType = type;
     }
 }

@@ -18,14 +18,14 @@
 
 
 float controlLineHeight=0, buttonList4x5ExampleSpacing=0, buttonListTSExampleSpacing=0;
-Rectangle buttonList4x5ExampleRect={0,0,0,0}, buttonList1x4ExampleRect={0,0,0,0}, buttonList1x6ExampleRect={0,0,0,0}, buttonList4x4ExampleRect={0,0,0,0}, buttonList2x4ExampleRect={0,0,0,0};
+Rectangle buttonList4x5ExampleRect={0,0,0,0}, buttonList1x4ExampleRect={0,0,0,0}, buttonList1x6ExampleRect={0,0,0,0}, buttonList4x4ExampleRect={0,0,0,0}, buttonList2x4ExampleRect={0,0,0,0}, buttonList4x2ExampleRect={0,0,0,0};
 
 Button openFileButton = NULL;
-ButtonList layoutButton = NULL, tsignNumBList=NULL, tsignDenBList=NULL, projectLayout=NULL, exportLayout=NULL;
+ButtonList layoutButton = NULL, tsignNumBList=NULL, tsignDenBList=NULL, projectLayout=NULL, exportLayout=NULL, viewLayout=NULL;
 Textbox projectTitleTextbox=NULL, tempoTextbox=NULL;
 Button previousButton=NULL, playPauseButton=NULL, nextButton=NULL, loopButton=NULL, tsignatureNumButton=NULL, tsignatureDenButton=NULL;
 Rectangle timeRect={0,0,0,0};
-
+static float baseLayoutRoundness=0.18;
 
 
 
@@ -123,6 +123,16 @@ void createExportLayout() {
     buttonListAttachChildLayout(layoutButton, &exportLayout);
 }
 
+void createViewLayout() {
+    printf("`createViewLayout`: entered\n");
+    if (!viewLayout) {
+        Rectangle rect = buttonListGetRect(layoutButton);
+        buttonList4x2ExampleRect.x = rect.x+rect.width+interfaceSpace1;
+        viewLayout = buttonListCreate(buttonList4x2ExampleRect, 2, 0.18, buttonList4x5ExampleSpacing, 1);
+    }
+    buttonListAttachChildLayout(layoutButton, &viewLayout);
+    printf("`createViewLayout`: left\n");
+}
 
 void renderProjectTextbox() {
     int isFocused = isTextboxFocused(projectTitleTextbox);
@@ -386,7 +396,7 @@ void updateControlLineButtons() {
 
 void createBaseLayout() {
     if (layoutButton) buttonListFree(layoutButton, 1);
-    layoutButton = buttonListCreate(buttonList4x5ExampleRect, 5, 0.18, buttonList4x5ExampleSpacing, 1);
+    layoutButton = buttonListCreate(buttonList4x5ExampleRect, 5, baseLayoutRoundness, buttonList4x5ExampleSpacing, 1);
     if (!layoutButton) return;
     int btns = buttonListGetNum(layoutButton);
     for (int i=0; i<btns; i++) {
@@ -410,12 +420,21 @@ void destroyExportLayout() {
     exportLayout = NULL;
 }
 
+void destroyViewLayout() {
+    if (viewLayout) {
+        if (layoutButton && buttonListGetAttachedChild(layoutButton)==&viewLayout) buttonListAttachChildLayout(layoutButton, NULL);
+        buttonListFree(viewLayout, 1);
+    }
+    viewLayout = NULL;
+}
+
 void destroyBaseLayout() {
     if (layoutButton) buttonListFree(layoutButton, 1);
     layoutButton = NULL;
 
     destroyProjectLayout();
     destroyExportLayout();
+    destroyViewLayout();
 }
 
 
@@ -439,7 +458,7 @@ void updateBaseLayout() {
 
         buttonListUpdateRect(projectLayout, buttonList4x4ExampleRect);
         buttonListUpdateSpacing(projectLayout, buttonList4x5ExampleSpacing);
-
+        buttonListUpdateRoundness(projectLayout, getRoundnessForRoundedRectangleTransformation(buttonList4x5ExampleRect, buttonList4x4ExampleRect, baseLayoutRoundness, 0));
         buttonListUpdateJustList(projectLayout);
         char allowed[] = {1,1,(char)(projectHasSavedFilepath() && projectHasUnsavedChanges()),1};
         char effects[] = {-1,-1,-1,-1};
@@ -448,12 +467,30 @@ void updateBaseLayout() {
         if (buttonListShouldDelete(projectLayout)) destroyProjectLayout();
     }
 
+    if (viewLayout) {
+        buttonList4x2ExampleRect.y = buttonList4x5ExampleRect.y+0.4*buttonList4x5ExampleRect.height;
+        buttonList4x2ExampleRect.x = buttonList4x5ExampleRect.x+buttonList4x5ExampleRect.width+interfaceSpace1;
+
+        buttonListUpdateRect(viewLayout, buttonList4x2ExampleRect);
+        buttonListUpdateSpacing(viewLayout, buttonList4x5ExampleSpacing);
+        buttonListUpdateRoundness(viewLayout, getRoundnessForRoundedRectangleTransformation(buttonList4x5ExampleRect, buttonList4x2ExampleRect, baseLayoutRoundness, 0));
+        buttonListUpdateJustList(viewLayout);
+
+        char allowed[] = {1,1};
+        char effects[] = {-1,-1};
+
+        buttonListUpdateButtonsEnDisabled(viewLayout, 2, allowed, effects);
+
+        if (buttonListShouldDelete(viewLayout)) destroyViewLayout();
+    }
+
     if (exportLayout) {
         buttonList2x4ExampleRect.y = buttonList4x5ExampleRect.y+buttonList4x5ExampleRect.height-buttonList2x4ExampleRect.height;
         buttonList2x4ExampleRect.x = buttonList4x5ExampleRect.x+buttonList4x5ExampleRect.width+interfaceSpace1;
 
         buttonListUpdateRect(exportLayout, buttonList2x4ExampleRect);
         buttonListUpdateSpacing(exportLayout, buttonList4x5ExampleSpacing);
+        buttonListUpdateRoundness(exportLayout, getRoundnessForRoundedRectangleTransformation(buttonList4x5ExampleRect, buttonList2x4ExampleRect, baseLayoutRoundness, 0));
         buttonListUpdateJustList(exportLayout);
 
         char allowed[] = {1,1,1,1};
@@ -473,7 +510,7 @@ void updateBaseLayout() {
         buttonListUpdateJustList(layoutButton);
 
         char allowed[] = {1,1,1,1,1};
-        char effects[] = {(selected==&projectLayout)?1:-1,-1,-1,-1,(selected==&exportLayout)?1:-1};
+        char effects[] = {(selected==&projectLayout)?1:-1,-1,(selected==&viewLayout)?1:-1,-1,(selected==&exportLayout)?1:-1};
 
         buttonListUpdateButtonsEnDisabled(layoutButton, 5, allowed, effects);
 
@@ -696,6 +733,12 @@ static void _openVisualizer() {
     destroyBaseLayout();
 }
 
+static void _openVerticalTiles() {
+    verticalTilesInit();
+    globalHandlerSetRenderType(ART_VERTICAL_TILES);
+    destroyBaseLayout();
+}
+
 void deferNewProject() {
     globalHandlerPause();
     synthPanic();
@@ -718,7 +761,7 @@ void renderBaseLayout() {
     DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
     DrawRectangleRounded(brect, roundness, 8, col1);
     const char* texts[] = {"Project", "Edit", "View", "Settings", "Export"};
-    OnClickFunc actions[] = {createProjectLayout, NULL, _openVisualizer, NULL, createExportLayout};
+    OnClickFunc actions[] = {createProjectLayout, NULL, createViewLayout, NULL, createExportLayout};
     int num = buttonListGetNum(layoutButton);
     for (int i=0; i<num; i++) {
         Button btn = buttonListGetButtonAt(layoutButton, i);
@@ -742,6 +785,23 @@ void renderBaseLayout() {
         for (int i=0; i<num; i++) {
             Button btn = buttonListGetButtonAt(projectLayout, i);
             renderBaseLayoutButton(btn, texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.11, T_ICON_END);
+            if (actions[i] && isButtonClicked(btn)) actionDefer(actions[i]);
+        }
+        DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);
+    }
+
+    if (viewLayout) {
+        Rectangle brect = buttonListGetRect(viewLayout);
+        Color col1 = {20, 21, 23, 255};
+        float roundness = buttonListGetRoundness(viewLayout);
+        DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
+        DrawRectangleRounded(brect, roundness, 8, col1);
+        const char* texts[] = {"Visualizer", "Tiles"};
+        OnClickFunc actions[] = {_openVisualizer, _openVerticalTiles};
+        int num = buttonListGetNum(viewLayout);
+        for (int i=0; i<num; i++) {
+            Button btn = buttonListGetButtonAt(viewLayout, i);
+            renderBaseLayoutButton(btn, texts[i], (Vector2){0, 0.5}, (Vector2){10, 0}, brect.height*0.22, T_ICON_END);
             if (actions[i] && isButtonClicked(btn)) actionDefer(actions[i]);
         }
         DrawRectangleRoundedLinesEx(brect, roundness, 8, 2, COLOR_PALETTE_1_BACKGROUND_3);
@@ -826,6 +886,7 @@ void order1PrecomputeControlLine() {
 
     buttonList4x4ExampleRect = (Rectangle){0, 0, floatMax(2.1*lineHeight, 120), buttonList4x5ExampleRect.height*0.8};
     buttonList2x4ExampleRect = (Rectangle){0, 0, floatMax(1.3*lineHeight, 60), buttonList4x5ExampleRect.height*0.8};
+    buttonList4x2ExampleRect = (Rectangle){0, 0, floatMax(2.1*lineHeight, 120), buttonList4x5ExampleRect.height*0.4};
 
     if (globalHandlerGetRenderType()!=ART_REGULAR) return;
 

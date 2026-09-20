@@ -189,6 +189,12 @@ void renderVisualizer();
 
 
 
+/* Vertical Tiles (interface/render/verticalTiles.c) */
+
+void verticalTilesInit();
+void verticalTilesClose();
+void order2precomputeVerticalTiles();
+void renderVerticalTiles();
 
 
 /* Colors (here) */

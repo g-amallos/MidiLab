@@ -144,7 +144,7 @@ void customizeNewTrackUI(TrackUI tr, int idx) {
     tr->theme = trackThemeColors[tr->themeIdx];
     tr->icon = T_ICON_PIANO;
     tr->textbox = textboxCreate(rect, 0.3, T_IN_STRING, (int)trackGetMaxTitleLength());
-    tr->optionsButton = buttonCreate(rect, 0.2);
+    tr->optionsButton = buttonCreate(rect, 0.5);
     tr->btnList = NULL;
     tr->slider = sliderCreate(rect, 1);
     sliderUpdateCursorOnHover(tr->slider, MOUSE_CURSOR_RESIZE_EW);

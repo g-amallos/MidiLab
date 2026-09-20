@@ -30,11 +30,6 @@ typedef struct {
 
 
 static volatile VideoExportState videoExportState = {.videoExportLaunched=0, .audioExportFinished=0, .wave={0}, .sampleRate=0, .fps=VIDEO_FPS, .totalFrames=0, .currentFrame=0, .timestamp=0, .filepath=NULL, .ffmpeg=0};
-void visualizationRenderSimInit();                                      // visualizer.c
-void visualizationRenderSimClose();                                     // visualizer.c
-void visualizationRenderSimPrecomputeValues(float maxIntensity);        // visualizer.c
-void visualizationRenderSimRender();                                    // visualizer.c
-Image visualizationSimGetImage();                                       // visualizer.c
 
 
 //static int _isFFmpegAvailable() {
