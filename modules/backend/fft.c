@@ -13,14 +13,15 @@
 
 
 static volatile float wavBuffer[SAMPLES_WINDOW_SIZE]={0};
-static FFTheader fft = NULL;
+static FFTheader fft=NULL, fftExport=NULL;
+static float* wavBufferExport=NULL;
 
 
 
 void recordAudioFrames(float* buffer, int samples) {
     int startingFrameIdx=0;
 
-    if (samples>SAMPLES_WINDOW_SIZE) {
+    if (samples>=SAMPLES_WINDOW_SIZE) {
         startingFrameIdx=samples-SAMPLES_WINDOW_SIZE;
         samples = SAMPLES_WINDOW_SIZE;
 
@@ -37,6 +38,59 @@ void recordAudioFrames(float* buffer, int samples) {
     }
 }
 
+void recordExportAudioFramesInt16(int16_t* buffer, int samples) {
+    if (!wavBufferExport) return;
+    int startingFrameIdx=0;
+
+    if (samples>=SAMPLES_WINDOW_SIZE) {
+        startingFrameIdx=samples-SAMPLES_WINDOW_SIZE;
+        samples = SAMPLES_WINDOW_SIZE;
+
+        for (int i=0; i<samples; i++) {
+            int idx = ((startingFrameIdx+i)<<1);
+            ((float*)wavBufferExport)[i] = 0.000015258789*buffer[idx]+0.000015258789*buffer[idx+1];
+        }
+    } else {
+        int d = SAMPLES_WINDOW_SIZE-samples;
+        memmove(((float*)wavBufferExport), ((float*)wavBufferExport)+samples, d*sizeof(float));
+        for (int i=0; i<samples; i++) {
+            ((float*)wavBufferExport)[i+d] = 0.000015258789*buffer[i<<1]+0.000015258789*buffer[1+(i<<1)];
+        }
+    }
+}
+
+void recordExportAudioFramesFloat(float* buffer, int samples) {
+    if (!wavBufferExport) return;
+    int startingFrameIdx=0;
+
+    if (samples>=SAMPLES_WINDOW_SIZE) {
+        startingFrameIdx=samples-SAMPLES_WINDOW_SIZE;
+        samples = SAMPLES_WINDOW_SIZE;
+
+        for (int i=0; i<samples; i++) {
+            int idx = ((startingFrameIdx+i)<<1);
+            ((float*)wavBufferExport)[i] = 0.5*(buffer[idx]+buffer[idx+1]);
+        }
+    } else {
+        int d = SAMPLES_WINDOW_SIZE-samples;
+        memmove(((float*)wavBufferExport), ((float*)wavBufferExport)+samples, d*sizeof(float));
+        for (int i=0; i<samples; i++) {
+            ((float*)wavBufferExport)[i+d] = 0.5*(buffer[i<<1]+buffer[1+(i<<1)]);
+        }
+    }
+}
+
+void recordExportAudioSilence(int samples) {
+    if (!wavBufferExport) return;
+    if (samples>=SAMPLES_WINDOW_SIZE) {
+        memset(wavBufferExport, 0, SAMPLES_WINDOW_SIZE*sizeof(float));
+    } else {
+        int d = SAMPLES_WINDOW_SIZE-samples;
+        memmove(((float*)wavBufferExport), ((float*)wavBufferExport)+samples, d*sizeof(float));
+        memset((float*)wavBufferExport+d, 0, samples*sizeof(float));
+    }
+}
+
 
 int FFTinit() {
     if (fft) FFTcloseHeader(fft);
@@ -45,10 +99,34 @@ int FFTinit() {
     return 0;
 }
 
+int FFTexportInit() {
+    if (fftExport) FFTcloseHeader(fftExport);
+    fftExport = FFTcreateHeader();
+    if (!fftExport) return 1;
+
+    if (wavBufferExport) free(wavBufferExport);
+    wavBufferExport = malloc(SAMPLES_WINDOW_SIZE*sizeof(float));
+    if (!wavBufferExport) {
+        FFTcloseHeader(fftExport);
+        fftExport=NULL;
+        return 1;
+    }
+
+    return !fftExport;
+}
+
 int FFTclose() {
     if (fft) FFTcloseHeader(fft);
     fft = NULL;
 
+    return 0;
+}
+
+int FFTexportClose() {
+    if (fftExport) FFTcloseHeader(fftExport);
+    fftExport=NULL;
+    if (wavBufferExport) free(wavBufferExport);
+    wavBufferExport=NULL;
     return 0;
 }
 
@@ -138,17 +216,25 @@ static void _bitReverseCopy(uint32_t n, float* buffa, Complex* buffA) {
     }
 }
 
+static void _slideSmoothlyIntensityValues(FFTheader fft, float* maxIntensity) {
+    float maxInt = 0;
+    uint32_t N2 = fft->freqN;
+    for (uint32_t k=0; k<N2; k++) {
+        fft->smooth[k] += 0.2*(complexMagnitude(fft->intensity[k])-fft->smooth[k]);
+        if (fft->smooth[k]>maxInt) maxInt=fft->smooth[k];
+    }
+    if (maxIntensity) *maxIntensity = maxInt;
+}
+
 // https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms
-void _wikipediaAlgorithm(FFTheader fft, float* maxIntensity) {
+void _wikipediaAlgorithm(FFTheader fft, float* samples) {
     if (!fft) return;
 
-    volatile float* a = wavBuffer;
     Complex* A = fft->intensity;
     uint32_t N = fft->N;
-    uint32_t N2 = fft->freqN;
     uint32_t log2N = (uint32_t)log2(N);
 
-    _bitReverseCopy(N, (float*)a, A);
+    _bitReverseCopy(N, samples, A);
 
     for (uint32_t s=1; s<=log2N; s++) {
         uint32_t m = (1<<s);
@@ -168,18 +254,26 @@ void _wikipediaAlgorithm(FFTheader fft, float* maxIntensity) {
             }
         }
     }
+}
 
-    float maxInt = 0;
-    for (uint32_t k=0; k<N2; k++) {
-        fft->smooth[k] += 0.2*(complexMagnitude(fft->intensity[k])-fft->smooth[k]);
-        if (fft->smooth[k]>maxInt) maxInt=fft->smooth[k];
-    }
-    if (maxIntensity) *maxIntensity = maxInt;
+static void _FFTzeroOutBuffers(FFTheader fft) {
+    if (!fft) return;
+    uint32_t N2=fft->freqN, N=fft->N;
+    for (uint32_t k=0; k<N2; k++) fft->smooth[k] = 0;
+    for (uint32_t k=0; k<N; k++) fft->intensity[k] = (Complex){0,0};
 }
 
 
 void FFTupdate(float* maxIntensity) {
-    _wikipediaAlgorithm(fft, maxIntensity);
+    if (fft && !fftExport) _wikipediaAlgorithm(fft, (float*)wavBuffer);
+    else if (fft) _FFTzeroOutBuffers(fft);
+    _slideSmoothlyIntensityValues(fft, maxIntensity);
+}
+
+void FFTexportUpdate(float* maxIntensity) {
+    if (!fftExport) return;
+    _wikipediaAlgorithm(fftExport, wavBufferExport);
+    _slideSmoothlyIntensityValues(fftExport, maxIntensity);
 }
 
 float* FFTgetIntensityBufferForHeader(FFTheader fft, int* num) {
@@ -192,6 +286,10 @@ float* FFTgetIntensityBuffer(int* num) {
     return FFTgetIntensityBufferForHeader(fft, num);
 }
 
+float* FFTexportGetIntensityBuffer(int* num) {
+    return FFTgetIntensityBufferForHeader(fftExport, num);
+}
+
 int FFTgetBufferLength() {
     if (fft) return fft->freqN;
     else return SAMPLES_WINDOW_SIZE/2;
@@ -199,4 +297,12 @@ int FFTgetBufferLength() {
 
 float FFTgetDeltaFrequency() {
     return SAMPLE_RATE/(float)SAMPLES_WINDOW_SIZE;
+}
+
+void FFTzeroOutBuffers() {
+    _FFTzeroOutBuffers(fft);
+}
+
+void FFTexportZeroOutBuffers() {
+    _FFTzeroOutBuffers(fftExport);
 }

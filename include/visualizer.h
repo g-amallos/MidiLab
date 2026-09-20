@@ -1,6 +1,6 @@
 #ifndef VISUALIZER_H
 #define VISUALIZER_H
-
+#include <stdint.h>
 
 typedef struct fft_data* FFTheader;
 
@@ -16,5 +16,17 @@ float* FFTgetIntensityBufferForHeader(FFTheader fft, int* num);
 float* FFTgetIntensityBuffer(int* num);
 int FFTgetBufferLength();
 float FFTgetDeltaFrequency();
+void FFTzeroOutBuffers();
+
+
+int FFTexportInit();
+int FFTexportClose();
+void recordExportAudioFramesInt16(int16_t* buffer, int samples);
+void recordExportAudioFramesFloat(float* buffer, int samples);
+void recordExportAudioSilence(int samples);
+float* FFTexportGetIntensityBuffer(int* num);
+void FFTexportZeroOutBuffers();
+void FFTexportUpdate(float* maxIntensity);
+
 
 #endif

@@ -2,6 +2,12 @@ INCLUDE = include
 
 SRCS = $(shell find modules -name "*.c")
 #SRCS := $(filter-out modules/backend/export/midi.c,$(SRCS))
+ifeq ($(os), win)
+	SRCS := $(filter-out %linux.c,$(SRCS))
+else
+	SRCS := $(filter-out %win.c,$(SRCS))
+endif
+
 OBJS_RAW = $(SRCS:.c=.o)
 TARGET = midilab
 
@@ -80,7 +86,7 @@ endif
 clean:
 	rm -f *.o $(OBJS) $(TARGET) $(TARGET).exe resource.o
 	rm -rf bin
-	rm -f -- *.dll
+	rm -f -- *.dll *.so
 
 mostlyclean:
 	rm -f *.o $(OBJS) resource.o

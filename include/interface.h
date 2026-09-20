@@ -16,10 +16,10 @@ extern float interfaceSpace2;
 
 /* General (interface/general.c) */
 
-int renderInit();                   // Initialized the interface
-int renderClose();                  // Unloads from the memory anything related to (initialized from) the interface
-int updateRenderGlobalVariables();  // Update global values needed to other functions before rendering
-int render();                       // Runs the render iteration
+int renderInit();                                       // Initialized the interface
+int renderClose();                                      // Unloads from the memory anything related to (initialized from) the interface
+int updateRenderGlobalVariables(int userInputAllowed);  // Update global values needed to other functions before rendering
+int render();                                           // Runs the render iteration
 
 extern Vector2 screenSize;
 

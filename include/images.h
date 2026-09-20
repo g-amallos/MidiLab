@@ -48,6 +48,8 @@ enum icon_title {
     T_ICON_VIEW_NONE,
     T_ICON_VIEW_ROLL,
 
+    T_ICON_VIDEO,
+
     T_ICON_MIDILAB_LOGO_256,
     T_ICON_MIDILAB_LOGO_1024,
 

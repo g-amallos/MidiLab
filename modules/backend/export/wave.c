@@ -359,6 +359,7 @@ int exportProjectAsMP3ForExportAll(const char* filename, int totalJobs, int curr
 
     uint32_t samples = simulateAudioForMP3(fptr, 44100, 1.0/totalJobs, currentJob/(float)totalJobs);
 
+    fflush(fptr);
     fclose(fptr);
     return (samples==0);
 }

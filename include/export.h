@@ -22,4 +22,17 @@ uint32_t estimateFileSizeForProject();
 int exportProjectAsMidi(const char* filename);
 int exportTrackAsMidi(const char* filename, Track track);
 
+
+
+int isFFmpegAvailable();
+int exportVideoInit();
+
+int exportVideoThreadFunction(const char* filepath);
+void exportVideoBatchFrames(int frames);
+int exportVideoThreadShouldClose(float* percentage, int* currentFrame, int* totalFrames);
+double exportVideoSimulationGetTime();
+double exportVideoSimulationGetDuration();
+double exportVideoSimulationGetAudioDuration();
+
+
 #endif

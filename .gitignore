@@ -16,8 +16,11 @@ assets/archive/
 /libs/win/archive/
 /bin/
 /*.dll
+/*.so
 
 *.wav
 *.mp3
+*.mp4
+*.mov
 
 /experiments/fft/assets/test.txt
