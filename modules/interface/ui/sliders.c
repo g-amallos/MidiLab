@@ -31,6 +31,7 @@ Slider sliderCreate(Rectangle rect, float roundness) {
     sld->state.hovered = 0;
     sld->state.dragging = 0;
     sld->state.pressed = 0;
+    sld->state.released = 0;
     sld->state.effectTarget = 0;
     sld->state.disableHover = 0;
 
@@ -63,12 +64,13 @@ void sliderUpdate(Slider sld, int effectTarget) {
         sld->state.hovered = 0;
         sld->state.pressed = 0;
         sld->state.dragging = 0;
+        sld->state.released = 0;
         updateSliderEffect(sld);
         return;
     }
     sld->state.hovered = (!(sld->state.disableHover)) && (!(sld->disabledByFrontLayout && UIexistsFrontLayoutOverlay())) && (!(sld->canBeShadowedByLayout && UIisHoveringOverLayout()) && checkCollisionPointRoundedRect(globalMouseHandler.pos, sld->rect, sld->roundness));
     
-
+    sld->state.released = 0;
     if (globalMouseHandler.pressed) {
         if (sld->state.hovered) {
             sld->state.pressed = 1;
@@ -80,6 +82,7 @@ void sliderUpdate(Slider sld, int effectTarget) {
     } else sld->state.pressed = 0;
     
     if (globalMouseHandler.released || !globalMouseHandler.down) {
+        sld->state.released = sld->state.dragging;
         sld->state.dragging = 0;
     }
 
@@ -97,6 +100,7 @@ void sliderDisable(Slider sld) {
     sld->state.hovered = 0;
     sld->state.dragging = 0;
     sld->state.pressed = 0;
+    sld->state.released = 0;
     sld->state.effectTarget = 0;
 }
 
@@ -179,6 +183,11 @@ int isSliderHovered(Slider sld) {
 int isSliderDragged(Slider sld) {
     if (!sld) return 0;
     return sld->state.dragging;
+}
+
+int isSliderReleased(Slider sld) {
+    if (!sld) return 0;
+    return sld->state.released;
 }
 
 float sliderGetEffectValue(Slider sld) {

@@ -61,11 +61,21 @@ uint32_t uint32Max(uint32_t a, uint32_t b) {
     return (a>b)?a:b;
 }
 
+int intMin(int a, int b) {
+    return (a<b)?a:b;
+}
+
 int intMax(int a, int b) {
     return (a>b)?a:b;
 }
 
 float floatClip(float val, float min, float max) {
+    if (val>max) return max;
+    if (val<min) return min;
+    return val;
+}
+
+double doubleClip(double val, double min, double max) {
     if (val>max) return max;
     if (val<min) return min;
     return val;

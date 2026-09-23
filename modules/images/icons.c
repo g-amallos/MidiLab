@@ -12,6 +12,7 @@ struct texture {
 
 struct texture icons[T_ICON_END] = {
     [T_ICON_MENU] = {.path="assets/icons/menu.png", .texture={0}},
+    [T_ICON_LEFT] = {.path="assets/icons/left.png", .texture={0}},
     [T_ICON_RIGHT] = {.path="assets/icons/right.png", .texture={0}},
     [T_ICON_SETTINGS] = {.path="assets/icons/settings.png", .texture={0}},
     [T_ICON_EDIT] = {.path="assets/icons/edit.png", .texture={0}},

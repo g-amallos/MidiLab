@@ -527,7 +527,7 @@ static float _getTextSizeToFitInRect(Rectangle rect, float defaultSize, const ch
 
 static void _renderVisualizerDecorations() {
     DrawRectangleRounded(renderTypeRect, getRoundnessForRoundedRectangle(renderTypeRect, visualizerRectRadius), 4, visualizerBackgroundColor);
-    const char* text = "FFT Spectum Visualizer";
+    const char* text = "FFT Spectrum Visualizer";
     float textSize = 0.04*floatMin(screenSize.x, screenSize.y);
     float finalSize = _getTextSizeToFitInRect(renderTypeRect, textSize, text, interfaceSpace2);
     renderFontStringAlign(GlobalFonts[0].font, text, getRectangleCenter(renderTypeRect), (Vector2){0.5, 0.5}, finalSize, 0, COLOR_TEXT_1);
@@ -795,7 +795,7 @@ static void _expRenderVisualizerControl() {
 
 static void _expRrenderVisualizerDecorations() {
     DrawRectangleRounded(expRenderTypeRect, getRoundnessForRoundedRectangle(expRenderTypeRect, expVisualizerRectRadius), 8, visualizerBackgroundColor);
-    const char* text = "FFT Spectum Visualizer";
+    const char* text = "FFT Spectrum Visualizer";
     float finalSize = _getTextSizeToFitInRect(expRenderTypeRect, expTextSize, text, expInterfaceSpace2);
     renderFontStringAlign(GlobalFonts[0].font, text, getRectangleCenter(expRenderTypeRect), (Vector2){0.5, 0.5}, finalSize, 0, COLOR_TEXT_1);
 }

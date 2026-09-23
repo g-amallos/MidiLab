@@ -296,6 +296,15 @@ Color getTrackThemeColorForBlackKeys() {
     return blendColors(theme, (Color){0,0,0,255}, 0.35);
 }
 
+Color getAnyTrackThemeColorForWhiteKeys(int i) {
+    return getTrackThemeColor(i);
+}
+
+Color getAnyTrackThemeColorForBlackKeys(int i) {
+    Color theme = getTrackThemeColor(i);
+    return blendColors(theme, (Color){0,0,0,255}, 0.35);
+}
+
 static void scrollToShowSelectedTrack() {
     int totalTracks = projectGetTracksNum();
     float totalHeight = totalTracks*trackHeight+10;

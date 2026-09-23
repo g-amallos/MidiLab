@@ -5,6 +5,7 @@
 
 enum icon_title {
     T_ICON_MENU,
+    T_ICON_LEFT,
     T_ICON_RIGHT,
     T_ICON_SETTINGS,
     T_ICON_EDIT,

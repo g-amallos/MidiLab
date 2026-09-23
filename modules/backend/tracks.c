@@ -485,11 +485,28 @@ void trackSortNotes(Track track) {
     qsort(track->notes, items, sizeof(Note), trackNoteCompare);
 }
 
+void sortNoteBuffer(Note* buffer, uint64_t size) {
+    if (!buffer || !size) return;
+    qsort(buffer, size, sizeof(Note), trackNoteCompare);
+}
 
-void trackUpdateNotesFfields(Track track, uint16_t tempo) {
-    if (!track || tempo<30 || tempo>2000) return;
+void trackUpdateNotesFfields(Track track) {
+    if (!track) return;
 
 
+}
+
+void trackUpdateAllNoteData(Track track) {
+    if (!track || !(globalProject) || !(track->notes) || !(track->numElements)) return;
+
+    uint8_t trackIdx = track-globalProject->tracks;
+    uint32_t n=track->numElements;
+    for (uint32_t i=0; i<n; i++) {
+        Note nt = (track->notes)[i];
+        nt->track = trackIdx;
+        nt->ftimestamp = globalHandlerTimestampToSeconds(nt->timestamp);
+        nt->fduration = globalHandlerTimestampToSeconds(nt->duration);
+    }
 }
 
 uint32_t trackPiecesInBeat() {

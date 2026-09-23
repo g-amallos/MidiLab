@@ -145,6 +145,7 @@ int isSliderDisabled(Slider sld);
 int isSliderClicked(Slider sld);
 int isSliderHovered(Slider sld);
 int isSliderDragged(Slider sld);
+int isSliderReleased(Slider sld);
 float sliderGetEffectValue(Slider sld);
 void sliderSetEffectTarget(Slider sld, int tar);
 float sliderGetSlideValue(Slider sld);

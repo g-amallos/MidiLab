@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <handler.h>
 #include <utils.h>
+#include <string.h>
 
 
 void updateCLTextboxes();                               // modules/interface/render/controlLine.c
@@ -252,8 +253,119 @@ struct duration_data projectGetDuration() {
     uint32_t maxDur=0;
     uint16_t n=globalProject->tracksNum;
     for (uint16_t i=0; i<n; i++) {
-        uint32_t td = trackGetTimestampEnd(globalProject->tracks+i);
+        Track track = globalProject->tracks+i;
+        trackRecalculateValues(track);
+        uint32_t td = trackGetTimestampEnd(track);
         if (td>maxDur) maxDur=td;
     }
     return (struct duration_data){.timestamp=maxDur, .time=globalHandlerTimestampToSeconds(maxDur)};
+}
+
+struct tiles_info projectGetTilesInfo(int showDrums) {
+    struct tiles_info info = {.minKey=127, .maxKey=0, .minShownKey=127, .maxShownKey=0, .keys=0, .shownKeys=0, .tracks=0, .notes=0, .duration=0};
+    int minKey=127, maxKey=0;
+
+    if (globalProject && (globalProject->tracksNum) && (globalProject->tracks)) {
+        uint32_t maxDur=0;
+        uint16_t n=globalProject->tracksNum;
+        for (uint16_t i=0; i<n; i++) {
+            Track track = globalProject->tracks+i;
+            uint32_t notes = trackGetNumOfNotes(track);
+            int program = trackGetProgram(track);
+
+            if (!notes || (!showDrums && program>127)) continue;
+
+            info.tracks++;
+            info.notes += notes;
+            trackRecalculateValues(track);
+            uint32_t td = trackGetTimestampEnd(track);
+            if (td>maxDur) maxDur=td;
+            uint8_t mink = trackGetMinKey(track);
+            if (mink<minKey) minKey=mink;
+            uint8_t maxk = trackGetMaxKey(track);
+            if (maxk>maxKey) maxKey=maxk;
+        }
+        info.duration = globalHandlerTimestampToSeconds(maxDur);
+    }
+
+
+    info.minKey = minKey;
+    info.maxKey = maxKey;
+    info.keys = 1+maxKey-minKey;
+
+    if (minKey>maxKey) {
+        minKey=60, maxKey=64;
+    }
+    while (maxKey-minKey<18) {
+        if (minKey>0) minKey--;
+        if (maxKey<127) maxKey++;
+    }
+
+    while (1) {
+        uint8_t t=minKey%12;
+        if (minKey<0) minKey=0;
+        if (t==5 || t==0) break;
+        minKey--;
+    }
+    while (1) {
+        uint8_t t=maxKey%12;
+        if (maxKey>127) minKey=131;
+        if (t==11 || t==4) break;
+        maxKey++;
+    }
+
+
+    info.minShownKey = minKey;
+    info.maxShownKey = maxKey;
+    info.shownKeys = 1+maxKey-minKey;
+
+    
+    return info;
+}
+
+
+struct note_array projectGetNoteArray(int showDrums) {
+    struct note_array ret={0,NULL};
+    if (!globalProject || !(globalProject->tracksNum) || !(globalProject->tracks)) return ret;
+
+    uint64_t size=0;
+    uint16_t n=globalProject->tracksNum;
+    for (uint16_t i=0; i<n; i++) {
+        Track track = globalProject->tracks+i;
+        uint32_t notes = trackGetNumOfNotes(track);
+        int program = trackGetProgram(track);
+
+        if (!notes || (!showDrums && program>127)) continue;
+
+        size += notes;
+        trackRecalculateValues(track);
+    }
+    if (!size) return ret;
+
+    Note* buffer = malloc(sizeof(Note)*size);
+    if (!buffer) return ret;
+    ret.notes = buffer;
+    ret.size = size;
+
+    uint64_t startingIdx=0;
+    for (uint16_t i=0; i<n; i++) {
+        Track track = globalProject->tracks+i;
+        uint32_t notes = trackGetNumOfNotes(track);
+        int program = trackGetProgram(track);
+
+        if (!notes || (!showDrums && program>127)) continue;
+
+        trackUpdateAllNoteData(track);
+        Note* arr = trackGetNotes(track);
+
+        memmove(buffer+startingIdx, arr, notes*sizeof(Note));
+        startingIdx += notes;
+    }
+
+    sortNoteBuffer(buffer, size);
+    return ret;
+}
+
+void projectFreeNoteArray(struct note_array noteArray) {
+    if (noteArray.notes) free(noteArray.notes);
 }

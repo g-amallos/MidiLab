@@ -20,6 +20,19 @@ struct time_signature {
 };
 
 
+struct tiles_info {
+    uint8_t minKey;
+    uint8_t maxKey;
+    uint8_t minShownKey;
+    uint8_t maxShownKey;
+    uint16_t keys;
+    uint16_t shownKeys; 
+    
+    uint32_t tracks;
+    uint32_t notes;
+    double duration;
+};
+
 
 /* General (backend/general.c) */
 
@@ -34,6 +47,10 @@ struct duration_data {
     double time;
 };
 
+struct note_array {
+    uint64_t size;
+    Note* notes;
+};
 
 extern ProjectData globalProject;               // The reference the whole program will use for the project
 
@@ -56,6 +73,9 @@ int projectIsPracticallyEmpty();
 int projectCanSafelyReplaceContents();
 int projectClose();
 struct duration_data projectGetDuration();
+struct tiles_info projectGetTilesInfo(int showDrums);
+struct note_array projectGetNoteArray(int showDrums);
+void projectFreeNoteArray(struct note_array noteArray);
 
 
 /* Track (backend/tracks.c) */
@@ -104,6 +124,7 @@ int trackGetMinKey(Track track);
 int trackGetMaxKey(Track track);
 uint32_t trackGetTimestampEnd(Track track);
 void tracksUpdateAllValues();
+void trackUpdateAllNoteData(Track track);
 
 
 /* Handler (backend/stateHandler.c) */

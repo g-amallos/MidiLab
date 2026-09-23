@@ -113,6 +113,8 @@ Color getTrackThemeColor(int i);
 Color getSelectedTrackThemeColor();
 Color getTrackThemeColorForWhiteKeys();
 Color getTrackThemeColorForBlackKeys();
+Color getAnyTrackThemeColorForWhiteKeys(int i);
+Color getAnyTrackThemeColorForBlackKeys(int i);
 void renderTracksLeft();
 void order1PrecomputeTracksLeft();
 void order2PrecomputeTracksLeft();
