@@ -27,7 +27,8 @@ int exportTrackAsMidi(const char* filename, Track track);
 int isFFmpegAvailable();
 int exportVideoInit();
 
-int exportVideoThreadFunction(const char* filepath);
+int exportVideoFFTThreadFunction(const char* filepath);
+int exportVideoWaterfallThreadFunction(const char* filepath);
 void exportVideoBatchFrames(int frames);
 int exportVideoThreadShouldClose(float* percentage, int* currentFrame, int* totalFrames);
 double exportVideoSimulationGetTime();

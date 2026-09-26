@@ -5,6 +5,7 @@
 #include <visualizer.h>
 #include <ffmpeg.h>
 #include <string.h>
+#include <waterfall.h>
 
 
 static int ffmpegAvailable = 0;
@@ -13,9 +14,14 @@ static int ffmpegAvailable = 0;
 #define VIDEO_HEIGHT 1080
 #define VIDEO_FPS 60
 
+enum video_type {
+    VIDEO_FFT_VISUALIZATION,
+    VIDEO_TILES_WATERFALL
+};
 
 
 typedef struct {
+    volatile enum video_type type;
     volatile int videoExportLaunched;
     volatile int audioExportFinished;
     volatile Wave wave;
@@ -29,7 +35,7 @@ typedef struct {
 } VideoExportState;
 
 
-static volatile VideoExportState videoExportState = {.videoExportLaunched=0, .audioExportFinished=0, .wave={0}, .sampleRate=0, .fps=VIDEO_FPS, .totalFrames=0, .currentFrame=0, .timestamp=0, .filepath=NULL, .ffmpeg=0};
+static volatile VideoExportState videoExportState = {.type=VIDEO_FFT_VISUALIZATION, .videoExportLaunched=0, .audioExportFinished=0, .wave={0}, .sampleRate=0, .fps=VIDEO_FPS, .totalFrames=0, .currentFrame=0, .timestamp=0, .filepath=NULL, .ffmpeg=0};
 
 
 //static int _isFFmpegAvailable() {
@@ -68,7 +74,7 @@ int exportVideoInit() {
 
 
 
-static int _generateRuntimeAudioFile() {
+static int _generateRuntimeAudioFileForFFT() {
     const char* dir = "runtime/";
     if (!DirectoryExists(dir) && MakeDirectory(dir)) return 1;
     if (FileExists("runtime/audio.mp3")) FileRemove("runtime/audio.mp3");
@@ -76,9 +82,20 @@ static int _generateRuntimeAudioFile() {
     return ret;
 }
 
+static int _generateRuntimeAudioFileForWaterfall() {
+    const char* dir = "runtime/";
+    if (!DirectoryExists(dir) && MakeDirectory(dir)) return 1;
+    if (FileExists("runtime/audio.mp3")) FileRemove("runtime/audio.mp3");
+    double startDelay=0, endDelay=0;
+    tilesSettingsGetDelays(&startDelay, &endDelay);
+    int ret = exportProjectAsMP3Extra("runtime/audio.mp3", startDelay, endDelay, 1, 0);
+    return ret;
+}
 
-static void _exportVideoStateInit(const char* filepath) {
+
+static void _exportVideoStateInit(const char* filepath, enum video_type type) {
     videoExportState.videoExportLaunched = 1;
+    videoExportState.type = type;
     videoExportState.audioExportFinished = 0;
     videoExportState.wave = (Wave){0,};
     videoExportState.sampleRate = 0;
@@ -149,18 +166,20 @@ static int _exportVideoStateWaveFinishedFromMainThread(int resetOnError) {
     videoExportState.totalFrames = videoExportState.fps*(1+videoExportState.wave.frameCount/(double)(videoExportState.wave.sampleRate));
     videoExportState.currentFrame = 0;
     videoExportState.timestamp = 0;
-    if (FFTexportInit()) {
-        _exportVideoStateCloseThreadUnsafe();
-        return 1;
+    if (videoExportState.type==VIDEO_FFT_VISUALIZATION) {
+        if (FFTexportInit()) {
+            _exportVideoStateCloseThreadUnsafe();
+            return 1;
+        }
+        FFTexportZeroOutBuffers();
     }
-    FFTexportZeroOutBuffers();
     return 0;
 }
 
-int exportVideoThreadFunction(const char* filepath) {
+int exportVideoFFTThreadFunction(const char* filepath) {
     if (!filepath) return 1;
-    _exportVideoStateInit(filepath);
-    int ret = _generateRuntimeAudioFile();
+    _exportVideoStateInit(filepath, VIDEO_FFT_VISUALIZATION);
+    int ret = _generateRuntimeAudioFileForFFT();
     if (ret) {
         _exportVideoStateCloseThreadSafe();
         return ret;
@@ -169,31 +188,45 @@ int exportVideoThreadFunction(const char* filepath) {
     return ret;
 }
 
-/*
-ARCHIVE
-int exportVideoCanRenderFrames() {
-    if (videoExportState.videoExportLaunched!=1 || videoExportState.audioExportFinished!=1) return 0;
-    if (videoExportState.currentFrame>=videoExportState.totalFrames) {
-        if (videoExportState.ffmpeg) ffmpeg_end_rendering(videoExportState.ffmpeg);
+
+int exportVideoWaterfallThreadFunction(const char* filepath) {
+    if (!filepath) return 1;
+    _exportVideoStateInit(filepath, VIDEO_TILES_WATERFALL);
+    int ret = _generateRuntimeAudioFileForWaterfall();
+    if (ret) {
         _exportVideoStateCloseThreadSafe();
-        visualizationRenderSimClose();
-        SetTargetFPS(60);
-        return 0;
-    } else if (videoExportState.currentFrame==0) {
-        if (_exportVideoStateWaveFinishedFromMainThread(0)) return 0;
-        printf("`exportVideoCanRenderFrames()`: file exists: %d\n", FileExists("runtime/audio.mp3"));
-        if (FileExists("runtime/audio.mp3")) {
-            visualizationRenderSimInit();
-            videoExportState.ffmpeg = ffmpeg_start_rendering(VIDEO_WIDTH, VIDEO_HEIGHT, videoExportState.fps, "runtime/audio.mp3", (const char*)videoExportState.filepath);
-            SetTargetFPS(180);
-        } else return 0;
+        return ret;
     }
-
-    return 1;
+    ret += _exportVideoStateWaveFinished();    
+    return ret;
 }
-*/
 
 
+static void _mainThreadInitFFTVisualization() {
+    visualizationRenderSimInit();
+    videoExportState.ffmpeg = ffmpeg_start_rendering(VIDEO_WIDTH, VIDEO_HEIGHT, videoExportState.fps, "runtime/audio.mp3", (const char*)videoExportState.filepath);
+    SetTargetFPS(180);
+}
+
+static void _mainThreadCloseFFTVisualization() {
+    _exportVideoStateCloseThreadUnsafe();
+    visualizationRenderSimClose();
+    SetTargetFPS(60);
+}
+
+static void _mainThreadInitTilesWaterfall() {
+    verticalTilesVideoExportInit();
+    int width=0, height=0;
+    tilesSettingsGetResolution(&width, &height);
+    videoExportState.ffmpeg = ffmpeg_start_rendering(width, height, videoExportState.fps, "runtime/audio.mp3", (const char*)videoExportState.filepath);
+    SetTargetFPS(180);
+}
+
+static void _mainThreadCloseTilesWaterfall() {
+    _exportVideoStateCloseThreadUnsafe();
+    verticalTilesVideoExportClose();
+    SetTargetFPS(60);
+}
 
 int exportVideoCanRenderFrames() {
     if (videoExportState.videoExportLaunched!=1 || videoExportState.audioExportFinished!=1) return 0;
@@ -202,15 +235,16 @@ int exportVideoCanRenderFrames() {
             if (_exportVideoStateWaveFinishedFromMainThread(0)) return 0;
             printf("`exportVideoCanRenderFrames()`: file exists: %d\n", FileExists("runtime/audio.mp3"));
             if (FileExists("runtime/audio.mp3")) {
-                visualizationRenderSimInit();
-                videoExportState.ffmpeg = ffmpeg_start_rendering(VIDEO_WIDTH, VIDEO_HEIGHT, videoExportState.fps, "runtime/audio.mp3", (const char*)videoExportState.filepath);
-                SetTargetFPS(180);
+                if (videoExportState.type==VIDEO_FFT_VISUALIZATION) _mainThreadInitFFTVisualization();
+                else if (videoExportState.type==VIDEO_TILES_WATERFALL) _mainThreadInitTilesWaterfall();
+
             } else return 0;
         } else if (videoExportState.currentFrame>=videoExportState.totalFrames) {
             if (videoExportState.ffmpeg) ffmpeg_end_rendering(videoExportState.ffmpeg);
-            _exportVideoStateCloseThreadUnsafe();
-            visualizationRenderSimClose();
-            SetTargetFPS(60);
+
+            if (videoExportState.type==VIDEO_FFT_VISUALIZATION) _mainThreadCloseFFTVisualization();
+            else if (videoExportState.type==VIDEO_TILES_WATERFALL) _mainThreadCloseTilesWaterfall();
+
             return 0;
         }
     }
@@ -246,15 +280,15 @@ double exportVideoSimulationGetAudioDuration() {
     return videoExportState.wave.frameCount/(double)(videoExportState.wave.sampleRate);
 }
 
-void exportVideoVisSimulationFrame() {
-    //printf("`exportVideoVisSimulationFrame`: entered\n");
+
+
+
+static void _renderFrameForFFTVisualization() {
     if (!videoExportState.wave.data) return;
 
     double dt=1.0/videoExportState.fps, time=videoExportState.timestamp;
     videoExportState.timestamp += dt;
-    uint32_t sampleRate=videoExportState.sampleRate;//currentFrame=videoExportState.currentFrame, totalFrames=videoExportState.totalFrames;
-
-    //printf("Rendering frame #%u / %u\n", currentFrame, totalFrames);
+    uint32_t sampleRate=videoExportState.sampleRate;
 
     double startT=time, endT=time+dt;
     uint32_t sampleTargetStart=(uint32_t)(startT*sampleRate), sampleTargetEnd=(uint32_t)(endT*sampleRate)-1;
@@ -278,7 +312,35 @@ void exportVideoVisSimulationFrame() {
     UnloadImage(img);
 
     (videoExportState.currentFrame)++;
-    //printf("`exportVideoVisSimulationFrame`: finished\n");
+}
+
+static void _renderFrameForTilesWaterfall() {
+    tilesVideoExportRenderFrame();
+
+    Image img = tilesGetImage();
+    ffmpeg_send_frame_flipped(videoExportState.ffmpeg, img.data, img.width, img.height);
+    UnloadImage(img);
+
+    (videoExportState.currentFrame)++;
+}
+
+
+void exportVideoRenderFrame() {
+    switch (videoExportState.type) {
+        case VIDEO_FFT_VISUALIZATION: {
+            _renderFrameForFFTVisualization();
+            break;
+        }
+
+        case VIDEO_TILES_WATERFALL: {
+            _renderFrameForTilesWaterfall();
+            break;
+        }
+
+        default:
+            break;
+    }
+    
 
 }
 
@@ -288,7 +350,7 @@ void exportVideoBatchFrames(int frames) {
     if (frames<=0 || videoExportState.videoExportLaunched!=1 || videoExportState.audioExportFinished!=1) return;
 
     for (int i=0; i<frames; i++) {
-        if (exportVideoCanRenderFrames()) exportVideoVisSimulationFrame();
+        if (exportVideoCanRenderFrames()) exportVideoRenderFrame();
         else break;
     }
 }

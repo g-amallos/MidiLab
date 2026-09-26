@@ -15,6 +15,7 @@
 #define COLOR_TEXT_3 (Color){ 200, 201, 204, 255 }
 #define COLOR_TEXT_4 (Color){ 130, 134, 140, 255 }
 #define COLOR_TEXT_5 (Color){ 50, 52, 56, 255 }
+#define COLOR_TEXT_6 (Color){ 40, 42, 45, 255 }
 
 
 #define COLOR_THEME_BLUE_LIGHT_1 (Color){ 59, 113, 163, 255 }

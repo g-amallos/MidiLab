@@ -488,6 +488,12 @@ void globalHandlerUpdateTick() {
     }
 }
 
+void globalHandlerPlayEventsInRange(double start, double end) {
+    uint32_t startTst=secondsToTimestamp(start), endTst=secondsToTimestamp(end);
+
+    registerMidiEventsToActionsFrom(startTst, endTst);
+}
+
 
 void globalHandlerMoveTimeDivAccordingToTimeLine(float startPadding, float endPadding) {
     struct backend_time_handler th = globalStateHandler->time;

@@ -124,14 +124,12 @@ void createExportLayout() {
 }
 
 void createViewLayout() {
-    printf("`createViewLayout`: entered\n");
     if (!viewLayout) {
         Rectangle rect = buttonListGetRect(layoutButton);
         buttonList4x2ExampleRect.x = rect.x+rect.width+interfaceSpace1;
         viewLayout = buttonListCreate(buttonList4x2ExampleRect, 2, 0.18, buttonList4x5ExampleSpacing, 1);
     }
     buttonListAttachChildLayout(layoutButton, &viewLayout);
-    printf("`createViewLayout`: left\n");
 }
 
 void renderProjectTextbox() {
@@ -734,6 +732,8 @@ static void _openVisualizer() {
 }
 
 static void _openVerticalTiles() {
+    globalHandlerPause();
+    synthPanic();
     verticalTilesInit();
     globalHandlerSetRenderType(ART_VERTICAL_TILES);
     destroyBaseLayout();
@@ -796,7 +796,7 @@ void renderBaseLayout() {
         float roundness = buttonListGetRoundness(viewLayout);
         DrawRectangleRoundedLinesEx(brect, roundness, 8, 8, (Color){2, 2, 2, 100});
         DrawRectangleRounded(brect, roundness, 8, col1);
-        const char* texts[] = {"Visualizer", "Tiles"};
+        const char* texts[] = {"Visualizer", "Waterfall"};
         OnClickFunc actions[] = {_openVisualizer, _openVerticalTiles};
         int num = buttonListGetNum(viewLayout);
         for (int i=0; i<num; i++) {

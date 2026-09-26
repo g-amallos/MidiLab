@@ -473,6 +473,9 @@ int trackNoteCompare(const void* a, const void* b) {
 
     if (na->timestamp>nb->timestamp) return 1;
     if (na->timestamp<nb->timestamp) return -1;
+    if (na->duration>nb->duration) return 1;
+    if (na->duration<nb->duration) return -1;
+
     return 0;
 }
 

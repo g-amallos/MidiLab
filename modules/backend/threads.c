@@ -164,10 +164,10 @@ static void* _exportMP3(void* args) {
     return NULL;
 }
 
-static void* _exportVideo(void* args) {
+static void* _exportVideoFFTvisualization(void* args) {
     threadEditProcess(NULL, NULL, 0.0, 0, 0);
     threadEditProcessDescription("Generating Audio...");
-    int ret = exportVideoThreadFunction((char*)args);
+    int ret = exportVideoFFTThreadFunction((char*)args);
     printf("EXPORT VIDEO: %d\n", ret);
     threadEditProcessDescription("Rendering Frames...");
     if (ret) {
@@ -183,7 +183,32 @@ static void* _exportVideo(void* args) {
         sleepMS(100);
     }
     
-    printf("_exportVideo thread finished\n");
+    printf("_exportVideoFFTvisualization thread finished\n");
+    if (args) free(args);
+    _clearBackgroundThread();
+    return NULL;
+}
+
+static void* _exportVideoTilesWaterfall(void* args) {
+    threadEditProcess(NULL, NULL, 0.0, 0, 0);
+    threadEditProcessDescription("Generating Audio...");
+    int ret = exportVideoWaterfallThreadFunction((char*)args);
+    printf("EXPORT VIDEO: %d\n", ret);
+    threadEditProcessDescription("Rendering Frames...");
+    if (ret) {
+        if (args) free(args);
+        _clearBackgroundThread();
+        return NULL;
+    }
+
+    int totalJobs=0, currentJob=0;
+    float perc=0;
+    while (!exportVideoThreadShouldClose(&perc, &currentJob, &totalJobs)) {
+        threadEditProcess(NULL, NULL, perc, totalJobs, currentJob);
+        sleepMS(100);
+    }
+    
+    printf("_exportVideoFFTvisualization thread finished\n");
     if (args) free(args);
     _clearBackgroundThread();
     return NULL;
@@ -208,8 +233,14 @@ int threadRequestExportMP3(const char* filename) {
     return _initThread(strdup("Export MP3"), _exportMP3, strdup(filename));
 }
 
-int threadRequestExportVideo(const char* filename) {
+int threadRequestExportVideoFFTVisualization(const char* filename) {
     if (!(_threadCanCreateNewThread())) return 1;
 
-    return _initThread(strdup("Export Video"), _exportVideo, strdup(filename));
+    return _initThread(strdup("Export Video"), _exportVideoFFTvisualization, strdup(filename));
+}
+
+int threadRequestExportVideoTilesWaterfall(const char* filename) {
+    if (!(_threadCanCreateNewThread())) return 1;
+
+    return _initThread(strdup("Export Video"), _exportVideoTilesWaterfall, strdup(filename));
 }

@@ -198,6 +198,7 @@ void globalHandlerSetRenderType(enum app_render_type type);
 enum visualizer_type globalHandlerGetVisualizerType();
 void globalHandlerSetVisualizerType(enum visualizer_type visType);
 void globalHandlerToggleNextVisualization();
+void globalHandlerPlayEventsInRange(double start, double end);
 
 
 void globalHandlerUpdateSelectedTrack();

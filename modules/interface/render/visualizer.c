@@ -204,7 +204,7 @@ static void _actionLaunchVideoSubprocess() {
 
     if (path) {
         expVideoActive = 1;
-        threadRequestExportVideo(path);
+        threadRequestExportVideoFFTVisualization(path);
     }
 }
 
@@ -379,7 +379,7 @@ static void _visualizer1(int num, float* buffer, int export) {
     float lg2b10 = 1.0/log10(2.0);
 
     for (int i=0; i<iters; i++) {
-        float v = lg2b10*log10(floatClip(sqrt(buffer[i]*51.2/num), 0.0, 1.0)+1.0);
+        float v = lg2b10*log10(floatClip(sqrt(buffer[i]*23.5/num), 0.0, 1.0)+1.0);
         DrawRectangleRec((Rectangle){x+0.5*w2, y-h*v, w2, h*v}, _getCol(7.0*v));
         x += w;
     }
@@ -401,7 +401,7 @@ static void _visualizer2(int num, float* buffer, int export) {
     float lg2b10 = 1.0/log10(2.0);
 
     for (int i=0; i<iters; i++) {
-        float v = lg2b10*log10(floatClip(sqrt(buffer[i]*51.2/num), 0.0, 1.0)+1.0);
+        float v = lg2b10*log10(floatClip(sqrt(buffer[i]*23.5/num), 0.0, 1.0)+1.0);
         DrawTriangle((Vector2){x,y}, (Vector2){x+w,y}, (Vector2){x+0.5*w, y-h*v}, _getCol(7.0*v));      
         x += w;
     }
@@ -418,7 +418,7 @@ static void _visualizer3(int num, float* buffer, int export) {
     float lg2b10 = 1.0/log10(2.0), x=vrect.x+vrad+(w-w2)*0.5;
 
     for (int i=0; i<iters; i++) {
-        float v = lg2b10*log10(floatClip(sqrt(buffer[i]*51.2/num), 0.0, 1.0)+1.0);
+        float v = lg2b10*log10(floatClip(sqrt(buffer[i]*23.5/num), 0.0, 1.0)+1.0);
         float height = w*floor((v*h)/w);
         Color c1 = _getCol(7.0*v);
         DrawRectangleGradientEx((Rectangle){x, y-height, w2, height}, c1, COLOR_TRACK_THEME_0, COLOR_TRACK_THEME_0, c1);
@@ -440,7 +440,7 @@ static void _visualizer4(int num, float* buffer, int export) {
     float vrad = export?expVisualizerRectRadius:visualizerRectRadius;
 
     int totalStringPieces=vrect.width*0.2;
-    float x=vrect.x+vrad, cy=vrect.y+0.5*vrect.height, factor=3.2*vrect.height/num, w=(vrect.width-2*vrad)/totalStringPieces;
+    float x=vrect.x+vrad, cy=vrect.y+0.5*vrect.height, factor=0.9*vrect.height/num, w=(vrect.width-2*vrad)/totalStringPieces;
     float thickness=floatMax(1.0, vrect.width*0.00315), minY=vrect.y+vrad, maxY=vrect.y+vrect.height-vrad, h=0.5*vrect.height-vrad, jfactor=2.0*M_TAU/iters;
     Vector2 oldPos={0,0}, newPos={x,cy};
     

@@ -29,7 +29,9 @@ int threadEditProcessDescription(const char* description);                      
 int threadRequestExportWave(const char* filename);
 int threadRequestExportMP3(const char* filename);
 int threadRequestExportAll(const char* directory);
-int threadRequestExportVideo(const char* filename);
+int threadRequestExportVideoFFTVisualization(const char* filename);
+int threadRequestExportVideoTilesWaterfall(const char* filename);
+
 
 
 #endif

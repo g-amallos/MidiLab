@@ -191,7 +191,7 @@ static uint32_t simulateAudio(FILE* fptr, uint32_t sampleRate, float jobPercenta
 }
 
 
-static uint32_t simulateAudioForMP3(FILE* fptr, uint32_t sampleRate, float jobPercentage, float jobOffset) {
+static uint32_t simulateAudioForMP3(FILE* fptr, uint32_t sampleRate, double startDelay, double endDelay, float jobPercentage, float jobOffset) {
     uint32_t notesNum=0, eventsNum=0;
     Note noteOffEvents=NULL;
     Note* allEvents = _generateEventArray(&notesNum, &eventsNum, &noteOffEvents);
@@ -246,10 +246,22 @@ static uint32_t simulateAudioForMP3(FILE* fptr, uint32_t sampleRate, float jobPe
         if (bytesWritten>0) fwrite(mp3Buffer, 1, bytesWritten, fptr); \
     } while(0)
 
-    uint32_t samples=15*BUFFER_FRAMES;
-    for (int i=0; i<5; i++) {
-        renderExportAudio(wavBuffer, BUFFER_FRAMES);
-        ENCODE_AND_WRITE(BUFFER_FRAMES);
+
+    if (startDelay<0) startDelay=5.0*BUFFER_FRAMES/(double)sampleRate;
+    if (endDelay<0) endDelay=10.0*BUFFER_FRAMES/(double)sampleRate;
+    
+    uint32_t startingSamples = (uint32_t)(startDelay*sampleRate);
+    uint32_t samples=startingSamples;
+    while (startingSamples>0) {
+        if (startingSamples>=BUFFER_FRAMES) {
+            renderExportAudio(wavBuffer, BUFFER_FRAMES);
+            ENCODE_AND_WRITE(BUFFER_FRAMES);
+            startingSamples-=BUFFER_FRAMES;
+        } else {
+            renderExportAudio(wavBuffer, startingSamples);
+            ENCODE_AND_WRITE(startingSamples);
+            startingSamples=0;
+        }
     }
 
     while (eventIdx<eventsNum) {
@@ -283,9 +295,17 @@ static uint32_t simulateAudioForMP3(FILE* fptr, uint32_t sampleRate, float jobPe
 
     exportSynthPanic();
 
-    for (int i=0; i<10; i++) {
-        renderExportAudio(wavBuffer, BUFFER_FRAMES);
-        ENCODE_AND_WRITE(BUFFER_FRAMES);
+    uint32_t endingSamples = (uint32_t)(endDelay*sampleRate);
+    while (endingSamples>0) {
+        if (endingSamples>=BUFFER_FRAMES) {
+            renderExportAudio(wavBuffer, BUFFER_FRAMES);
+            ENCODE_AND_WRITE(BUFFER_FRAMES);
+            endingSamples-=BUFFER_FRAMES;
+        } else {
+            renderExportAudio(wavBuffer, endingSamples);
+            ENCODE_AND_WRITE(endingSamples);
+            endingSamples=0;
+        }
     }
 
     int finalBytes = lame_encode_flush(gfp, mp3Buffer, mp3BufSize);
@@ -345,7 +365,7 @@ int exportProjectAsMP3(const char* filename) {
 
     threadEditProcessPercentage(0);
     threadEditProcessDescription(TextFormat("Exporting MP3 to %s...", GetFileName(filename)));
-    uint32_t samples = simulateAudioForMP3(fptr, 44100, 1.0, 0.0);
+    uint32_t samples = simulateAudioForMP3(fptr, 44100, -1, -1, 1.0, 0.0);
 
     fclose(fptr);
     return (samples==0);
@@ -357,7 +377,20 @@ int exportProjectAsMP3ForExportAll(const char* filename, int totalJobs, int curr
     FILE* fptr = fopen(filename, "wb");
     if (!fptr) return 1;
 
-    uint32_t samples = simulateAudioForMP3(fptr, 44100, 1.0/totalJobs, currentJob/(float)totalJobs);
+    uint32_t samples = simulateAudioForMP3(fptr, 44100, -1,-1, 1.0/totalJobs, currentJob/(float)totalJobs);
+
+    fflush(fptr);
+    fclose(fptr);
+    return (samples==0);
+}
+
+int exportProjectAsMP3Extra(const char* filename, double startDelay, double endDelay, int totalJobs, int currentJob) {
+    if (!filename) return 1;
+
+    FILE* fptr = fopen(filename, "wb");
+    if (!fptr) return 1;
+
+    uint32_t samples = simulateAudioForMP3(fptr, 44100, startDelay, endDelay, 1.0/totalJobs, currentJob/(float)totalJobs);
 
     fflush(fptr);
     fclose(fptr);
