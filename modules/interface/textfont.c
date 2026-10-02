@@ -54,3 +54,14 @@ void renderFontStringAlign(Font font, const char* string, Vector2 pos, Vector2 a
 Vector2 textFontGetSize(Font font, const char* string, float size, float spacing) {
     return MeasureTextEx(font, string, size, spacing);
 }
+
+float fontGetTextSizeToFitInRect(Font font, Rectangle rect, float defaultSize, const char* text, float spaceX, float spaceY) {
+    if (!text) return defaultSize;
+
+    float sizeY = textFontGetSize(font, "0A", defaultSize, 0).y;
+    float sizeX = textFontGetSize(font, text, defaultSize, 0).x;
+    float finalSize = defaultSize;
+    if (sizeX>rect.width-spaceX) finalSize=floatMin(finalSize, defaultSize*(rect.width-spaceX)/sizeX);
+    if (sizeY>rect.height-spaceY) finalSize=floatMin(finalSize, defaultSize*(rect.height-spaceY)/sizeY);
+    return finalSize;
+}

@@ -44,6 +44,15 @@ static int _exportWaveToDirectory(const char* directory, int totalJobs, int curr
     return ret;
 }
 
+static int _exportMP3ToDirectory(const char* directory, int totalJobs, int currentJob) {
+    if (!directory) return 1;
+    
+    char* fullpath = _generateStringFilepathFor(directory, ".mp3");
+    int ret = exportProjectAsMP3ForExportAll(fullpath, totalJobs, currentJob);
+    free(fullpath);
+    return ret;
+}
+
 static int _exportMidiToDirectory(const char* directory) {
     if (!directory) return 1;
     
@@ -132,7 +141,7 @@ static int _exportTracks(const char* directory, int totalJobs, int jobsAlreadyDo
 int exportAll(const char* directory) {
     if (!directory || !globalProject) return 1;
 
-    int totalJobs = 4+globalProject->tracksNum;
+    int totalJobs = 5+globalProject->tracksNum;
     threadEditProcess(NULL, "Directory Setup..", 0, totalJobs, 0);
     char* dir = _setupDirectoryConversion(directory);
     if (!dir) return 1;
@@ -142,12 +151,15 @@ int exportAll(const char* directory) {
     threadEditProcess(NULL, "Exporting .WAV...", 1.0/totalJobs, totalJobs, 1);
     ret += _exportWaveToDirectory(dir, totalJobs, 1);
 
-    threadEditProcess(NULL, "Exporting .MLB...", 2.0/totalJobs, totalJobs, 2);
+    threadEditProcess(NULL, "Exporting .MP3...", 2.0/totalJobs, totalJobs, 2);
+    ret += _exportMP3ToDirectory(dir, totalJobs, 2);
+
+    threadEditProcess(NULL, "Exporting .MLB...", 3.0/totalJobs, totalJobs, 3);
     ret += _exportProjectToDirectory(dir);
     
-    threadEditProcess(NULL, "Exporting .MID...", 3.0/totalJobs, totalJobs, 3);
+    threadEditProcess(NULL, "Exporting .MID...", 4.0/totalJobs, totalJobs, 4);
     ret += _exportMidiToDirectory(dir);
-    ret += _exportTracks(dir, totalJobs, 4);
+    ret += _exportTracks(dir, totalJobs, 5);
 
     free(dir);
 

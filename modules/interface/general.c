@@ -62,14 +62,16 @@ void order1Precompute() {
 
 void order2Precompute() {
     order2PrecomputeControlLine();
+    enum app_render_type apprt = globalHandlerGetRenderType();
 
-    if (globalHandlerGetRenderType()==ART_REGULAR) {
+    if (apprt==ART_REGULAR) {
         order2PrecomputeTracksLeft();
         order2PrecomputeBottomHalfLayout();
-    } else {
+    } else if (apprt==ART_VISUALIZER) {
         order2PrecomputeVisualizer();
+    } else if (apprt==ART_VERTICAL_TILES) {
+        order2precomputeVerticalTiles();
     }
-
 }
 
 void renderFPS() {
@@ -104,6 +106,8 @@ int render() {
             renderInstrumentPicker();
         } else if (apprt==ART_VISUALIZER) {
             renderVisualizer();
+        } else if (apprt==ART_VERTICAL_TILES) {
+            renderVerticalTiles();
         }
 
         if (IS_DEBUG && globalMouseHandler.pos.y>controlLineHeight+interfaceSpace2 && allowedInput) renderFPS();
@@ -113,7 +117,7 @@ int render() {
 
     EndDrawing();
 
-    if (allowedInput) updateMouseCursor();
+    updateMouseCursor();
 
     return 0;
 }

@@ -16,10 +16,10 @@ extern float interfaceSpace2;
 
 /* General (interface/general.c) */
 
-int renderInit();                   // Initialized the interface
-int renderClose();                  // Unloads from the memory anything related to (initialized from) the interface
-int updateRenderGlobalVariables();  // Update global values needed to other functions before rendering
-int render();                       // Runs the render iteration
+int renderInit();                                       // Initialized the interface
+int renderClose();                                      // Unloads from the memory anything related to (initialized from) the interface
+int updateRenderGlobalVariables(int userInputAllowed);  // Update global values needed to other functions before rendering
+int render();                                           // Runs the render iteration
 
 extern Vector2 screenSize;
 
@@ -39,6 +39,7 @@ int textFontClose();    // Returns the number of unloaded fonts
 
 void renderFontStringAlign(Font font, const char* string, Vector2 pos, Vector2 align, float size, float spacing, Color color);
 Vector2 textFontGetSize(Font font, const char* string, float size, float spacing);
+float fontGetTextSizeToFitInRect(Font font, Rectangle rect, float defaultSize, const char* text, float spaceX, float spaceY);
 
 
 /* Rectangles (interface/rectangles.c) */
@@ -113,6 +114,8 @@ Color getTrackThemeColor(int i);
 Color getSelectedTrackThemeColor();
 Color getTrackThemeColorForWhiteKeys();
 Color getTrackThemeColorForBlackKeys();
+Color getAnyTrackThemeColorForWhiteKeys(int i);
+Color getAnyTrackThemeColorForBlackKeys(int i);
 void renderTracksLeft();
 void order1PrecomputeTracksLeft();
 void order2PrecomputeTracksLeft();
@@ -189,6 +192,12 @@ void renderVisualizer();
 
 
 
+/* Vertical Tiles (interface/render/verticalTiles.c) */
+
+void verticalTilesInit();
+void verticalTilesClose();
+void order2precomputeVerticalTiles();
+void renderVerticalTiles();
 
 
 /* Colors (here) */

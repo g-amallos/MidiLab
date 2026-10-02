@@ -6,6 +6,7 @@
 #include <synth.h>
 #include <images.h>
 #include <threads.h>
+#include <export.h>
 
 
 #define APP_NAME "MidiLab"
@@ -27,6 +28,7 @@ int AppInit() {
 
     startupSetup(windowSize);
 
+    exportVideoInit();
 
     InitAudioDevice();
 
@@ -99,6 +101,8 @@ int testIteration() {
         actionExecuteAllDeferred();
         midiActionExecuteFrame();
     }
+
+    exportVideoBatchFrames(3);
 
     return 0;
 }

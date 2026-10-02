@@ -488,6 +488,12 @@ void globalHandlerUpdateTick() {
     }
 }
 
+void globalHandlerPlayEventsInRange(double start, double end) {
+    uint32_t startTst=secondsToTimestamp(start), endTst=secondsToTimestamp(end);
+
+    registerMidiEventsToActionsFrom(startTst, endTst);
+}
+
 
 void globalHandlerMoveTimeDivAccordingToTimeLine(float startPadding, float endPadding) {
     struct backend_time_handler th = globalStateHandler->time;
@@ -532,7 +538,7 @@ void globalHandlerSetVisibleMouseJumps(uint32_t mouseJumps) {
 
 void globalHandlerSetRenderType(enum app_render_type type) {
     if (!globalStateHandler) return;
-    if (type==ART_REGULAR || type==ART_VISUALIZER) {
+    if (type==ART_REGULAR || type==ART_VISUALIZER || type==ART_VERTICAL_TILES) {
         globalStateHandler->renderType = type;
     }
 }

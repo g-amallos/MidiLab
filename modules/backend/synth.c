@@ -21,6 +21,7 @@ int synthInit() {
     synthSettings = new_fluid_settings();
     fluid_settings_setstr(synthSettings, "audio.driver", "none"); // Disable internal audio output drivers
     fluid_settings_setint(synthSettings, "synth.midi-channels", 128);
+    fluid_settings_setnum(synthSettings, "synth.gain", 0.8);
     fluid_settings_setnum(synthSettings, "synth.reverb.damp", 0.3);
     fluid_settings_setnum(synthSettings, "synth.reverb.level", 0.7);
     fluid_settings_setnum(synthSettings, "synth.reverb.room-size", 0.5);
@@ -35,7 +36,7 @@ int synthInit() {
     exportSettings = new_fluid_settings();
     fluid_settings_setstr(exportSettings, "audio.driver", "none");
     fluid_settings_setint(exportSettings, "synth.midi-channels", 128);
-    fluid_settings_setint(exportSettings, "synth.midi-channels", 128);
+    fluid_settings_setnum(exportSettings, "synth.gain", 0.8);
     fluid_settings_setnum(exportSettings, "synth.reverb.damp", 0.3);
     fluid_settings_setnum(exportSettings, "synth.reverb.level", 0.7);
     fluid_settings_setnum(exportSettings, "synth.reverb.room-size", 0.5);

@@ -224,6 +224,7 @@ void trackVectorResizeToFitJustNotes(Track track);
 
 void trackRecalculateValues(Track track);
 void trackSortNotes(Track track);
+void sortNoteBuffer(Note* buffer, uint64_t size);
 void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size);    // buff must have sorted notes
 void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb);
 

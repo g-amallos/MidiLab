@@ -8,15 +8,20 @@ tests/
 assets/archive/
 /build/
 
-/projects/TestProject.mlb
-/projects/NewProject.mlb
+/projects/MLB/TestProject.mlb
+/projects/MLB/NewProject.mlb
 /projects/*.mid
 /projects/*/
+!/projects/MLB/
 
 /libs/win/archive/
 /bin/
 /*.dll
+/*.so
 
 *.wav
+*.mp3
+*.mp4
+*.mov
 
 /experiments/fft/assets/test.txt

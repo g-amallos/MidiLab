@@ -12,6 +12,7 @@ struct texture {
 
 struct texture icons[T_ICON_END] = {
     [T_ICON_MENU] = {.path="assets/icons/menu.png", .texture={0}},
+    [T_ICON_LEFT] = {.path="assets/icons/left.png", .texture={0}},
     [T_ICON_RIGHT] = {.path="assets/icons/right.png", .texture={0}},
     [T_ICON_SETTINGS] = {.path="assets/icons/settings.png", .texture={0}},
     [T_ICON_EDIT] = {.path="assets/icons/edit.png", .texture={0}},
@@ -53,6 +54,13 @@ struct texture icons[T_ICON_END] = {
 
     [T_ICON_VIEW_NONE] = {.path="assets/icons/none.png", .texture={0}},
     [T_ICON_VIEW_ROLL] = {.path="assets/icons/notes.png", .texture={0}},
+
+    [T_ICON_VIDEO] = {.path="assets/icons/video.png", .texture={0}},
+    [T_ICON_REFRESH] = {.path="assets/icons/refresh.png", .texture={0}},
+    [T_ICON_SHOWN] = {.path="assets/icons/shown.png", .texture={0}},
+    [T_ICON_HIDDEN] = {.path="assets/icons/hidden.png", .texture={0}},
+
+
 
     [T_ICON_MIDILAB_LOGO_256] = {.path="assets/images/midilablogo/midilab_256.png", .texture={0}},
     [T_ICON_MIDILAB_LOGO_1024] = {.path="assets/images/midilablogo/midilab_1024.png", .texture={0}},

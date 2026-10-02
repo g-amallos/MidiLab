@@ -20,8 +20,10 @@ float floatMax(float a, float b);
 float floatMin(float a, float b);
 uint32_t uint32Min(uint32_t a, uint32_t b);
 uint32_t uint32Max(uint32_t a, uint32_t b);
+int intMin(int a, int b);
 int intMax(int a, int b);
 float floatClip(float val, float min, float max);
+double doubleClip(double val, double min, double max);
 int intClip(int val, int min, int max);
 uint32_t uint32Clip(uint32_t val, uint32_t min, uint32_t max);
 

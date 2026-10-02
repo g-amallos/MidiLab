@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <raylib.h>
-
-
+#include <platform.h>
+#include <utils.h>
 
 
 
@@ -20,7 +20,6 @@ struct background_thread {
 
 //volatile struct background_process backgroundProcess={NULL,0,0,0};
 static volatile struct background_thread backgroundThread={0};
-
 
 
 
@@ -155,6 +154,66 @@ static void* _exportWave(void* args) {
     return NULL;
 }
 
+static void* _exportMP3(void* args) {
+    threadEditProcess(NULL, NULL, 0.0, 0, 0);
+    int ret = exportProjectAsMP3((const char*)args);
+    printf("EXPORT MP3: %d\n", ret);
+    
+    if (args) free(args);
+    _clearBackgroundThread();
+    return NULL;
+}
+
+static void* _exportVideoFFTvisualization(void* args) {
+    threadEditProcess(NULL, NULL, 0.0, 0, 0);
+    threadEditProcessDescription("Generating Audio...");
+    int ret = exportVideoFFTThreadFunction((char*)args);
+    printf("EXPORT VIDEO: %d\n", ret);
+    threadEditProcessDescription("Rendering Frames...");
+    if (ret) {
+        if (args) free(args);
+        _clearBackgroundThread();
+        return NULL;
+    }
+
+    int totalJobs=0, currentJob=0;
+    float perc=0;
+    while (!exportVideoThreadShouldClose(&perc, &currentJob, &totalJobs)) {
+        threadEditProcess(NULL, NULL, perc, totalJobs, currentJob);
+        sleepMS(100);
+    }
+    
+    printf("_exportVideoFFTvisualization thread finished\n");
+    if (args) free(args);
+    _clearBackgroundThread();
+    return NULL;
+}
+
+static void* _exportVideoTilesWaterfall(void* args) {
+    threadEditProcess(NULL, NULL, 0.0, 0, 0);
+    threadEditProcessDescription("Generating Audio...");
+    int ret = exportVideoWaterfallThreadFunction((char*)args);
+    printf("EXPORT VIDEO: %d\n", ret);
+    threadEditProcessDescription("Rendering Frames...");
+    if (ret) {
+        if (args) free(args);
+        _clearBackgroundThread();
+        return NULL;
+    }
+
+    int totalJobs=0, currentJob=0;
+    float perc=0;
+    while (!exportVideoThreadShouldClose(&perc, &currentJob, &totalJobs)) {
+        threadEditProcess(NULL, NULL, perc, totalJobs, currentJob);
+        sleepMS(100);
+    }
+    
+    printf("_exportVideoFFTvisualization thread finished\n");
+    if (args) free(args);
+    _clearBackgroundThread();
+    return NULL;
+}
+
 
 int threadRequestExportAll(const char* directory) {
     if (!(_threadCanCreateNewThread())) return 1;
@@ -166,4 +225,22 @@ int threadRequestExportWave(const char* filename) {
     if (!(_threadCanCreateNewThread())) return 1;
 
     return _initThread(strdup("Export Wave"), _exportWave, strdup(filename));
+}
+
+int threadRequestExportMP3(const char* filename) {
+    if (!(_threadCanCreateNewThread())) return 1;
+
+    return _initThread(strdup("Export MP3"), _exportMP3, strdup(filename));
+}
+
+int threadRequestExportVideoFFTVisualization(const char* filename) {
+    if (!(_threadCanCreateNewThread())) return 1;
+
+    return _initThread(strdup("Export Video"), _exportVideoFFTvisualization, strdup(filename));
+}
+
+int threadRequestExportVideoTilesWaterfall(const char* filename) {
+    if (!(_threadCanCreateNewThread())) return 1;
+
+    return _initThread(strdup("Export Video"), _exportVideoTilesWaterfall, strdup(filename));
 }

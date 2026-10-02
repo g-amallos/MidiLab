@@ -5,6 +5,7 @@
 
 enum icon_title {
     T_ICON_MENU,
+    T_ICON_LEFT,
     T_ICON_RIGHT,
     T_ICON_SETTINGS,
     T_ICON_EDIT,
@@ -47,6 +48,11 @@ enum icon_title {
 
     T_ICON_VIEW_NONE,
     T_ICON_VIEW_ROLL,
+
+    T_ICON_VIDEO,
+    T_ICON_REFRESH,
+    T_ICON_SHOWN,
+    T_ICON_HIDDEN,
 
     T_ICON_MIDILAB_LOGO_256,
     T_ICON_MIDILAB_LOGO_1024,

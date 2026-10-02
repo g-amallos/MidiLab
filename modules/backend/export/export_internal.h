@@ -46,7 +46,8 @@ int writeProject(FILE* fptr);
 /*  wave.c  */
 
 int exportProjectAsWaveForExportAll(const char* filename, int totalJobs, int currentJob);
-
+int exportProjectAsMP3ForExportAll(const char* filename, int totalJobs, int currentJob);
+int exportProjectAsMP3Extra(const char* filename, double startDelay, double endDelay, int totalJobs, int currentJob);
 
 
 /*  midi.c  */

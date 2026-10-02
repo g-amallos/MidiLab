@@ -144,7 +144,7 @@ void customizeNewTrackUI(TrackUI tr, int idx) {
     tr->theme = trackThemeColors[tr->themeIdx];
     tr->icon = T_ICON_PIANO;
     tr->textbox = textboxCreate(rect, 0.3, T_IN_STRING, (int)trackGetMaxTitleLength());
-    tr->optionsButton = buttonCreate(rect, 0.2);
+    tr->optionsButton = buttonCreate(rect, 0.5);
     tr->btnList = NULL;
     tr->slider = sliderCreate(rect, 1);
     sliderUpdateCursorOnHover(tr->slider, MOUSE_CURSOR_RESIZE_EW);
@@ -293,6 +293,15 @@ Color getTrackThemeColorForWhiteKeys() {
 
 Color getTrackThemeColorForBlackKeys() {
     Color theme = getSelectedTrackThemeColor();
+    return blendColors(theme, (Color){0,0,0,255}, 0.35);
+}
+
+Color getAnyTrackThemeColorForWhiteKeys(int i) {
+    return getTrackThemeColor(i);
+}
+
+Color getAnyTrackThemeColorForBlackKeys(int i) {
+    Color theme = getTrackThemeColor(i);
     return blendColors(theme, (Color){0,0,0,255}, 0.35);
 }
 
@@ -934,6 +943,7 @@ void renderTrackLeft(int idx, int skipMoving) {
 
     float fontSize = 0.7*tbxRect.height;
     Vector2 textPos = (Vector2){tbxRect.x+5, tbxRect.y+0.5*tbxRect.height};
+    fontSize = fontGetTextSizeToFitInRect(GlobalFonts[0].font, tbxRect, fontSize, trackTitle, 10, 4);
     if (*trackTitle) renderFontStringAlign(GlobalFonts[0].font, trackTitle, textPos, (Vector2){0, 0.5}, fontSize, 0, focusedTbx?COLOR_TEXT_1:COLOR_TEXT_3);
     else if (!focusedTbx) renderFontStringAlign(GlobalFonts[1].font, TRACK_TITLE_PLACEHOLDER, textPos, (Vector2){0, 0.5}, fontSize*0.9, 0, COLOR_TEXT_4);
 
