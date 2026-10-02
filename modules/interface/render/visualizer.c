@@ -625,6 +625,7 @@ static void _renderVisualizerControl() {
             if (!enabled) tmp1=disabledBackgroundColor;
 
             Color blendedCol = blendColors(tmp1, tmp2, effect);
+            blendedCol.a = (unsigned char)(255*pow(effect, 0.3));
             
             DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, visualizerRectRadius+0.5*(trect.height-controlRect.height)), 4, blendedCol);
             iconRerder(btnIcons[i], scaleRctangleFromCenter(rect, 0.95*sizes[i]*lerp(0.9, 0.95, effect)), blendColors(enabled?COLOR_TEXT_1:COLOR_TEXT_4, colsFg[i], effect));
@@ -755,17 +756,17 @@ static void _expRenderVisualizerControl() {
     Rectangle* rects[3] = {&expBtnRestartRect, &expBtnPlayRect, &expBtnNextRect};
     enum icon_title btnIcons[] = {T_ICON_PREVIOUS, isPlaying?T_ICON_PAUSE:T_ICON_PLAY, T_ICON_EFFECTS, T_ICON_VIDEO};
     float sizes[] = {0.85, isPlaying?0.8:0.65, 1.05, 0.92};
-    Color col1=textOrHoverBackgroundColor;
+    //Color col1=textOrHoverBackgroundColor;
     int s = sizeof(rects)/sizeof(Rectangle*);
     
 
     for (int i=0; i<s; i++) {
         Rectangle rect = *rects[i];
-        Rectangle trect = scaleRctangleFromCenter(rect, 0.3);
+        //Rectangle trect = scaleRctangleFromCenter(rect, 0.3);
 
-        Color blendedCol = col1;
+        //Color blendedCol = col1;
         
-        DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, expVisualizerRectRadius+0.5*(trect.height-expControlRect.height)), 4, blendedCol);
+        //DrawRectangleRounded(trect, getRoundnessForRoundedRectangle(trect, expVisualizerRectRadius+0.5*(trect.height-expControlRect.height)), 4, blendedCol);
         iconRerder(btnIcons[i], scaleRctangleFromCenter(rect, 0.95*sizes[i]*0.9), COLOR_TEXT_1);
     }
 

@@ -15,6 +15,7 @@
 #include <tinyfiledialogs.h>
 #include <threads.h>
 #include <waterfall.h>
+#include <handler.h>
 
 
 #define NUM_OF_INT_SETTINGS 6
@@ -22,6 +23,7 @@
 #define NUM_OF_SETTINGS 11
 
 #define PROJECT_TITLE_PLACEHOLDER "Project Title"
+#define TRACK_TITLE_PLACEHOLDER "Track Title"
 
 
 
@@ -30,9 +32,9 @@ static Color tilesBackgroundColor={0,0,0,0}, disabledBackgroundColor={0,0,0,0}, 
 Rectangle previewDiv={0,0,0,0}, previewRect={0,0,0,0};
 static Rectangle settingsDiv={0,0,0,0}, controlDiv={0,0,0,0}, timerRect={0,0,0,0}, titleRect={0,0,0,0};
 struct tiles_settings settings;
-static float settingsSeperatorX=0;
+static float settingsSeperatorX=0, settingsScroll=0.0, settingsScrollTarget=0.0, settingsTotalHeight=0.0, settingsDivTargetHeight=0.0, settingsReferenceSize=10.0;
 static Button settingsDivBtns[NUM_OF_SETTINGS]={NULL}, settingsLeftRightBtns[NUM_OF_INT_SETTINGS][2]={{NULL}};
-static Slider settingsFloatSliders[NUM_OF_FLOAT_SETTINGS]={NULL}, timeSlider=NULL;
+static Slider settingsFloatSliders[NUM_OF_FLOAT_SETTINGS]={NULL}, timeSlider=NULL, settingsSlider=NULL;
 static int beatsInMeasure=4, isPlaying=0, ffmpegAvailable=0, expVideoActive=0;
 static double previewAspectRatio=9.0/16.0, curTime=0;
 double beatDuration=1.0;
@@ -46,6 +48,11 @@ static struct duration _generateDuration(enum setting_bool timeNotation, int int
         ret.beats.beats = integer;
         ret.beats.remainder = (float)fmod(floatingPoint, 1.0);
         ret.seconds = (integer+ret.beats.remainder)*beatDuration;
+
+        if ((uint32_t)(ret.beats.remainder+1e-4)>999) {
+            ret.beats.beats += 1;
+            ret.beats.remainder=0.0;
+        }
     } else {
         ret.seconds = floatingPoint;
         double fbeats = floatingPoint/beatDuration;
@@ -90,8 +97,77 @@ static void _updateView() {
 
 }
 
+static void _updateTracksAndNotesInInfo() {
+    if (!settings.tracks) return;
+    int tracks=0;
+    uint32_t notes=0;
+    int num=settings.totalTracks;
+
+    for (int i=0; i<num; i++) {
+        if (settings.tracks[i].show) {
+            tracks++;
+            notes += settings.tracks[i].totalNotes;
+        }
+    }
+
+    settings.info.tracks = tracks;
+    settings.info.notes = notes;
+}
+
+static void updateMinMaxKey() {
+    int minKey=127, maxKey=0;
+    uint64_t num = settings.notes.size;
+    Note* arr = settings.notes.notes;
+
+    for (uint64_t i=0; i<num; i++) {
+        Note nt = arr[i];
+        if (!(settings.tracks[nt->track].show)) continue;
+        int key = nt->key;
+        if (key<minKey) minKey=key;
+        if (key>maxKey) maxKey=key;
+    }
+
+
+    settings.info.minKey = minKey;
+    settings.info.maxKey = maxKey;
+    settings.info.keys = 1+maxKey-minKey;
+
+    if (minKey>maxKey) {
+        minKey=60, maxKey=64;
+    }
+    while (maxKey-minKey<18) {
+        if (minKey>0) minKey--;
+        if (maxKey<127) maxKey++;
+    }
+
+    while (1) {
+        uint8_t t=minKey%12;
+        if (minKey<0) minKey=0, t=0;
+        if (t==5 || t==0) break;
+        minKey--;
+    }
+    while (1) {
+        uint8_t t=maxKey%12;
+        if (maxKey>127) maxKey=131, t=11;
+        if (t==11 || t==4) break;
+        maxKey++;
+    }
+
+
+    settings.info.minShownKey = minKey;
+    settings.info.maxShownKey = maxKey;
+    settings.info.shownKeys = 1+maxKey-minKey;
+
+    printf("`updateMinMaxKey`: minKey=%u, maxKey=%u, minShownKey=%u, maxShownKey=%u, shownKeys=%u\n", settings.info.minKey, settings.info.maxKey, settings.info.minShownKey, settings.info.maxShownKey, settings.info.shownKeys);
+}
+
 static void _updateInfoChunk(int drumsChanged) {
-    if (drumsChanged) settings.info = projectGetTilesInfo(settings.showDrums);
+    if (drumsChanged) {
+        //settings.info = projectGetTilesInfo(settings.showDrums);
+        settings.info.duration = projectGetDuration().time;
+        _updateTracksAndNotesInInfo();
+        updateMinMaxKey();
+    }
     settings.totalDuration = _generateDuration(0, 0, settings.startDelay.seconds+settings.endDelay.seconds+settings.info.duration);
     
     if (drumsChanged) {
@@ -104,17 +180,80 @@ static void _updateInfoChunk(int drumsChanged) {
         view.whiteKeys = whiteKeys;
     }
 
-    if (drumsChanged) {
-        if (settings.notes.notes) projectFreeNoteArray(settings.notes);
-        settings.notes = projectGetNoteArray(settings.showDrums);
-    }
+    //if (drumsChanged) {
+    //    if (settings.notes.notes) projectFreeNoteArray(settings.notes);
+    //    settings.notes = projectGetNoteArray(settings.showDrums);
+    //}
 
     _updateView();
+    printf("`_updateInfoChunk`: view.columns=%p\n", (void*)view.columns);
 }
 
 static void _updateAspectRatio();
 
+
+static void _freeTracksSettings() {
+    if (!(settings.tracks)) return;
+
+    struct track_tile_settings* tracks = settings.tracks;
+    int tracksNum=projectGetTracksNum();
+    for (int i=0; i<tracksNum; i++) {
+        if (tracks[i].base) buttonFree(tracks[i].base);
+        tracks[i].base = NULL;
+
+        if (tracks[i].colorBtn) buttonFree(tracks[i].colorBtn);
+        tracks[i].colorBtn = NULL;
+
+        if (tracks[i].showBtn) buttonFree(tracks[i].showBtn);
+        tracks[i].showBtn = NULL;
+
+        for (int j=0; j<3; j++) {
+            if (tracks[i].sld[j]) sliderFree(tracks[i].sld[j]);
+            tracks[i].sld[j] = NULL;
+        }
+    }
+
+    free(settings.tracks);
+    settings.tracks = NULL;
+}
+
+static void _generateTracksForSettings() {
+    int tracksNum=projectGetTracksNum();
+    settings.totalTracks = tracksNum;
+    struct track_tile_settings* tracks = malloc(sizeof(struct track_tile_settings)*tracksNum);
+
+    if (!tracks) return;
+    if (settings.tracks) _freeTracksSettings();
+    settings.tracks = tracks;
+
+    Rectangle rect={0,0,20,20};
+
+    for (int i=0; i<tracksNum; i++) {
+        Track tr = trackGetAtIdx(i);
+        tracks[i].track = tr;
+        tracks[i].color = getTrackThemeColor(i);
+        tracks[i].show = (trackGetProgram(tr)<128)||(settings.showDrums==SETTING_ON);
+        tracks[i].totalNotes = trackGetNumOfNotes(tr);
+        tracks[i].colorMode = 0;    // load from track
+        tracks[i].base = buttonCreate(rect, 0.25);
+        buttonUpdateCursorOnHover(tracks[i].base, MOUSE_CURSOR_ARROW);
+        tracks[i].colorBtn = buttonCreate(rect, 0.25);
+        tracks[i].showBtn = buttonCreate(rect, 0.25);
+
+        tracks[i].sld[0] = sliderCreate(rect, 1.0);
+        tracks[i].sld[1] = sliderCreate(rect, 1.0);
+        tracks[i].sld[2] = sliderCreate(rect, 1.0);
+        sliderUpdateCursorOnHover(tracks[i].sld[0], MOUSE_CURSOR_RESIZE_EW);
+        sliderUpdateCursorOnHover(tracks[i].sld[1], MOUSE_CURSOR_RESIZE_EW);
+        sliderUpdateCursorOnHover(tracks[i].sld[2], MOUSE_CURSOR_RESIZE_EW);
+
+    }
+}
+
+
+
 void verticalTilesInit() {
+    printf("`verticalTilesInit`: entered\n");
     Rectangle rect = {0,0,20,20};
 
     ffmpegAvailable = isFFmpegAvailable();
@@ -134,6 +273,9 @@ void verticalTilesInit() {
 
     beatsInMeasure = globalHandlerGetBeatsInMeasure();
     beatDuration = globalHandlerGetBeatDuration();
+
+    printf("`verticalTilesInit`: right before settings init\n");
+
 
     settings = (struct tiles_settings) {
         .beatsInMeasure = beatsInMeasure,
@@ -158,6 +300,11 @@ void verticalTilesInit() {
         .spacingConstraints = (struct float_constraints){.min=0, .max=0.1},
         .space = 0.0,
 
+        .totalTracks = 0,
+        .tracks = NULL,
+
+        .notes = projectGetNoteArray(1),
+
     };
 
     view = (struct view_data){
@@ -172,6 +319,9 @@ void verticalTilesInit() {
         .columns=NULL,
     };
 
+    printf("`verticalTilesInit`: right after settings init\n");
+
+
     for (int i=0; i<NUM_OF_INT_SETTINGS; i++) {
         if (settingsLeftRightBtns[i][0]) buttonFree(settingsLeftRightBtns[i][0]);
         if (settingsLeftRightBtns[i][1]) buttonFree(settingsLeftRightBtns[i][1]);
@@ -182,6 +332,7 @@ void verticalTilesInit() {
     for (int i=0; i<NUM_OF_SETTINGS; i++) {
         if (settingsDivBtns[i]) buttonFree(settingsDivBtns[i]);
         settingsDivBtns[i] = buttonCreate(rect, 0.25);
+        buttonUpdateCursorOnHover(settingsDivBtns[i], MOUSE_CURSOR_ARROW);
     }
 
     for (int i=0; i<NUM_OF_FLOAT_SETTINGS; i++) {
@@ -192,18 +343,29 @@ void verticalTilesInit() {
 
     if (timeSlider) sliderFree(timeSlider);
     timeSlider = sliderCreate(rect, 1.0);
+
+    if (settingsSlider) sliderFree(settingsSlider);
+    settingsSlider = sliderCreate(rect, 1.0);
+    sliderUpdateCursorOnHover(settingsSlider, MOUSE_CURSOR_RESIZE_NS);
+
     isPlaying=0;
     curTime=0;
     expVideoActive=0;
+    settingsScroll=0.0, settingsScrollTarget=0.0;
 
+    _generateTracksForSettings();
     _updateInfoChunk(1);
     _updateAspectRatio();
+
+    printf("`verticalTilesInit`: exited\n");
 }
 
 static void closeTileSettings() {
     if (settings.notes.notes) projectFreeNoteArray(settings.notes);
     settings.notes.size = 0;
     settings.notes.notes = NULL;
+
+    _freeTracksSettings();
 
     if (view.columns) free(view.columns);
     view.columns = NULL;
@@ -241,6 +403,9 @@ void verticalTilesClose() {
 
     if (timeSlider) sliderFree(timeSlider);
     timeSlider = NULL;
+
+    if (settingsSlider) sliderFree(settingsSlider);
+    settingsSlider = NULL;
 
 
     expVideoActive=0;
@@ -568,8 +733,47 @@ static void _actionLaunchVideoSubprocess() {
     }
 }
 
+static void _settingsScroll(float dz) {
+    settingsScrollTarget += dz;
+    //settingsScrollMax = (NUM_OF_SETTINGS+2.2*settings.totalTracks);
+    float tmp = settingsTotalHeight/settingsReferenceSize;
+    if (settingsScrollTarget<0) settingsScrollTarget=0.0;
+    else if (settingsScrollTarget>tmp) settingsScrollTarget=tmp;
+}
+
+static void _settingsScrollSmoothly() {
+    settingsScroll += 0.2*(settingsScrollTarget-settingsScroll);
+}
+
 static void _updateTilesButtons() {
-    //float tknprc = 0.75;
+    float disableHover = !CheckCollisionPointRec(globalMouseHandler.pos, settingsDiv);
+    float rh=0.05*screenSize.y;
+
+    settingsDivTargetHeight = settingsDiv.height;
+    settingsTotalHeight = (rh+interfaceSpace1)*(NUM_OF_SETTINGS+4)+2*(rh+2*interfaceSpace2)+(rh*2.2+interfaceSpace1)*settings.totalTracks;
+    settingsReferenceSize = rh;
+
+    float dz = globalMouseHandler.scroll;
+    _settingsScroll(-2.0*dz*(!disableHover));
+
+    if (settingsSlider) {
+        Rectangle rect = {settingsDiv.x+settingsDiv.width+(interfaceSpace2-interfaceSpace1)*0.5, settingsDiv.y, interfaceSpace1, settingsDiv.height-interfaceSpace2};
+        sliderUpdateRectangle(settingsSlider, rect);
+        sliderUpdateSlideValue(settingsSlider, settingsScroll*rh/(settingsTotalHeight-settingsDivTargetHeight));
+        sliderUpdate(settingsSlider, -1);
+
+
+        if (isSliderDragged(settingsSlider)) {
+            float th = rect.height*settingsDivTargetHeight/settingsTotalHeight;
+            float mposClip = floatClip(globalMouseHandler.pos.y, rect.y+0.5*th, rect.y+rect.height-0.5*th);
+            float nval = (mposClip-rect.y-0.5*th)/(rect.height-th);
+            settingsScrollTarget = nval*(settingsTotalHeight-settingsDivTargetHeight)/rh;
+        }
+
+    }
+
+    _settingsScrollSmoothly();
+
     float l = controlLineHeight;
     float x = 0.2*l;
     if (backButton) {
@@ -603,25 +807,29 @@ static void _updateTilesButtons() {
     x += timerRect.width+interfaceSpace2;
     titleRect = (Rectangle){x,0.2*l,screenSize.x-0.5*interfaceSpace2-x,0.8*l};
 
+    float offsetY = settingsScroll*rh;
 
-    float rh=0.05*screenSize.y;
-    Rectangle fill = {interfaceSpace1,settingsDiv.y+interfaceSpace2+rh+interfaceSpace1,settingsDiv.width-2*interfaceSpace1,rh};
+    Rectangle fill = {interfaceSpace1,settingsDiv.y+interfaceSpace2+rh+interfaceSpace1-offsetY,settingsDiv.width-2*interfaceSpace1,rh};
     for (int i=0; i<NUM_OF_SETTINGS; i++) {
         Button btn = settingsDivBtns[i];
         if (btn) {
             buttonUpdateRectangle(btn, fill);
+            if (disableHover) buttonDisableHover(btn);
+            else buttonEnableHover(btn);
             buttonUpdate(btn, -1);
         }
         fill.y += rh+interfaceSpace1;
     }
 
-    float y=settingsDiv.y+interfaceSpace2+rh+interfaceSpace1, w=rh-2*interfaceSpace1;
+    float y=settingsDiv.y+interfaceSpace2+rh+interfaceSpace1-offsetY, w=rh-2*interfaceSpace1;
     for (int i=0; i<NUM_OF_INT_SETTINGS; i++) {
         Button btn1=settingsLeftRightBtns[i][0], btn2=settingsLeftRightBtns[i][1];
 
         if (btn1) {
             Rectangle rect = {settingsSeperatorX+interfaceSpace1, y+interfaceSpace1, w, w};
             buttonUpdateRectangle(btn1, rect);
+            if (disableHover) buttonDisableHover(btn1);
+            else buttonEnableHover(btn1);
             buttonUpdate(btn1, -1);
             if (isButtonClicked(btn1)) actionDefer(someSettingButtonPressed);
         }
@@ -629,6 +837,8 @@ static void _updateTilesButtons() {
         if (btn2) {
             Rectangle rect = {settingsDiv.x+settingsDiv.width-interfaceSpace1-w, y+interfaceSpace1, w, w};
             buttonUpdateRectangle(btn2, rect);
+            if (disableHover) buttonDisableHover(btn2);
+            else buttonEnableHover(btn2);
             buttonUpdate(btn2, -1);
             if (isButtonClicked(btn2)) actionDefer(someSettingButtonPressed);
         }
@@ -639,6 +849,8 @@ static void _updateTilesButtons() {
         if (sld) {
             Rectangle rect={settingsSeperatorX,y,settingsDiv.x+settingsDiv.width-settingsSeperatorX,rh};
             sliderUpdateRectangle(sld, rect);
+            if (disableHover) sliderDisableHover(sld);
+            else sliderEnableHover(sld);
             sliderUpdate(sld, -1);
 
             if (isSliderDragged(sld)) {
@@ -655,8 +867,73 @@ static void _updateTilesButtons() {
     }
 
 
+    if (settings.tracks) {
+        for (int i=0; i<settings.totalTracks; i++) {
+            struct track_tile_settings trackSet = settings.tracks[i];
+            int isDrums = (trackGetProgram(trackSet.track)>127);
+            int forceHide = (isDrums && !settings.showDrums);
+            int hidden=forceHide;
+
+            Rectangle rect={interfaceSpace1,y,settingsDiv.width-2*interfaceSpace1,2.2*rh};
+            buttonUpdateRectangle(trackSet.base, rect);
+            if (disableHover) buttonDisableHover(trackSet.base);
+            else buttonEnableHover(trackSet.base);
+            buttonUpdate(trackSet.base, -1);
+
+            float btnWdh = 0.4*rect.height, vertSpace=(rect.height-2*btnWdh)/3.0;
+            Rectangle trect = {rect.x+rect.width-btnWdh-interfaceSpace2,rect.y+rect.height-vertSpace-btnWdh, btnWdh, btnWdh};
+
+            buttonUpdateRectangle(trackSet.showBtn, trect);
+            if (forceHide) buttonDisable(trackSet.showBtn);
+            else buttonEnable(trackSet.showBtn);
+            if (disableHover) buttonDisableHover(trackSet.showBtn);
+            else buttonEnableHover(trackSet.showBtn);
+            buttonUpdate(trackSet.showBtn, -1);
+            if (isButtonClicked(trackSet.showBtn)) {
+                settings.tracks[i].show = 1-trackSet.show;
+                _updateInfoChunk(1);
+            }
+            hidden = (hidden || !(settings.tracks[i].show));
+
+            trect.y -= trect.height+vertSpace;
+            buttonUpdateRectangle(trackSet.colorBtn, trect);
+            if (hidden) buttonDisable(trackSet.colorBtn);
+            else buttonEnable(trackSet.colorBtn);
+            if (disableHover) buttonDisableHover(trackSet.colorBtn);
+            else buttonEnableHover(trackSet.colorBtn);
+            buttonUpdate(trackSet.colorBtn, -1);
+            if (isButtonClicked(trackSet.colorBtn)) settings.tracks[i].color = getTrackThemeColor(i);
+            
+            trackSet = settings.tracks[i];
+            float btnHght=0.1*rect.height;
+            btnWdh=0.25*rect.width, vertSpace=(rect.height-3*btnHght)/4.0;
+            trect = (Rectangle){trect.x-btnWdh-interfaceSpace2,rect.y+vertSpace, btnWdh, btnHght};
+
+            float vals[] = {trackSet.color.r/255.0, trackSet.color.g/255.0, trackSet.color.b/255.0};
+
+            for (int j=0; j<3; j++) {
+                Slider sld = trackSet.sld[j];
+                sliderUpdateRectangle(sld, trect);
+                if (hidden) sliderDisable(sld);
+                else sliderEnable(sld);
+                if (disableHover) sliderDisableHover(sld);
+                else sliderEnableHover(sld);
+                sliderUpdate(sld, -1);
+
+                if (isSliderDragged(sld)) vals[j] = sliderUpdateValueCommonHorizontal(sld);
+                else sliderUpdateSlideValue(sld, vals[j]);
+
+                trect.y += btnHght+vertSpace;
+            }
+
+            settings.tracks[i].color = (Color){(unsigned char)(255*vals[0]), (unsigned char)(255*vals[1]), (unsigned char)(255*vals[2]), 255};
+            y += rect.height+interfaceSpace1;
+        }
+    }
+
+
     if (timeSlider) {
-        float h = floatMax(5,0.007*screenSize.y);
+        float h = floatMax(6,0.009*screenSize.y);
         Rectangle rect={controlDiv.x,controlDiv.y+controlDiv.height-0.5*h,controlDiv.width,h};
         sliderUpdateRectangle(timeSlider, rect);
         if (isPlaying || settings.totalDuration.seconds<=0) sliderDisable(timeSlider);
@@ -676,9 +953,9 @@ static void _updateTilesValues() {
     settingsBackgroundColor = blendColors(COLOR_BACKGROUND_3, WHITE, 0.01);
 
     controlDiv = (Rectangle){0, 0, screenSize.x, controlLineHeight*1.2};
-    settingsDiv = (Rectangle){0, controlDiv.y+controlDiv.height+interfaceSpace2, 0.35*screenSize.x, screenSize.y-(controlDiv.y+controlDiv.height+interfaceSpace2)};
+    settingsDiv = (Rectangle){0, controlDiv.y+controlDiv.height+interfaceSpace2, 0.32*screenSize.x, screenSize.y-(controlDiv.y+controlDiv.height+interfaceSpace2)};
     settingsSeperatorX = settingsDiv.x+0.5*settingsDiv.width;
-    previewDiv = (Rectangle){settingsDiv.x+settingsDiv.width+interfaceSpace2, settingsDiv.y, screenSize.x-(settingsDiv.x+settingsDiv.width+interfaceSpace2), settingsDiv.height};
+    previewDiv = (Rectangle){settingsDiv.x+settingsDiv.width+2*interfaceSpace2, settingsDiv.y, screenSize.x-(settingsDiv.x+settingsDiv.width+interfaceSpace2), settingsDiv.height};
 
     Rectangle tempRect = {-0.5*settingsDiv.width,settingsDiv.y,settingsDiv.width*1.5,settingsDiv.height*1.5};
     divsPixelRadius = getRadiusForRoundedRectangle(tempRect, 0.08);
@@ -758,6 +1035,10 @@ static void _renderTimeSlider() {
 
     DrawRectangleRec(rect, settingsBackgroundColor);
     DrawRectangleRec(trect, COLOR_TRACK_THEME_5);
+
+    Color top=COLOR_BACKGROUND_1, bottom=COLOR_BACKGROUND_1;
+    top.a=200, bottom.a=0;
+    DrawRectangleGradientEx((Rectangle){rect.x,rect.y+rect.height,rect.width,1.5*rect.height}, top, bottom, bottom, top);
 }
 
 static void _renderControlButtons() {
@@ -783,6 +1064,7 @@ static void _renderControlButtons() {
             if (!enabled) tmp1=disabledBackgroundColor;
 
             Color blendedCol = blendColors(tmp1, tmp2, effect);
+            blendedCol.a = (unsigned char)(255*pow(effect, 0.3));
     
             DrawRectangleRounded(trect, getRoundnessForRoundedRectangleTransformation(rect, trect, buttonGetRoundness(btn), 0), 4, blendedCol);
             iconRerder(btnIcons[i], scaleRctangleFromCenter(rect, 0.95*sizes[i]*lerp(0.9, 0.95, effect)), blendColors(enabled?COLOR_TEXT_1:COLOR_TEXT_4, colsFg[i], effect));
@@ -860,6 +1142,8 @@ static void _renderKeyValuePair(const char* key, const char* value, float textSi
     if (!btn) return;
 
     Rectangle bkgRect = buttonGetRectangle(btn);    //{fill.x+interfaceSpace1, fill.y, fill.width-2*interfaceSpace1, fill.height};
+    if (bkgRect.y>screenSize.y+1 || bkgRect.y+bkgRect.height<controlDiv.y+controlDiv.height-1) return;
+
     float divEffect=buttonGetEffectValue(btn);
     float y=bkgRect.y+0.5*bkgRect.height, x1=bkgRect.x+0.5*interfaceSpace2;// x2=bkgRect.x+bkgRect.width-0.5*interfaceSpace2;
     float pixRadius = getRadiusForRoundedRectangle(bkgRect, 0.35);
@@ -924,9 +1208,15 @@ static void _renderKeyValuePair(const char* key, const char* value, float textSi
     DrawLineEx((Vector2){settingsSeperatorX, bkgRect.y}, (Vector2){settingsSeperatorX, bkgRect.y+bkgRect.height}, 2.0, COLOR_TEXT_4);
 }
 
+static float _getSettingOptionsPixelRadius(Rectangle fill) {
+    Rectangle bkgRect = {fill.x+interfaceSpace1, fill.y, fill.width-2*interfaceSpace1, fill.height};
+    return getRadiusForRoundedRectangle(bkgRect, 0.35);
+}
 
 static void _renderInfoKeyValuePair(const char* key, const char* value, float textSize, Rectangle fill) {
     Rectangle bkgRect = {fill.x+interfaceSpace1, fill.y, fill.width-2*interfaceSpace1, fill.height};
+    if (bkgRect.y>screenSize.y+1 || bkgRect.y+bkgRect.height<controlDiv.y+controlDiv.height-1) return;
+
     float y=bkgRect.y+0.5*bkgRect.height, x1=bkgRect.x+0.5*interfaceSpace2;// x2=bkgRect.x+bkgRect.width-0.5*interfaceSpace2;
     Color bkgCol = settingsBackgroundColor;
     DrawRectangleRounded(bkgRect, 0.35, 4, bkgCol);
@@ -948,18 +1238,105 @@ static void _renderInfoKeyValuePair(const char* key, const char* value, float te
 static void _renderSettingsTitle(const char* title, float textSize, Rectangle fill) {
     Rectangle bkgRect = {fill.x+interfaceSpace1, fill.y, fill.width-2*interfaceSpace1, fill.height};
     float y=bkgRect.y+0.5*bkgRect.height, x=bkgRect.x+0.5*bkgRect.width;
-    float finalSize = _getTextSizeToFitInRect(bkgRect, textSize, title, interfaceSpace2);
+    float finalSize = _getTextSizeToFitInRect(bkgRect, textSize, title, interfaceSpace1*2.0);
     renderFontStringAlign(GlobalFonts[0].font, title, (Vector2){x,y}, (Vector2){0.5, 0.5}, finalSize, 0, COLOR_TEXT_1);
 }
 
-static void _renderSettings() {
-    Rectangle tempRect = {-0.5*settingsDiv.width,settingsDiv.y,settingsDiv.width*1.5,settingsDiv.height*1.5};
-    DrawRectangleRounded(tempRect, getRoundnessForRoundedRectangle(tempRect, divsPixelRadius), 8, tilesBackgroundColor);
+static void _renderTrackSetting(int idx, float textSize, float pixelRadius) {
+    if (idx<0 || idx>=settings.totalTracks || !settings.tracks) return;
 
+    struct track_tile_settings trackSet = settings.tracks[idx];
+
+    Rectangle bkgRect = buttonGetRectangle(trackSet.base);
+    if (bkgRect.y>screenSize.y+1 || bkgRect.y+bkgRect.height<controlDiv.y+controlDiv.height-1) return;
+
+    float divEffect = buttonGetEffectValue(trackSet.base);
+    int shown = trackSet.show;
+    int forceHidden = !isButtonEnabled(trackSet.showBtn);
+    Color bkgCol = shown?blendColors(settingsBackgroundColor, WHITE, 0.02*divEffect):blendColors(settingsBackgroundColor, BLACK, 0.05+0.22*forceHidden);
+    DrawRectangleRounded(bkgRect, getRoundnessForRoundedRectangle(bkgRect, pixelRadius), 4, bkgCol);
+    
+    DrawRectangleRounded((Rectangle){bkgRect.x+bkgRect.width-2*pixelRadius, bkgRect.y, pixelRadius*2, bkgRect.height}, 1.0, 4, blendColors(trackSet.color, bkgCol, 0.6*(!shown)+0.3*forceHidden));
+
+    Rectangle tempRect = sliderGetRectangle(trackSet.sld[0]);
+
+    float stx = bkgRect.x+0.55*bkgRect.height;
+    Rectangle titleRect = {stx,bkgRect.y,tempRect.x-stx-interfaceSpace1, 0.7*bkgRect.height};
+    const char* title = trackGetTitle(trackSet.track);
+    if (!title || !strlen(title)) title = TRACK_TITLE_PLACEHOLDER;
+    float spacing = 1.5*interfaceSpace1;
+    float finalSize = _getTextSizeToFitInRect(titleRect, 0.85*textSize, title, spacing);
+    renderFontStringAlign(GlobalFonts[0].font, title, (Vector2){titleRect.x+0.75*spacing, titleRect.y+0.5*titleRect.height}, (Vector2){0, 0.5}, finalSize, 0, blendColors(COLOR_TEXT_1, BLACK, 0.35*(!shown)+0.35*forceHidden));
+    Color tmpCol = blendColors(trackSet.color, COLOR_TEXT_3, 0.75);
+    tmpCol = blendColors(tmpCol, BLACK, 0.35*(!shown)+0.35*forceHidden);
+    const char* programName = midiGetProgramName(trackGetProgram(trackSet.track));
+    renderFontStringAlign(GlobalFonts[1].font, programName, (Vector2){titleRect.x+0.75*spacing, titleRect.y+bkgRect.height-0.5*titleRect.height}, (Vector2){0, 0.5}, fontGetTextSizeToFitInRect(GlobalFonts[1].font, titleRect, 0.85*finalSize, programName, spacing, spacing), 0, tmpCol);
+
+    float perc = 0.4;
+    Rectangle iconRect = {bkgRect.x+0.5*interfaceSpace2, bkgRect.y+(0.5-0.5*perc)*bkgRect.height,perc*bkgRect.height, perc*bkgRect.height};
+    enum icon_title icTitle = midiGetProgramTypeIcon(trackGetProgram(trackSet.track));
+    iconRerder(icTitle, scaleRctangleFromCenter(iconRect, normalizeProgramTypeIcon(icTitle)), blendColors(COLOR_TEXT_3, BLACK, 0.35*(!shown)+0.35*forceHidden));
+
+    
+    Button btns[] = {trackSet.colorBtn, trackSet.showBtn};
+    enum icon_title icons[] = {T_ICON_REFRESH, trackSet.show?T_ICON_SHOWN:T_ICON_HIDDEN};
+    float icScales[] = {0.5, 1.0};
+    for (int i=0; i<2; i++) {
+        Button btn = btns[i];
+        Rectangle rct = buttonGetRectangle(btn);
+        float effect = buttonGetEffectValue(btn);
+        int isEnabled = isButtonEnabled(btn);
+
+        DrawRectangleRounded(rct, getRoundnessForRoundedRectangle(rct, pixelRadius), 4, isEnabled?blendColors(bkgCol, WHITE, 0.02+0.02*effect):blendColors(bkgCol, BLACK, 0.05));
+        iconRerder(icons[i], scaleRctangleFromCenter(rct, icScales[i]*(0.9+0.1*effect)), isEnabled?blendColors(COLOR_TEXT_3, blendColors(trackSet.color, COLOR_TEXT_1, 0.5), 0.25+0.75*effect):COLOR_TEXT_5);
+    }
+
+    for (int i=0; i<3; i++) {
+        Slider sld = trackSet.sld[i];
+        Rectangle rct = sliderGetRectangle(sld);
+        float effect = sliderGetEffectValue(sld);
+        float val = sliderGetSlideValue(sld);
+        int isEnabled = !isSliderDisabled(sld);
+
+        DrawRectangleRounded(rct, 1.0, 4, blendColors(bkgCol, WHITE, 0.02+0.02*effect));
+        Color col;
+        if (i==0) col = (Color){(unsigned char)(255.0*val), bkgCol.g, bkgCol.b, 255};
+        else if (i==1) col = (Color){ bkgCol.r, (unsigned char)(255.0*val), bkgCol.b, 255};
+        else if (i==2) col = (Color){bkgCol.r, bkgCol.g, (unsigned char)(255.0*val), 255};
+
+        DrawRectangleRounded((Rectangle){rct.x+rct.height*0.15, rct.y+rct.height*0.15, rct.width*(1.0-0.3*rct.height/rct.width)*val, rct.height*0.7}, 1.0, 4, blendColors(bkgCol, col, (0.1+0.1*isEnabled+0.13*effect*isEnabled)+(0.5-0.13*effect*isEnabled+0.3*isEnabled)*val));
+
+
+    }
+}
+
+static void _renderSettingsSlider() {
+    if (!settingsSlider || isSliderDisabled(settingsSlider)) return;
+
+    Rectangle rect = sliderGetRectangle(settingsSlider);
+    float roundness = sliderGetRoundness(settingsSlider);
+    float effect = sliderGetEffectValue(settingsSlider);
+    float val = sliderGetSlideValue(settingsSlider);
+    Color col = blendColors((Color){100,100,100,120}, (Color){180,180,180,160}, effect);
+
+    float th = rect.height*settingsDivTargetHeight/settingsTotalHeight;
+    Rectangle newRect = {rect.x, rect.y+(rect.height-th)*val, rect.width, th};
+    DrawRectangleRounded(newRect, roundness, 4, col);
+
+}
+
+static void _renderSettings() {
     float textSize = 0.032*floatMin(screenSize.x, screenSize.y);
     float rh=0.05*screenSize.y;
-    Rectangle rect = {0,settingsDiv.y+interfaceSpace2,settingsDiv.width,rh};
-    _renderSettingsTitle("Settings", textSize, rect);
+    float offsetY = rh*settingsScroll;
+
+    Rectangle tempRect = {-0.5*settingsDiv.width,settingsDiv.y-offsetY,settingsDiv.width*1.5,settingsDiv.height*1.5+offsetY};
+    DrawRectangleRounded(tempRect, getRoundnessForRoundedRectangle(tempRect, divsPixelRadius), 8, tilesBackgroundColor);
+
+    
+    Rectangle rect = {0,settingsDiv.y+interfaceSpace2-offsetY,settingsDiv.width,rh};
+    float pixelRadius = _getSettingOptionsPixelRadius(rect);
+    _renderSettingsTitle("Settings", 1*textSize, rect);
     rect.y += rh+interfaceSpace1;
 
     const char* keys[] = {"Aspect Ratio", "Theme", "Time Notation", "Count Measures", "Identify Chords", "Show Drums", "Start Delay", "End Delay", "Visible Duration", "Key Height", "Spacing"};
@@ -983,37 +1360,51 @@ static void _renderSettings() {
     }
 
 
-    if (0) {
-        const char* nkeys[] = {"Total Duration", "Visible Keys", "Rendered Tracks", "Rendered Notes"};
-        char* nvals[] = {_getSettingsStringForDuration(settings.totalDuration), _getSettingStringForUint32(settings.info.shownKeys), _getSettingStringForUint32(settings.info.tracks), _getSettingStringForUint32(settings.info.notes)};
-        s = intMin(sizeof(nkeys)/sizeof(const char*), sizeof(nvals)/sizeof(char*));
-        rect.y = settingsDiv.y+settingsDiv.height-interfaceSpace2-(s+1)*rh-s*interfaceSpace1;
-        _renderSettingsTitle("Information", textSize, rect);
-        rect.y += rh+interfaceSpace1;
-        
 
-        for (int i=0; i<s; i++) {
-            _renderInfoKeyValuePair(nkeys[i], nvals[i], textSize, rect);
-            if (nvals[i]) free(nvals[i]);
-            nvals[i]=NULL;
-            rect.y += rh+interfaceSpace1;
+    if (settings.tracks) {
+        for (int i=0; i<settings.totalTracks; i++) {
+            _renderTrackSetting(i, textSize, pixelRadius);
         }
     }
+
     
+    const char* nkeys[] = {"Total Duration", "Visible Keys", "Rendered Tracks", "Rendered Notes"};
+    char* nvals[] = {_getSettingsStringForDuration(settings.totalDuration), _getSettingStringForUint32(settings.info.shownKeys), _getSettingStringForUint32(settings.info.tracks), _getSettingStringForUint32(settings.info.notes)};
+    s = intMin(sizeof(nkeys)/sizeof(const char*), sizeof(nvals)/sizeof(char*));
+    Rectangle tmp = (settings.tracks && settings.totalTracks>0)?buttonGetRectangle(settings.tracks[settings.totalTracks-1].base):buttonGetRectangle(settingsDivBtns[NUM_OF_SETTINGS-1]);
+    rect.y = tmp.y+tmp.height+interfaceSpace2-interfaceSpace1;
+    _renderSettingsTitle("Information", textSize, rect);
+    rect.y += rh+interfaceSpace1;
+    
+
+    for (int i=0; i<s; i++) {
+        _renderInfoKeyValuePair(nkeys[i], nvals[i], textSize, rect);
+        if (nvals[i]) free(nvals[i]);
+        nvals[i]=NULL;
+        rect.y += rh+interfaceSpace1;
+    }
+    
+
+    _renderSettingsSlider();
 }
 
 
 
+static void _renderDivSeperator() {
+    float x = (settingsDiv.x+settingsDiv.width+previewDiv.x)*0.5;
+    DrawLineEx((Vector2){x,controlDiv.y+controlDiv.height}, (Vector2){x,screenSize.y}, 2, COLOR_TEXT_4);
+}
 
 
 
 static void _hideImperfections() {
-    DrawRectangleRec((Rectangle){0,0,screenSize.x,previewDiv.y}, COLOR_BACKGROUND_1);
+    DrawRectangleRec((Rectangle){previewDiv.x,0,screenSize.x-previewDiv.x,previewDiv.y}, COLOR_BACKGROUND_1);
 }
 
 void renderVerticalTiles() {
     if (expVideoActive) return;
     _renderSettings();
+    _renderDivSeperator();
 
     Rectangle tmp = {previewDiv.x, previewDiv.y, previewDiv.width*1.5, previewDiv.height*1.5};
     DrawRectangleRounded(tmp, getRoundnessForRoundedRectangle(tmp, divsPixelRadius), 8, tilesBackgroundColor);

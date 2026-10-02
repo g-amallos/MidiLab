@@ -215,7 +215,7 @@ static void _renderPianoKeysProject() {
             }
 
             if (down) {
-                Rectangle rect = {targetRect.x+targetRect.width*(view.spacePerc+view.columns[i-settings.info.minShownKey].x)-2,y-gradH,targetRect.width*view.columns[i-settings.info.minShownKey].w+4,gradH};
+                Rectangle rect = {targetRect.x+targetRect.width*view.columns[i-settings.info.minShownKey].x-2,y-gradH,targetRect.width*view.columns[i-settings.info.minShownKey].w+4,gradH};
                 Color c1=blendColors(col, WHITE, 0.5);
                 Color c2=c1; c1.a=(unsigned char)(120*force), c2.a=0;
                 DrawRectangleGradientEx(rect, c2, c1, c1, c2);
@@ -254,7 +254,7 @@ static void _renderPianoKeysClean() {
 
 
             if (down) {
-                rect = (Rectangle){targetRect.x+targetRect.width*(view.spacePerc+view.columns[i-settings.info.minShownKey].x),y-gradH,targetRect.width*view.columns[i-settings.info.minShownKey].w,gradH};// (Rectangle){x,y-h*0.3,w*blackKeyWidth,h*0.3};
+                rect = (Rectangle){targetRect.x+targetRect.width*view.columns[i-settings.info.minShownKey].x,y-gradH,targetRect.width*view.columns[i-settings.info.minShownKey].w,gradH};// (Rectangle){x,y-h*0.3,w*blackKeyWidth,h*0.3};
                 Color c1=blendColors(col, WHITE, 0.15);
                 Color c2=c1; c1.a=(unsigned char)(120*force), c2.a=0;
                 DrawRectangleGradientEx(rect, c2, c1, c1, c2);
@@ -425,13 +425,15 @@ static void _renderNoteClean(Note note, float y1, float y2, Color col) {
 
 
 static Color _getNoteColorProject(int type, int track) {
-    if (type) return getAnyTrackThemeColorForBlackKeys(track);
-    else return getAnyTrackThemeColorForWhiteKeys(track);
+    if (type) return blendColors(settings.tracks[track].color, (Color){0,0,0,255}, 0.35);
+    return settings.tracks[track].color;
+    //if (type) return getAnyTrackThemeColorForBlackKeys(track);
+    //else return getAnyTrackThemeColorForWhiteKeys(track);
 }
 
 static Color _getNoteColorClean(int type, int track) {
     (void)type;
-    return getAnyTrackThemeColorForWhiteKeys(track);
+    return settings.tracks[track].color;    //getAnyTrackThemeColorForWhiteKeys(track);
 }
 
 static void _renderNotesInRoll() {
@@ -459,8 +461,8 @@ static void _renderNotesInRoll() {
 
         float y1=bottomY-range*(nt->ftimestamp-curTime+settings.startDelay.seconds)/settings.visibleDuration.seconds;
         float y2=bottomY-range*(nt->ftimestamp+nt->fduration-curTime+settings.startDelay.seconds)/settings.visibleDuration.seconds;
-        if (y2>bottomY+1) continue;
         if (y1<topY-1) break;
+        if (y2>bottomY+1 || !(settings.tracks[nt->track].show)) continue;
 
         int key = nt->key;
         int type = types[key%12];

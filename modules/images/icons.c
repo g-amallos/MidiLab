@@ -56,6 +56,11 @@ struct texture icons[T_ICON_END] = {
     [T_ICON_VIEW_ROLL] = {.path="assets/icons/notes.png", .texture={0}},
 
     [T_ICON_VIDEO] = {.path="assets/icons/video.png", .texture={0}},
+    [T_ICON_REFRESH] = {.path="assets/icons/refresh.png", .texture={0}},
+    [T_ICON_SHOWN] = {.path="assets/icons/shown.png", .texture={0}},
+    [T_ICON_HIDDEN] = {.path="assets/icons/hidden.png", .texture={0}},
+
+
 
     [T_ICON_MIDILAB_LOGO_256] = {.path="assets/images/midilablogo/midilab_256.png", .texture={0}},
     [T_ICON_MIDILAB_LOGO_1024] = {.path="assets/images/midilablogo/midilab_1024.png", .texture={0}},

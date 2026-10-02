@@ -2,6 +2,7 @@
 #define TILES_H
 
 #include <raylib.h>
+#include <ui.h>
 
 
 struct duration {
@@ -49,6 +50,20 @@ struct float_constraints {
     double max;
 };
 
+struct track_tile_settings {
+    Track track;
+    int show;
+    int colorMode;
+    int totalNotes;
+
+    Color color;
+    Button base;
+    Button showBtn;
+    Button colorBtn;
+    Slider sld[3];
+};
+
+
 struct tiles_settings {
     int beatsInMeasure;
     enum setting_aspect_ratio aspectRatio;
@@ -74,6 +89,9 @@ struct tiles_settings {
     struct float_constraints spacingConstraints;
     double space;
 
+
+    int totalTracks;
+    struct track_tile_settings* tracks;
 
 
     struct duration totalDuration;
@@ -102,6 +120,7 @@ struct view_data {
     
     struct note_column* columns;
 };
+
 
 
 

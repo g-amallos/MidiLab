@@ -39,6 +39,7 @@ int textFontClose();    // Returns the number of unloaded fonts
 
 void renderFontStringAlign(Font font, const char* string, Vector2 pos, Vector2 align, float size, float spacing, Color color);
 Vector2 textFontGetSize(Font font, const char* string, float size, float spacing);
+float fontGetTextSizeToFitInRect(Font font, Rectangle rect, float defaultSize, const char* text, float spaceX, float spaceY);
 
 
 /* Rectangles (interface/rectangles.c) */

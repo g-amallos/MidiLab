@@ -943,6 +943,7 @@ void renderTrackLeft(int idx, int skipMoving) {
 
     float fontSize = 0.7*tbxRect.height;
     Vector2 textPos = (Vector2){tbxRect.x+5, tbxRect.y+0.5*tbxRect.height};
+    fontSize = fontGetTextSizeToFitInRect(GlobalFonts[0].font, tbxRect, fontSize, trackTitle, 10, 4);
     if (*trackTitle) renderFontStringAlign(GlobalFonts[0].font, trackTitle, textPos, (Vector2){0, 0.5}, fontSize, 0, focusedTbx?COLOR_TEXT_1:COLOR_TEXT_3);
     else if (!focusedTbx) renderFontStringAlign(GlobalFonts[1].font, TRACK_TITLE_PLACEHOLDER, textPos, (Vector2){0, 0.5}, fontSize*0.9, 0, COLOR_TEXT_4);
 
