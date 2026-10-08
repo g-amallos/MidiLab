@@ -1,5 +1,6 @@
 *.o
 *.exe
+*.out
 midilab
 midilab.exe
 err.txt
@@ -25,3 +26,13 @@ assets/archive/
 *.mov
 
 /experiments/fft/assets/test.txt
+/experiments/fft/fft
+
+/experiments/synth/synth
+/experiments/synth/test.txt
+
+/experiments/mlb/editor
+/experiments/mlb/*.mlb
+/experiments/mlb/assets/
+
+/experiments/chords/chords

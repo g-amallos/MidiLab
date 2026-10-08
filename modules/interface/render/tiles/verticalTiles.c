@@ -192,6 +192,17 @@ static void _updateInfoChunk(int drumsChanged) {
 static void _updateAspectRatio();
 
 
+static void _freeChordData() {
+    if (!(settings.chords.chords)) return;
+    int n=settings.chords.num;
+    for (int i=0; i<n; i++) {
+        if (settings.chords.chords[i].string) free(settings.chords.chords[i].string);
+        settings.chords.chords[i].string = NULL;
+    }
+    free(settings.chords.chords);
+    settings.chords.chords = NULL;
+}
+
 static void _freeTracksSettings() {
     if (!(settings.tracks)) return;
 
@@ -357,6 +368,8 @@ void verticalTilesInit() {
     _updateInfoChunk(1);
     _updateAspectRatio();
 
+    setupChords();
+
     printf("`verticalTilesInit`: exited\n");
 }
 
@@ -366,6 +379,7 @@ static void closeTileSettings() {
     settings.notes.notes = NULL;
 
     _freeTracksSettings();
+    _freeChordData();
 
     if (view.columns) free(view.columns);
     view.columns = NULL;
@@ -961,8 +975,8 @@ static void _updateTilesValues() {
     divsPixelRadius = getRadiusForRoundedRectangle(tempRect, 0.08);
 
     previewRect = rectangleScaleToFitInCenter((Vector2){(float)previewAspectRatio,1.0}, previewDiv);
-    if (previewRect.width>previewDiv.width-2*divsPixelRadius) previewRect = rectangleScaleToFitInCenter((Vector2){(float)previewAspectRatio,1.0}, (Rectangle){previewDiv.x+divsPixelRadius,previewDiv.y,previewDiv.width-divsPixelRadius,previewDiv.height});
-
+    if (previewRect.width>previewDiv.width-2*divsPixelRadius) previewRect = rectangleScaleToFitInCenter((Vector2){(float)previewAspectRatio,1.0}, (Rectangle){previewDiv.x+divsPixelRadius,previewDiv.y,previewDiv.width-2*divsPixelRadius,previewDiv.height});
+    // previewRect.y<previewDiv.y+divsPixelRadius
 
     tilesSetUpTargetRectangle(previewRect);
     tilesSetUpColors(tilesBackgroundColor, disabledBackgroundColor, textOrHoverBackgroundColor, settingsBackgroundColor);

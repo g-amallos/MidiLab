@@ -321,6 +321,8 @@ static void _renderRollBackgroundBeatBreaks() {
     float textSize = floatMin(floatMin(range*beatDuration/settings.visibleDuration.seconds, targetRect.width*0.05), 0.85*targetRect.width*view.whiteKeyPerc);
     int lastBeat = beatsInMeasure*((int)ceil((settings.info.duration)/(beatDuration*beatsInMeasure)));
 
+    //printf("identifyChords: %d, settings.identifyChords: %d, settings.chords.chords: %p\n", identifyChords, settings.identifyChords, (void*)settings.chords.chords);
+
     for (int i=0; i<iterations; i++) {
         int itr = i+start;
         if (itr<0) continue;
@@ -333,12 +335,40 @@ static void _renderRollBackgroundBeatBreaks() {
         if (itr>lastBeat) break;
 
         if (y<=bottomY+1) DrawLineEx((Vector2){x1,y}, (Vector2){x2,y}, 1.0+1.0*isMeasure, isMeasure?COLOR_TEXT_5:COLOR_TEXT_6);
+
         if (settings.countMeasures) {
             if (y-0.9*textSize>bottomY+1) continue;
             float textY = y-0.1*textSize;
             renderFontStringAlign(GlobalFonts[0].font, TextFormat("%u:%u", 1+itr/beatsInMeasure, itr%beatsInMeasure), (Vector2){x1+0.1*textSize, textY}, (Vector2){0,1.0}, 0.8*textSize, 0, COLOR_TEXT_4);
             if (textY<topY-1) break;
-        } else if (y<topY-1) break;
+         } else if (y<topY-1) break;
+    }
+}
+
+static void _renderRollBackgroundChords() {
+    int iterations=2+(settings.visibleDuration.seconds/(beatDuration*beatsInMeasure)), identifyChords=(settings.identifyChords && settings.chords.chords);
+    if (!identifyChords) return;
+    
+    int start = floor((curTime-settings.startDelay.seconds)/(beatDuration*beatsInMeasure));
+
+    float topY=targetRect.y, x1=targetRect.x+view.spacePerc*targetRect.width, bottomY=targetRect.y+targetRect.height*(1.0-view.keyHeight)-view.spacePerc*targetRect.width;
+    float range = bottomY-topY;
+    float textSize = floatMin(floatMin(range*(beatDuration*beatsInMeasure)/settings.visibleDuration.seconds, floatMin(targetRect.width, targetRect.height)*0.1), 2*targetRect.width*view.whiteKeyPerc), space=1.0*textSize;
+    int lastMeasure = (beatDuration*beatsInMeasure)*((int)ceil((settings.info.duration)/(beatDuration*beatsInMeasure)));
+
+    Vector2 textVecSize = textFontGetSize(GlobalFonts[0].font, "A", textSize, 0);
+
+    for (int i=0; i<iterations; i++) {
+        int measure = i+start;
+        if (measure<0) continue;
+        if (measure>lastMeasure || measure>=settings.chords.num) break;
+        
+        float y1 = bottomY-space-range*((measure*beatsInMeasure)*beatDuration-curTime+settings.startDelay.seconds)/settings.visibleDuration.seconds;
+        float y2 = bottomY+space-range*(((measure+1)*beatsInMeasure)*beatDuration-curTime+settings.startDelay.seconds)/settings.visibleDuration.seconds;
+        //float centerY = bottomY-range*(((measure+0.5)*beatsInMeasure)*beatDuration-curTime+settings.startDelay.seconds)/settings.visibleDuration.seconds;
+        float textY = floatClip(floatClip(y1, topY+space, bottomY-space), y2, y1);
+        struct chord_render_info chord = settings.chords.chords[measure];
+        renderFontStringAlign(GlobalFonts[0].font, TextFormat("%s (%d%%)", chord.string?chord.string:"N/A", (int)(100.0*chord.score)), (Vector2){x1+space-textVecSize.y*0.5, textY}, (Vector2){0,0.5}, textSize, 0, (chord.found)?(Color){100,200,120,255}:(Color){200,100,120,255});
     }
 }
 
@@ -585,6 +615,7 @@ void _renderTilesToTargetRect() {
 
     _renderRollBackground();
     _renderNotesInRoll();
+    _renderRollBackgroundChords();
     _renderKeyboardBackground();
     if (!expVideoActive) _renderPreviewImperfectionOverlay();
     _renderPianoRoll();
