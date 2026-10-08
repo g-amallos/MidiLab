@@ -2,6 +2,7 @@
 #define TILES_H
 
 #include <raylib.h>
+#include <backend.h>
 #include <ui.h>
 
 
@@ -63,6 +64,16 @@ struct track_tile_settings {
     Slider sld[3];
 };
 
+struct chord_render_info {
+    char* string;
+    float score;
+    int found;
+};
+
+struct chords_render {
+    int num;
+    struct chord_render_info* chords;
+};
 
 struct tiles_settings {
     int beatsInMeasure;
@@ -97,6 +108,8 @@ struct tiles_settings {
     struct duration totalDuration;
     struct tiles_info info;
     struct note_array notes;
+
+    struct chords_render chords;
 };
 
 struct note_column {
@@ -137,6 +150,8 @@ void _renderTilesToTargetRect();
 double _tilesControlGetTime();
 void tilesExportVideoClose();
 void tilesExportVideoInit();
+
+void setupChords();
 
 
 
