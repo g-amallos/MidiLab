@@ -137,8 +137,6 @@ int projectGetTracksNum() {
 }
 
 void projectLoadTmpProject(ProjectData newProject) {
-    globalHandlerPause();
-
     uint16_t tempo = newProject->tempo;
     struct time_signature ts = newProject->timeSignature;
 
@@ -149,6 +147,7 @@ void projectLoadTmpProject(ProjectData newProject) {
 
     globalHandlerSetTimeSignature(ts);
     projectSetTempo(tempo);
+    globalHandlerResetTime();
 
     updateCLTextboxes();
     globalHandlerUpdateAllTracks();

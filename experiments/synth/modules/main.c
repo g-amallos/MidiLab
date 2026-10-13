@@ -50,18 +50,19 @@ int main(int argc, char** argv) {
     int s = 5;
 
 
-    enum instruments instr = INSTRUMENT_STADIUM_ORGAN;
+    enum instruments instr = INSTRUMENT_BASS;
+    int transpose = -12;
 
-    SynthVoice sv1 = synthVoiceCreate(synth, 0, 55, 1.0, instr);
-    SynthVoice sv2 = synthVoiceCreate(synth, 0, 60, 1.0, instr);
-    SynthVoice sv3 = synthVoiceCreate(synth, 0, 64, 1.0, instr);
+    SynthVoice sv1 = synthVoiceCreate(synth, 0, 55+transpose, 1.0, instr);
+    SynthVoice sv2 = synthVoiceCreate(synth, 0, 60+transpose, 1.0, instr);
+    SynthVoice sv3 = synthVoiceCreate(synth, 0, 64+transpose, 1.0, instr);
 
     SynthVoice svs[] = {sv1, sv2, sv3};
 
     for (int i=0; i<s; i++) {
-        synthVoiceChangePitch(sv1, notes[i][0]);
-        synthVoiceChangePitch(sv2, notes[i][1]);
-        synthVoiceChangePitch(sv3, notes[i][2]);
+        synthVoiceChangePitch(sv1, notes[i][0]+transpose);
+        synthVoiceChangePitch(sv2, notes[i][1]+transpose);
+        synthVoiceChangePitch(sv3, notes[i][2]+transpose);
 
         double duration=chordDur;
         writeDuration(duration-transitionDur);
@@ -71,7 +72,7 @@ int main(int argc, char** argv) {
             double stepTime = transitionDur/quality;
             for (int j=0; j<quality; j++) {
                 for (int k=0; k<3; k++) {
-                    synthVoiceChangePitch(svs[k], lerpFloat(notes[i][k], notes[i+1][k], j/(double)quality));
+                    synthVoiceChangePitch(svs[k], transpose+lerpFloat(notes[i][k], notes[i+1][k], j/(double)quality));
                 }
                 writeDuration(stepTime);
             }

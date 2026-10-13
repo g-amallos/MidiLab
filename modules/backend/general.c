@@ -6,6 +6,7 @@
 int backendInit() {
     int ret = createNewProject();
     globalStateHandlerInit();
+    keyboardInputInit();
     //updateWindowProjectTitle();
     FFTinit();
     return ret;

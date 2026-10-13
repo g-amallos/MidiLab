@@ -162,7 +162,9 @@ struct roll_rect {
 
 extern StateHandler globalStateHandler;         // Another reference the whole program will use for the project
 double globalHandlerGetTime();
+void globalHandlerResetTime();
 void globalHandlerSetTime(double time);
+void globalHandlerSetTimeInTimestamps(uint32_t timestamp);
 int globalHandlerIsPlaying();
 void globalHandlerPlay();
 void globalHandlerPause();
@@ -178,6 +180,7 @@ void globalHandlerSetKeyboardType(enum keyboard_render_types view);
 void globalHandlerUpdateKey(int key, uint8_t velocity);
 void globalHandlerUpdateKeyAndPlaySynth(int key, uint8_t velocity);
 double globalHandlerGetVisibleDuration();
+uint32_t globalHandlerGetVisibleDurationInTimestamps();
 double globalHandlerDurationToMeasures(double seconds);
 double globalHandlerMeasuresToDuration(double measures);
 int globalHandlerGetBeatsInMeasure();
@@ -189,6 +192,7 @@ void globalHandlerSetVisibleMouseJumps(uint32_t mouseJumps);
 int globalHandlerIsTimeLineShown();
 double globalHandlerGetLineTime();
 void globalHandlerSetLineTime(double time);
+void globalHandlerSetLineTimestamp(uint32_t timestamp);
 uint32_t globalHandlerGetLineTimestamp();
 uint32_t globalHandlerGetTimestamp();
 void globalHandlerUpdateTick();
@@ -213,6 +217,7 @@ void globalHandlerRemoveSelectedNote(Note note);
 void globalHandlerToggleSelectedNote(Note note);
 void globalHandlerSelectSingleNote(Note note);
 int globalHandlerIsNoteSelected(Note note);
+int globalHandlerIsNoteActuallySelected(Note note);
 int globalHandlerGetNumberOfActuallySelectedNotes();
 int globalHandlerGetNumberOfVisuallySelectedNotes();
 void globalHandlerDeleteSelectedNotes();
@@ -234,8 +239,11 @@ void globalHandlerResizeSelectedPress(Note note, float fkey, uint32_t timestamp)
 void globalHandlerResizeSelectedHold(float fkey, uint32_t timestamp);
 uint32_t globalHandlerResizeSelectedRelease(float fkey, uint32_t timestamp);
 Note globalHandlerResizeSelectedGetReferenceNote();
+Note* globalHandlerGetSelectedNotes();
 int globalHandlerResizeSelectedIsActive();
 void globalHandlerSelectAllNotes();
+void globalHandlerMoveSelectedPitch(int keyOffset);
+void globalHandlerMoveSelectedTimestamp(int timestampOffset);
 
 void globalHandlerClearClipboard();
 void globalHandlerCopySelected();
@@ -317,6 +325,9 @@ void midiFreeMidiProgramArray(struct midi_programs_array* mpa);
 void midiEventFree(MidiEvent event);
 MidiEvent midiCreateEventForNoteOn(Note note, float volume);
 MidiEvent midiCreateEventForNoteOff(Note note);
+
+void keyboardInputUpdate(int userInput);
+int IsKeyRepeating(int key);
 
 
 #endif

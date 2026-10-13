@@ -49,6 +49,7 @@ int updateRenderGlobalVariables(int userInputAllowed) {
     screenSize.y = newY;
 
     updateMouseHandler(userInputAllowed);
+    keyboardInputUpdate(userInputAllowed);
 
     return 0;
 }

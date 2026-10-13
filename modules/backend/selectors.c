@@ -412,6 +412,33 @@ static void _selectorsMergeAndClearNoChecks() {
     }
 }
 
+static void _selectorVectorMoveByKey(struct notes_selection* selector, int keyOffSet) {
+    if (!selector || !(selector->notes) || !(selector->notesNum) || (keyOffSet+selector->keyMax)>127 || (keyOffSet+selector->keyMin)<0) return;
+
+    selector->keyMax = (uint8_t)(keyOffSet+selector->keyMax);
+    selector->keyMin = (uint8_t)(keyOffSet+selector->keyMin);
+
+    uint32_t n=selector->notesNum;
+    Note* arr = selector->notes;
+    for (uint32_t i=0; i<n; i++) {
+        arr[i]->key = (uint8_t)(keyOffSet+arr[i]->key);
+    }
+}
+
+static void _selectorVectorMoveByTimestamp(struct notes_selection* selector, int timestampOffSet) {
+    if (!selector || !(selector->notes) || !(selector->notesNum) || (timestampOffSet+(int)(selector->timestampStart))<0) return;
+
+    selector->timestampStart = (uint32_t)(timestampOffSet+selector->timestampStart);
+    selector->timestampEnd = (uint32_t)(timestampOffSet+selector->timestampEnd);
+
+    uint32_t n=selector->notesNum;
+    Note* arr = selector->notes;
+    for (uint32_t i=0; i<n; i++) {
+        arr[i]->timestamp = (uint32_t)(timestampOffSet+(int64_t)(arr[i]->timestamp));
+    }
+    trackSortNotes(globalStateHandler->project->tracks+globalStateHandler->selectedTrack);
+}
+
 static void _selectorMoveClick(struct notes_selection* selector, Note note, float fkey, uint32_t timestamp) {
     if (!selector || !note || !(selector->notes) || fkey>=128 || fkey<0) return;
     selector->rollRect.topLeft = (struct roll_point){.fkey=fkey, .timestamp=timestamp};
@@ -569,19 +596,20 @@ static void _selectorDeleteSelected(struct notes_selection* selector) {
     _selectorVectorReset(selector);
 }
 
-static void _copyNotes(Note* dest, const Note* source, uint32_t size) {
+static void _copyNotes(Note* dest, const Note* source, uint32_t size, int64_t timestampOffset) {
     if (!dest || !source || !size) return;
 
     for (uint32_t i=0; i<size; i++) {
         Note note = malloc(sizeof(struct note_data));
         if (!note) return;
         *note = *(source[i]);
+        note->timestamp = (uint32_t)(timestampOffset+(int64_t)(note->timestamp));
         dest[i] = note;
     }
 }
 
-static void _selectorVectorCopy(struct notes_selection* dest, struct notes_selection* source) {
-    if (!dest || !source) return;
+static void _selectorVectorCopy(struct notes_selection* dest, struct notes_selection* source, int64_t timestampOffset) {
+    if (!dest || !source || source->timestampStart+timestampOffset<0) return;
     if (&(globalStateHandler->selector.clipboard)==dest) _selectorVectorDeepFree(dest);
     else _selectorVectorReset(dest);
     
@@ -591,8 +619,11 @@ static void _selectorVectorCopy(struct notes_selection* dest, struct notes_selec
     Note* arr = malloc(sizeof(Note)*n);
     if (!arr) return;
 
-    _copyNotes(arr, source->notes, n);
+    _copyNotes(arr, source->notes, n, timestampOffset);
     *dest = *source;
+
+    dest->timestampStart = (uint32_t)(timestampOffset+dest->timestampStart);
+    dest->timestampEnd = (uint32_t)(timestampOffset+dest->timestampEnd);
     dest->notes = arr;
 }
 
@@ -602,17 +633,18 @@ static void _selectorVectorCut(struct notes_selection* dest, struct notes_select
     uint32_t n=source->notesNum;
     if (!n) return;
 
-    _selectorVectorCopy(dest, source);      // Must be a better way of doing that
+    _selectorVectorCopy(dest, source, 0);      // Must be a better way of doing that
     _selectorDeleteSelected(source);
 }
 
-static void _selectorVectorPaste(struct notes_selection* dest, struct notes_selection* source) {
+static void _selectorVectorPaste(struct notes_selection* dest, struct notes_selection* source, uint32_t firstTimestamp) {
     if (!dest || !source) return;
     _selectorVectorReset(dest);
 
     uint32_t n=source->notesNum;
     if (!n) return;
-    _selectorVectorCopy(dest, source);
+    _selectorVectorCopy(dest, source, ((int64_t)firstTimestamp)-source->timestampStart);
+    //_selectorVectorChangeTimestampsBy(dest, ((int64_t)firstTimestamp)-dest->timestampStart);
 
     Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
     trackVectorAddNewNotes(track, dest->notes, dest->notesNum);
@@ -637,6 +669,12 @@ int globalHandlerIsNoteSelected(Note note) {
     if (!globalStateHandler || !note) return 0;
     if (_selectorVectorFind(&(globalStateHandler->selector.primary), note)>=0) return 1;
     if (_selectorVectorFind(&(globalStateHandler->selector.secondary), note)>=0) return 1;
+    return 0;
+}
+
+int globalHandlerIsNoteActuallySelected(Note note) {
+    if (!globalStateHandler || !note) return 0;
+    if (_selectorVectorFind(&(globalStateHandler->selector.primary), note)>=0) return 1;
     return 0;
 }
 
@@ -775,6 +813,11 @@ Note globalHandlerResizeSelectedGetReferenceNote() {
     return globalStateHandler->selector.primary.noteReference.note;
 }
 
+Note* globalHandlerGetSelectedNotes() {
+    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum) || !(globalStateHandler->selector.primary.notes)) return NULL;
+    return globalStateHandler->selector.primary.notes;
+}
+
 void globalHandlerSelectAllNotes() {
     if (!globalStateHandler) return;
     _selectorVectorSelectAll(&(globalStateHandler->selector.primary));
@@ -787,7 +830,7 @@ void globalHandlerClearClipboard() {
 
 void globalHandlerCopySelected() {
     if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return;
-    _selectorVectorCopy(&(globalStateHandler->selector.clipboard), &(globalStateHandler->selector.primary));
+    _selectorVectorCopy(&(globalStateHandler->selector.clipboard), &(globalStateHandler->selector.primary), 0);
 }
 
 void globalHandlerCutSelected() {
@@ -799,7 +842,23 @@ void globalHandlerCutSelected() {
 
 void globalHandlerPasteSelected() {
     if (!globalStateHandler || !(globalStateHandler->selector.clipboard.notesNum)) return;
-    _selectorVectorPaste(&(globalStateHandler->selector.primary), &(globalStateHandler->selector.clipboard));
+    _selectorVectorPaste(&(globalStateHandler->selector.primary), &(globalStateHandler->selector.clipboard), globalHandlerGetLineTimestamp());
+    globalHandlerSetLineTimestamp(globalStateHandler->selector.primary.timestampEnd);
+    globalHandlerMoveTimeDivAccordingToTimeLine(0.2, 0.2);
+    projectUpdateStateSomethingChanged();
+    updateSelectedTracksValues();
+}
+
+void globalHandlerMoveSelectedPitch(int keyOffset) {
+    if (!globalStateHandler || (globalStateHandler->selector.primary.clickHold)) return;
+    _selectorVectorMoveByKey(&(globalStateHandler->selector.primary), keyOffset);
+    projectUpdateStateSomethingChanged();
+    updateSelectedTracksValues();
+}
+
+void globalHandlerMoveSelectedTimestamp(int timestampOffset) {
+    if (!globalStateHandler || (globalStateHandler->selector.primary.clickHold)) return;
+    _selectorVectorMoveByTimestamp(&(globalStateHandler->selector.primary), timestampOffset);
     projectUpdateStateSomethingChanged();
     updateSelectedTracksValues();
 }

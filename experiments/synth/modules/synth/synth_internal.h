@@ -21,6 +21,8 @@ enum voice_harmonics {
 
     HARMONICS_BASS,
     HARMONICS_CELLO,
+    HARMONICS_VIOLIN,
+
     HARMONICS_CHURCH_ORGAN,
 
     

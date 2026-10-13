@@ -1133,8 +1133,8 @@ void order2PrecomputeTracksLeft() {
         }
     }
 
-    int dx = IsKeyPressed(KEY_RIGHT)-IsKeyPressed(KEY_LEFT);
-    if (dx && !UIisHoveringOverLayout() && !UIisInTextInput() && !globalHandlerIsPlaying()) {
+    int dx = IsKeyRepeating(KEY_RIGHT)-IsKeyRepeating(KEY_LEFT);
+    if (dx && !controlDown && !UIisHoveringOverLayout() && !UIisInTextInput() && !globalHandlerIsPlaying()) {
         enum keyboard_render_types kbt = globalStateHandlerGetKeyboardType();
         if ((kbt==T_KEYBOARD_NONE || kbt==T_KEYBOARD_VERTICAL) && !globalMouseHandler.down && !globalMouseHandler.rightClickPressed) {
             if (dx>0) globalHandlerSetToNextMeasure();

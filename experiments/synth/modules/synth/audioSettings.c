@@ -33,8 +33,8 @@ static struct voice_timbre instrumentTimbres[INSTRUMENT_END+1] = {
         .envelope = ENVELOPE_EXPONENTIAL,
         .adsr = {
             .attackSec = 0.0,
-            .decaySec = 3.0,
-            .sustainLevel = 0.02,
+            .decaySec = 2.0,
+            .sustainLevel = 0.035,
             .releaseSec = 0.1
         },
         .oscillator = {
@@ -81,7 +81,7 @@ static struct voice_timbre instrumentTimbres[INSTRUMENT_END+1] = {
         .envelope = ENVELOPE_EXPONENTIAL,
         .adsr = {
             .attackSec = 0.0,
-            .decaySec = 3.0,
+            .decaySec = 2.5,
             .sustainLevel = 0.08,
             .releaseSec = 0.1
         },
@@ -122,7 +122,38 @@ static struct voice_timbre instrumentTimbres[INSTRUMENT_END+1] = {
             .frequency = 8.0
         }
     },
-    //INSTRUMENT_STADIUM_ORGAN
+    
+    [INSTRUMENT_CELLO] = {
+        .instrument = INSTRUMENT_CELLO,
+        .harmonics = HARMONICS_CELLO,
+        .envelope = ENVELOPE_HOLD,
+        .adsr = {
+            .attackSec = 0.18,
+            .decaySec = 0.0,
+            .sustainLevel = 1.0,
+            .releaseSec = 0.18
+        },
+        .oscillator = {
+            .amplitude = 0.06,
+            .frequency = 5.0
+        }
+    },
+
+    [INSTRUMENT_VIOLIN] = {
+        .instrument = INSTRUMENT_VIOLIN,
+        .harmonics = HARMONICS_VIOLIN,
+        .envelope = ENVELOPE_HOLD,
+        .adsr = {
+            .attackSec = 0.18,
+            .decaySec = 0.0,
+            .sustainLevel = 1.0,
+            .releaseSec = 0.18
+        },
+        .oscillator = {
+            .amplitude = 0.06,
+            .frequency = 5.0
+        }
+    },
 
 
 
@@ -178,10 +209,18 @@ static float _harmonicFSine(double phase) {
 
 
 static float _harmonicFPiano(double phase) {
-	double freqs[14] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 17};
-	double amps[14] = {0.843158, 0.144812, 0.00753977, 0.00319793, 0.000643789, 0.000237208, 0.000130287, 0.000133139, 1.31177e-05, 2.98692e-05, 2.64892e-05, 2.80419e-05, 1.1206e-05, 1.10985e-05};
+	double freqs[19] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 20};
+	double amps[19] = {0.296269, 0.533535, 0.0976245, 0.0536083, 0.00962514, 0.00163234, 0.00244327, 0.000454291, 0.00420131, 0.000172415, 0.00014021, 0.000111968, 5.07029e-05, 2.7403e-05, 2.68666e-05, 2.77692e-05, 1.13447e-05, 1.10509e-05, 1.72898e-05};
 	double ret = 0.0;
-	for (int i=0; i<14; i++) ret+=amps[i]*sin(phase*freqs[i]);
+	for (int i=0; i<19; i++) ret+=amps[i]*sin(phase*freqs[i]);
+	return ret;
+}
+
+static float _harmonicFPianoLow(double phase) {
+	double freqs[20] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+	double amps[20] = {0.232055, 0.300533, 0.141092, 0.106463, 0.0555311, 0.0405184, 0.0738302, 0.00291724, 0.0214992, 0.0114094, 0.00817562, 0.00288767, 0.00126523, 0.000347508, 0.000728352, 0.000321556, 0.000210449, 8.53207e-05, 6.23636e-05, 6.76665e-05};
+	double ret = 0.0;
+	for (int i=0; i<20; i++) ret+=amps[i]*sin(phase*freqs[i]);
 	return ret;
 }
 
@@ -217,14 +256,42 @@ static float _harmonicFChurchOrgan(double phase) {
 	return ret;
 }
 
+static float _harmonicFCello(double phase) {
+	double freqs[20] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+	double amps[20] = {0.187426, 0.247498, 0.123283, 0.171675, 0.0739558, 0.0751591, 0.04834, 0.0203921, 0.0142524, 0.00851856, 0.00667842, 0.0048311, 0.00575353, 0.00293952, 0.00266024, 0.00240422, 0.00159438, 0.00118527, 0.000772001, 0.000682601};
+	double ret = 0.0;
+	for (int i=0; i<20; i++) ret+=amps[i]*sin(phase*freqs[i]);
+	return ret;
+}
+
+static float _harmonicFViolin(double phase) {
+	double freqs[20] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+	double amps[20] = {0.496741, 0.121256, 0.151832, 0.0396318, 0.0159512, 0.0744311, 0.0347513, 0.018468, 0.0192381, 0.0158376, 0.00389624, 0.000659305, 0.00130275, 0.00272435, 0.00108522, 0.000979415, 0.000493194, 0.000289477, 0.000178744, 0.000253104};
+	double ret = 0.0;
+	for (int i=0; i<20; i++) ret+=amps[i]*sin(phase*freqs[i]);
+	return ret;
+}
+
+static float _harmonicFBass(double phase) {
+	double freqs[20] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+	double amps[20] = {0.832238, 0.143986, 0.015981, 0.00446496, 0.00178172, 0.000494009, 0.000142889, 0.000100442, 4.69918e-05, 3.81212e-05, 6.31625e-05, 6.20847e-05, 6.05155e-05, 5.57969e-05, 8.43725e-05, 8.31274e-05, 4.23669e-05, 8.45993e-05, 9.46398e-05, 9.47136e-05};
+	double ret = 0.0;
+	for (int i=0; i<20; i++) ret+=amps[i]*sin(phase*freqs[i]);
+	return ret;
+}
+
 
 static HarmonicsFunction harmonicsFunctions[HARMONICS_END] = {
     [HARMONICS_SINE] = _harmonicFSine,
     [HARMONICS_PIANO] = _harmonicFPiano,
     [HARMONICS_GUITAR] = _harmonicFGuitarNylon,
     [HARMONICS_ELECTRIC_GUITAR] = _harmonicFElectricGuitar,
+    [HARMONICS_BASS] = _harmonicFBass,
 
     [HARMONICS_CHURCH_ORGAN] = _harmonicFChurchOrgan,
+    [HARMONICS_CELLO] = _harmonicFCello,
+    [HARMONICS_VIOLIN] = _harmonicFViolin,
+
 
 };
 

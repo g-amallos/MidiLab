@@ -1,7 +1,6 @@
 INCLUDE = include
 
 SRCS = $(shell find modules -name "*.c")
-#SRCS := $(filter-out modules/backend/export/midi.c,$(SRCS))
 ifeq ($(os), win)
 	SRCS := $(filter-out %linux.c,$(SRCS))
 else
@@ -19,14 +18,27 @@ ifneq ($(BAD_FILES),)
 endif
 
 
+DEPS_SRC_WIN := $(wildcard libs/win/*.dll)
+DEPS_DST_WIN := $(patsubst libs/win/%, ./%, $(DEPS_SRC_WIN))
+
+DEPS_SRC_LIN := libs/linux/libfluidsynth.so
+DEPS_DST_LIN := ./libfluidsynth.so
+
+ifeq ($(os), win)
+    DEPS_SRC := $(DEPS_SRC_WIN)
+    DEPS_DST := $(DEPS_DST_WIN)
+else
+    DEPS_SRC := $(DEPS_SRC_LIN)
+    DEPS_DST := $(DEPS_DST_LIN)
+endif
+
+
 CC = gcc
 WARNINGS = -Wall -Wextra -Werror -Wpedantic
 
-# Common flags for both systems
 CFLAGS = -I$(INCLUDE) $(WARNINGS)
 modules/tinyfiledialogs/tinyfiledialogs.o: CFLAGS += -Wno-pedantic -Wno-cast-function-type -Wno-format
 
-# Platform specific flags
 LDFLAGS = -Llibs/linux -lraylib libs/linux/libmp3lame.a -lfluidsynth -lGL -lm -lpthread -ldl -lrt -lX11 -Wl,-rpath,'$$ORIGIN/bin/libs'
 OUT = $(TARGET)
 
@@ -60,14 +72,11 @@ endif
 all: $(OUT) copy_deps
 
 
-copy_deps:
+copy_deps: $(DEPS_DST)
 ifeq ($(os), win)
-	echo "Copying Windows DLLs..."
-	cp -- libs/win/*.dll ./
-#	cp libs/win/libfluidsynth-3.dll bin/libs/
+	rm -f $(DEPS_DST_LIN)
 else
-	@echo "Copying Linux Shared Objects..."
-	cp libs/linux/libfluidsynth.so ./
+	rm -f $(DEPS_DST_WIN)
 endif
 
 
@@ -77,6 +86,12 @@ $(OUT): $(OBJS)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS)
+
+./%.dll: libs/win/%.dll
+	cp $< $@
+
+./%.so: libs/linux/%.so
+	cp $< $@
 
 ifeq ($(os), win)
 resource.o: resource.rc assets/logo/midilab.ico

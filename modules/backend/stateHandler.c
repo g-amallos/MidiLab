@@ -8,6 +8,8 @@
 #include <math.h>
 
 
+#define DEFAULT_VISIBLE_DURATION 10.0
+
 
 struct duration_data visualizerGetDurationData();           // modules/interface/render/visualizer.c
 
@@ -23,7 +25,7 @@ struct backend_state_handler _globalHandler = {
         .ticksPerBeat = 440,
         .measureDuration = 0,
         .beatDuration = 0,
-        .visibleDuration = 10,
+        .visibleDuration = DEFAULT_VISIBLE_DURATION,
 
         .timeSignature = {
             .numerator = 4,
@@ -121,14 +123,24 @@ void _globalHandlerUpdateDurations() {
     globalStateHandler->time.ticksPerBeat = (globalStateHandler->time.ppqn*4)/globalStateHandler->time.timeSignature.denominator;
 }
 
+static double timestampPiecesToSeconds(uint32_t pieces) {
+    return pieces*globalStateHandler->time.beatDuration/trackPiecesInBeat();
+}
+
 void _globalStateHandlerUpdateTempo(double tempo) {
     if (!globalStateHandler) return;
+    globalStateHandler->time.timeline.time = timestampPiecesToSeconds(globalStateHandler->time.timeline.timestamp);
     globalStateHandler->time.tempo = tempo;
 }
 
 double globalHandlerGetVisibleDuration() {
     if (!globalStateHandler) return 0;
     return globalStateHandler->time.visibleDuration;
+}
+
+uint32_t globalHandlerGetVisibleDurationInTimestamps() {
+    if (!globalStateHandler) return 0;
+    return secondsToTimestamp(globalStateHandler->time.visibleDuration);
 }
 
 void globalHandlerSetVisibleDuration(double duration) {
@@ -149,10 +161,25 @@ void globalHandlerSetLineTime(double time) {
     globalStateHandler->time.timeline.timestamp = (uint32_t)(trackPiecesInBeat()*time/globalStateHandler->time.beatDuration);
 }
 
-
-static double timestampPiecesToSeconds(uint32_t pieces) {
-    return pieces*globalStateHandler->time.beatDuration/trackPiecesInBeat();
+void globalHandlerSetLineTimestamp(uint32_t timestamp) {
+    if (!globalStateHandler) return;
+    globalStateHandler->time.timeline.time = timestampPiecesToSeconds(timestamp);
+    globalStateHandler->time.timeline.timestamp = timestamp;
 }
+
+void globalHandlerResetTime() {
+    if (!globalStateHandler) return;
+
+    globalStateHandler->time.timeline.playing = 0;
+
+    globalStateHandler->time.time = 0;
+    globalStateHandler->time.timeline.time = 0;
+    globalStateHandler->time.timeline.timestamp = 0;
+    globalStateHandler->time.timeline.prePlayTimestamp = 0;
+    globalStateHandler->time.timeline.prePlayTime = 0;
+    globalStateHandler->time.visibleDuration = DEFAULT_VISIBLE_DURATION;
+}
+
 
 double globalHandlerTimestampToSeconds(uint32_t timestamp) {
     return timestampPiecesToSeconds(timestamp);
@@ -180,6 +207,11 @@ void globalHandlerSetTime(double time) {
     if (!globalStateHandler) return;
     time = floatMax(time, 0);
     globalStateHandler->time.time = time;
+}
+
+void globalHandlerSetTimeInTimestamps(uint32_t timestamp) {
+    if (!globalStateHandler) return;
+    globalStateHandler->time.time = timestampPiecesToSeconds(timestamp);
 }
 
 

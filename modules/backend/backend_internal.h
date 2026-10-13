@@ -210,6 +210,7 @@ extern struct midi_drum _midiDrums[128];
 void globalStateHandlerInit();
 void _globalHandlerUpdateDurations();
 void _globalStateHandlerUpdateTempo(double tempo);
+void globalHandlerMoveTimeDivAccordingToTimeLine(float startPadding, float endPadding);
 
 double timestampPiecesToSamples(uint32_t pieces, uint32_t sampleRate);
 double samplesToTimestampPieces(uint32_t samples, uint32_t sampleRate);
@@ -229,6 +230,7 @@ void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size);    // buff 
 void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb);
 
 void _exportSetupSynthTracks();
+void keyboardInputInit();
 
 
 #endif
