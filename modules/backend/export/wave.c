@@ -7,6 +7,7 @@
 #include <threads.h>
 #include <utils.h>
 #include <lame.h>
+#include <sortedVector.h>
 
 
 
@@ -81,7 +82,7 @@ static void sortNotes(Note* buffer, uint32_t elements) {
 static Note* _generateEventArray(uint32_t* notesNum, uint32_t* eventsNum, Note* noteOffEvents) {
     uint32_t locNotesNum = 0;
     uint16_t tracksNum = globalProject->tracksNum;
-    for (uint16_t i=0; i<tracksNum; i++) locNotesNum+=(globalProject->tracks)[i].numElements;
+    for (uint16_t i=0; i<tracksNum; i++) locNotesNum+=sortedVectorGetSize((globalProject->tracks)[i].notes);
 
     *notesNum = locNotesNum;
 
@@ -98,8 +99,8 @@ static Note* _generateEventArray(uint32_t* notesNum, uint32_t* eventsNum, Note* 
 
     uint32_t noteIdx=0;
     for (uint16_t i=0; i<tracksNum; i++) {
-        uint32_t curNotesNum = (globalProject->tracks)[i].numElements;
-        Note* curNotes = (globalProject->tracks)[i].notes;
+        uint32_t curNotesNum = sortedVectorGetSize((globalProject->tracks)[i].notes);
+        const Note* curNotes = (const Note*)sortedVectorGetElements((globalProject->tracks)[i].notes);
         for (uint32_t j=0; j<curNotesNum; j++) {
             Note nt = curNotes[j];
             nt->track = (uint8_t)i;

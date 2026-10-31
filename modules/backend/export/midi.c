@@ -1,5 +1,6 @@
 #include "export_internal.h"
 #include <utils.h>
+#include <sortedVector.h>
 
 #define DIVISION 480
 
@@ -277,16 +278,17 @@ static int _noteEventCompare(const void* a, const void* b) {
 }
 
 static struct note_on_data* _setupTrackNoteEvents(Track track, uint8_t channel) {
-    if (!track || channel>=16 || !(track->numElements)) return NULL;
+    if (!track || channel>=16 || !(sortedVectorGetSize(track->notes))) return NULL;
 
-    uint32_t n=track->numElements;
+    uint32_t n=sortedVectorGetSize(track->notes);
     uint32_t m=n<<1;
 
+    const Note* originalArr = (const Note*)sortedVectorGetElements(track->notes);
     struct note_on_data* arr = malloc(m*sizeof(struct note_on_data));
     uint16_t trackIdx = track-globalProject->tracks;
 
     for (uint32_t i=0; i<n; i++) {
-        struct note_data nt = *((track->notes)[i]);
+        struct note_data nt = *(originalArr[i]);
         arr[i<<1] = (struct note_on_data){.key=nt.key, .velocity=nt.velocity, .channel=channel, .trackIdx=trackIdx, .timestamp=nt.timestamp};
         arr[(i<<1)+1] = (struct note_on_data){.key=nt.key, .velocity=0, .channel=channel, .trackIdx=trackIdx, .timestamp=nt.timestamp+nt.duration};
     }
@@ -310,7 +312,7 @@ static struct note_on_data* _setupTrackNoteEventsForCompactConversion(struct tra
     uint64_t notesNum=0, eventsNum=0;
     
     for (uint16_t i=0; i<tracksNum; i++) {
-        notesNum += (globalProject->tracks)[(trInCh->buffer)[i]].numElements;
+        notesNum += sortedVectorGetSize((globalProject->tracks)[(trInCh->buffer)[i]].notes);
     }
     eventsNum = (notesNum<<1);
     if (!notesNum) return NULL;
@@ -324,11 +326,12 @@ static struct note_on_data* _setupTrackNoteEventsForCompactConversion(struct tra
         Track track = globalProject->tracks+trackIdx;
         float trackVelocity = track->velocity;
         uint64_t startIdx=idx;
-        uint32_t curNumElements=track->numElements;
+        uint32_t curNumElements=sortedVectorGetSize(track->notes);
+        const Note* originalArr = (const Note*)sortedVectorGetElements(track->notes);
         uint64_t endIdx=idx+curNumElements;
 
         for (; idx<endIdx; idx++) {
-            struct note_data nt = *((track->notes)[idx-startIdx]);
+            struct note_data nt = *(originalArr[idx-startIdx]);
             arr[idx<<1] = (struct note_on_data){.key=nt.key, .velocity=(uint8_t)(nt.velocity*trackVelocity), .channel=channel, .trackIdx=trackIdx, .timestamp=nt.timestamp};
             arr[(idx<<1)+1] = (struct note_on_data){.key=nt.key, .velocity=0, .channel=channel, .trackIdx=trackIdx, .timestamp=nt.timestamp+nt.duration};
         }
@@ -380,7 +383,7 @@ static int writeMidiTrack(FILE* fptr, Track track, uint8_t channel) {
     if (channel!=9) ret += writeMidiProgramChange(fptr, track->program, channel, &runningStatus);
     
 
-    uint32_t n=(track->numElements<<1);
+    uint32_t n=(sortedVectorGetSize(track->notes)<<1);
     struct note_on_data* arr = _setupTrackNoteEvents(track, channel);
 
     
@@ -536,7 +539,7 @@ int writeMidiForSingleTrack(FILE* fptr, Track track) {
     ret += writeMidiPanning(fptr, track->panning, channel, &runningStatus);
     if (channel!=9) ret += writeMidiProgramChange(fptr, track->program, channel, &runningStatus);
 
-    uint32_t n=(track->numElements<<1);
+    uint32_t n=(sortedVectorGetSize(track->notes)<<1);
     struct note_on_data* arr = _setupTrackNoteEvents(track, channel);
     
     if (arr) {
@@ -631,7 +634,7 @@ static struct midi_channel_export _setupCompactMidiChannels() {
     uint16_t n=globalProject->tracksNum;
     for (uint16_t i=0; i<n; i++) {
         Track track = globalProject->tracks+i;
-        if (track->numElements) {
+        if (sortedVectorGetSize(track->notes)) {
             uint8_t ch = _getChannelForProgram(track->program);
             if (ch<16) _addTrackInChannel(&((ret.channels)[ch]), i);
         }

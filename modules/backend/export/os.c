@@ -72,7 +72,7 @@ int doesFFmpegExist() {
 #elif defined(IS_LINUX)
     return 0;
     FILE *pipe = popen("ffmpeg -version > /dev/null 2>&1", "r");
-    if (!pipe) return false;
+    if (!pipe) return 0;
     int result = pclose(pipe);
     return (result == 0);
 #else 

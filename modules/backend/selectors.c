@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <sortedVector.h>
 
 
 
@@ -16,8 +17,12 @@ static void updateSelectedTracksValues() {
 
 
 static void _freeNoteSelector() {
-    if (globalStateHandler->selector.primary.notes) free(globalStateHandler->selector.primary.notes);
-    if (globalStateHandler->selector.secondary.notes) free(globalStateHandler->selector.secondary.notes);
+    if (globalStateHandler->selector.primary.notes) {
+        sortedVectorDeleteAllElements(globalStateHandler->selector.primary.notes);
+    }
+    if (globalStateHandler->selector.secondary.notes) {
+        sortedVectorDeleteAllElements(globalStateHandler->selector.secondary.notes);
+    }
 
     struct notes_selection tmpSel = {
         .keyMin = 255,
@@ -30,13 +35,14 @@ static void _freeNoteSelector() {
         .noteReference = {NULL,},
         .timestampStart = 0,
         .timestampEnd = 0,
-        .capacity = 0,
-        .notesNum = 0,
-        .notes = NULL
     };
 
-    globalStateHandler->selector.primary = tmpSel;
-    globalStateHandler->selector.secondary = tmpSel;
+    struct notes_selection t1=tmpSel, t2=tmpSel;
+    t1.notes = globalStateHandler->selector.primary.notes;
+    t2.notes = globalStateHandler->selector.secondary.notes;
+
+    globalStateHandler->selector.primary = t1;
+    globalStateHandler->selector.secondary = t2;
 }
 
 void globalHandlerClearNotesSelected() {
@@ -46,7 +52,7 @@ void globalHandlerClearNotesSelected() {
 
 static void _selectorVectorReset(struct notes_selection* selector) {
     if (!selector) return;
-    if (selector->notes) free(selector->notes);
+    sortedVectorDeleteAllElements(selector->notes);
     *selector = (struct notes_selection){
         .keyMin = 255,
         .keyMax = 0,
@@ -58,144 +64,38 @@ static void _selectorVectorReset(struct notes_selection* selector) {
         .noteReference = {NULL,},
         .timestampStart = 0,
         .timestampEnd = 0,
-        .capacity = 0,
-        .notesNum = 0,
-        .notes = NULL
+        .notes = selector->notes
     };
 }
 
-static void _freeNotes(Note* buff, uint32_t size) {
-    if (!buff) return;
-    for (uint32_t i=0; i<size; i++) {
-        if (buff[i]) free(buff[i]);
-        buff[i] = NULL;                 // Theoretically shouldn't be necessary, but anyways
-    }
-}
 
 static void _selectorVectorDeepFree(struct notes_selection* selector) {
     if (!selector) return;
-    _freeNotes(selector->notes, selector->notesNum);
+    sortedVectorSetDestroyFunc(selector->notes, _destroyNote);
     _selectorVectorReset(selector);
+    sortedVectorSetDestroyFunc(selector->notes, NULL);
 }
 
 static int _initSelectorVector(struct notes_selection* selector) {
     if (!selector) return 1;
     if (!(selector->notes)) {
-        uint32_t cap = 32;
-        selector->notes = calloc(cap, sizeof(Note));
-        selector->capacity = cap*(!!(selector->notes));
-        selector->notesNum = 0;
+        selector->notes = sortedVectorCreate(_compareNotes, NULL);
     }
     return !(selector->notes);
 }
 
-static int _selectorVectorDuplicateCapacity(struct notes_selection* selector) {
-    uint32_t oldCap = selector->capacity;
-    uint32_t newCap = (oldCap<<1);
-
-    Note* arr = realloc(selector->notes, newCap*sizeof(Note));
-    if (!arr) return 1;
-
-    selector->capacity = newCap;
-    selector->notes = arr;
-    return 0;
+void selectorVectorsClose() {
+    if (!globalStateHandler) return;
+    sortedVectorDestroy(globalStateHandler->selector.primary.notes);
+    sortedVectorDestroy(globalStateHandler->selector.secondary.notes);
+    sortedVectorSetDestroyFunc(globalStateHandler->selector.clipboard.notes, _destroyNote);
+    sortedVectorDestroy(globalStateHandler->selector.clipboard.notes);
 }
 
-static int _selectorVectorHalveCapacity(struct notes_selection* selector) {
-    uint32_t oldCap = selector->capacity;
-    uint32_t newCap = (oldCap>>1);
-    if (newCap<32) newCap=32;
-
-    Note* arr = realloc(selector->notes, newCap*sizeof(Note));
-    if (!arr) return 1;
-
-    selector->capacity = newCap;
-    selector->notes = arr;
-    return 0;
-}
-
-static int _intCompareFunc(const void* a, const void* b) {
-    if (!a && !b) return 0;
-    if (!a || !b) return a?-1:1;
-    int na=*(int*)a, nb = *(int*)b;
-    if (na>nb) return 1;
-    if (na<nb) return -1;
-    return 0;
-}
-
-static int _selectorVectorNoteCompare(const void* a, const void* b) {
-    if (!a && !b) return 0;
-    if (!a || !b) return a?-1:1;
-    
-    Note na = *(Note*)a;
-    Note nb = *(Note*)b;
-
-    if (na->timestamp>nb->timestamp) return 1;
-    if (na->timestamp<nb->timestamp) return -1;
-    return 0;
-}
-
-/*static*/ uint32_t _tracksGetTimestampIdx(Track track, uint32_t timestamp) {
-    if (!track || !(track->notes)) return 0;
-    uint32_t left=0, right=track->numElements;
-    while (right>left) {
-        uint32_t center = left+((right-left)>>1);
-        if ((track->notes)[center]->timestamp<timestamp) left=center+1;
-        else right=center;
-    }
-    return right;
-}
-
-static int _tracksVectorFindWhereNoteShouldBe(Track track, Note note) {
-    if (!track || !(track->notes) || !note) return -1;
-    uint32_t left=0, right=track->numElements;
-    uint32_t target=note->timestamp;
-    while (right>left) {
-        uint32_t center = left+((right-left)>>1);
-        if ((track->notes)[center]==note) return center;
-        if ((track->notes)[center]->timestamp<target) left=center+1;
-        else right=center;
-    }
-    uint32_t nidx=(uint32_t)right;
-    while (nidx<track->numElements && note!=(track->notes)[nidx] && target<=(track->notes)[nidx]->timestamp) nidx++;
-    if (nidx>=track->numElements || note!=(track->notes)[nidx]) return -1;
-    else return (int)nidx;
-}
-
-static int _selectorVectorFindWhereNoteShouldBe(struct notes_selection* selector, Note note) {
-    if (!selector || !(selector->notes) || !note) return -1;
-    uint32_t left=0, right=selector->notesNum;
-    uint32_t target=note->timestamp;
-    while (right>left) {
-        uint32_t center = left+((right-left)>>1);
-        if ((selector->notes)[center]==note) return center;
-        if ((selector->notes)[center]->timestamp<target) left=center+1;
-        else right=center;
-    }
-    return right;
-}
-
-static int _selectorVectorFindNoteLinearlyAfter(struct notes_selection* selector, Note note, int idx) {
-    if (idx<0) return idx;
-    uint32_t target=note->timestamp, nidx=(uint32_t)idx;
-    while (nidx<selector->notesNum && note!=(selector->notes)[nidx] && target<=(selector->notes)[nidx]->timestamp) nidx++;
-    if (nidx>=selector->notesNum || note!=(selector->notes)[nidx]) return -1;
-    else return (int)nidx;
-}
-
-static int _selectorVectorFind(struct notes_selection* selector, Note note) {
-    int idx = _selectorVectorFindWhereNoteShouldBe(selector, note);
-    return _selectorVectorFindNoteLinearlyAfter(selector, note, idx);
-}
-
-/*static*/ void _selectorVectorSort(struct notes_selection* selector) {
-    if (!selector || !(selector->notes) || !(selector->notesNum)) return;
-    qsort(selector->notes, selector->notesNum, sizeof(Note), _selectorVectorNoteCompare);
-}
 
 static void _selectorVectorUpdateValuesOnNoteAddition(struct notes_selection* selector, Note note) {
     if (!selector || !(selector->notes)) return;
-    if (!(selector->notesNum)) {
+    if ((sortedVectorGetSize(selector->notes))<=1) {
         selector->keyMin = note->key;
         selector->keyMax = note->key;
         selector->timestampStart = note->timestamp;
@@ -209,8 +109,10 @@ static void _selectorVectorUpdateValuesOnNoteAddition(struct notes_selection* se
 }
 
 static void _selectorVectorUpdateValues(struct notes_selection* selector) {
-    if (!selector) return;
-    if (!(selector->notes) || !(selector->notesNum)) {
+    if (!selector || !(selector->notes)) return;
+
+    uint32_t num = sortedVectorGetSize(selector->notes);
+    if (!num) {
         selector->keyMin=0;
         selector->keyMax=0;
         selector->timestampStart=0;
@@ -218,11 +120,12 @@ static void _selectorVectorUpdateValues(struct notes_selection* selector) {
         return;
     }
 
-    selector->timestampStart = (selector->notes)[0]->timestamp;
+    const Note* arr = (const Note*)sortedVectorGetElements(selector->notes);
+    selector->timestampStart = arr[0]->timestamp;
     uint8_t keyMin=128, keyMax=0;
-    uint32_t timestampEnd=0, idx=0, num=selector->notesNum;
+    uint32_t timestampEnd=0, idx=0;
     for (; idx<num; idx++) {
-        Note nt = (selector->notes)[idx];
+        Note nt = arr[idx];
         if (nt->timestamp+nt->duration>timestampEnd) timestampEnd=nt->timestamp+nt->duration;
         if (nt->key>keyMax) keyMax=nt->key;
         if (nt->key<keyMin) keyMin=nt->key;
@@ -235,60 +138,19 @@ static void _selectorVectorUpdateValues(struct notes_selection* selector) {
 
 static void _selectorVectorUpdateValuesOnNoteRemoval(struct notes_selection* selector, Note note) {
     if (!selector) return;
-    if (!(selector->notesNum) || note->key<=selector->keyMin || note->key>=selector->keyMax || note->timestamp<=selector->timestampStart || note->timestamp+note->duration>=selector->timestampEnd) _selectorVectorUpdateValues(selector);
+    if (!(sortedVectorGetSize(selector->notes)) || note->key<=selector->keyMin || note->key>=selector->keyMax || note->timestamp<=selector->timestampStart || note->timestamp+note->duration>=selector->timestampEnd) _selectorVectorUpdateValues(selector);
 }
 
-static void _selectorVectorAddLast(struct notes_selection* selector, Note note) {
-    if (_initSelectorVector(selector) || !note) return;
-    int idx = _selectorVectorFindWhereNoteShouldBe(selector, note);
-    int existIdx = _selectorVectorFindNoteLinearlyAfter(selector, note, idx);
-    if (existIdx>=0) return;
-    if (selector->capacity<=selector->notesNum && _selectorVectorDuplicateCapacity(selector)) return;
-    (selector->notes)[selector->notesNum]=note;
-    _selectorVectorUpdateValuesOnNoteAddition(selector, note);
-    (selector->notesNum)++;
-}
-
-static void _selectorVectorAdd(struct notes_selection* selector, Note note) {
-    if (_initSelectorVector(selector) || !note) return;
-    //(selector->notes)[(selector->notesNum)++] = note;
-    //_selectorVectorSort(selector);
-    int idx = _selectorVectorFindWhereNoteShouldBe(selector, note);
-    int existIdx = _selectorVectorFindNoteLinearlyAfter(selector, note, idx);
-
-    if (existIdx>=0) return;
-    if (selector->capacity<=selector->notesNum && _selectorVectorDuplicateCapacity(selector)) return;
-    memmove(selector->notes+idx+1, selector->notes+idx, (selector->notesNum-idx)*sizeof(Note));
-    (selector->notes)[idx]=note;
-    _selectorVectorUpdateValuesOnNoteAddition(selector, note);
-    (selector->notesNum)++;
-}
-
-static void _selectorVectorRemove(struct notes_selection* selector, Note note) {
-    if (_initSelectorVector(selector) || !note) return;
-    int idx=_selectorVectorFind(selector, note), num=selector->notesNum;
-    if (idx<0) return;
-    (selector->notes)[idx]=NULL;
-    if (num-idx-1) memmove(selector->notes+idx, selector->notes+idx+1, (num-idx-1)*sizeof(Note));
-    if (((selector->capacity)>>2)>(--(selector->notesNum))) _selectorVectorHalveCapacity(selector);
-    _selectorVectorUpdateValuesOnNoteRemoval(selector, note);
-}
 
 static void _selectorVectorToggle(struct notes_selection* selector, Note note) {
     if (_initSelectorVector(selector) || !note) return;
-    int idx = _selectorVectorFindWhereNoteShouldBe(selector, note), num=selector->notesNum;;
-    int existIdx = _selectorVectorFindNoteLinearlyAfter(selector, note, idx);
+    int existIdx = sortedVectorFindElement(selector->notes, (const void*)note);
     if (existIdx>=0) {
-        (selector->notes)[existIdx]=NULL;
-        if (num-existIdx-1) memmove(selector->notes+existIdx, selector->notes+existIdx+1, (num-existIdx-1)*sizeof(Note));
-        if (((selector->capacity)>>2)>(--(selector->notesNum))) _selectorVectorHalveCapacity(selector);
+        sortedVectorDeleteElementAt(selector->notes, existIdx);
         _selectorVectorUpdateValuesOnNoteRemoval(selector, note);
     } else {
-        if (selector->capacity<=(uint32_t)num && _selectorVectorDuplicateCapacity(selector)) return;
-        memmove(selector->notes+idx+1, selector->notes+idx, (num-idx)*sizeof(Note));
-        (selector->notes)[idx]=note;
+        sortedVectorAdd(selector->notes, note);
         _selectorVectorUpdateValuesOnNoteAddition(selector, note);
-        (selector->notesNum)++;
     }
 }
 
@@ -301,25 +163,26 @@ static struct roll_rect _selectorGetRollRect(struct notes_selection* selector) {
 }
 
 static struct roll_rect _selectorGetValueRect(struct notes_selection* selector) {
-    if (!selector || !(selector->notesNum)) return (struct roll_rect){.topLeft=(struct roll_point){.fkey=-5, .timestamp=0}, .bottomRight=(struct roll_point){.fkey=-5, .timestamp=0}};
+    if (!selector || !(sortedVectorGetSize(selector->notes))) return (struct roll_rect){.topLeft=(struct roll_point){.fkey=-5, .timestamp=0}, .bottomRight=(struct roll_point){.fkey=-5, .timestamp=0}};
+    //printf("Selector: keyMin: %d, keyMax: %d, tmstMin: %u, tmstMax: %u\n", selector->keyMin, selector->keyMax+1, selector->timestampStart, selector->timestampEnd);
     return (struct roll_rect){.topLeft=(struct roll_point){.fkey=selector->keyMax+1, .timestamp=selector->timestampStart}, .bottomRight=(struct roll_point){.fkey=selector->keyMin, .timestamp=selector->timestampEnd}};
 }
 
 static void _selectorVectorSelectRegion(struct notes_selection* selector, uint8_t minKey, uint8_t maxKey, uint32_t minTimestamp, uint32_t maxTimestamp) {   // not included in primary selector
-    if (!selector || selector->notes || minKey>127 || minKey>maxKey) return;
+    if (!selector || _initSelectorVector(selector) || !(selector->notes) || minKey>127 || minKey>maxKey) return;
 
     //printf("_selectorVectorSelectRegion(): selector=%p, minKey=%u, maxKey=%u, minTimestamp=%u, maxTimestamp=%u\n", (void*)selector, minKey, maxKey, minTimestamp, maxTimestamp);
 
     Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
-    Note* trNotes = track->notes;
-    uint32_t trackLen=track->numElements;
+    const Note* trNotes = (const Note*)sortedVectorGetElements(track->notes);
+    uint32_t trackLen=sortedVectorGetSize(track->notes);
     uint32_t trackIdx=0;//_tracksGetTimestampIdx(track, minTimestamp);
 
     while (trackIdx<trackLen && (trNotes[trackIdx]->timestamp)<maxTimestamp) {
         Note note = trNotes[trackIdx++];
         if (note->key>maxKey || note->key<minKey || note->timestamp+note->duration<minTimestamp) continue;
-        int existIdx = _selectorVectorFind(&(globalStateHandler->selector.primary), note);
-        if (existIdx<0) _selectorVectorAddLast(selector, note);
+        int existIdx = sortedVectorFindElement(globalStateHandler->selector.primary.notes, note);
+        if (existIdx<0) sortedVectorAdd(selector->notes, note);
     }
 }
 
@@ -331,10 +194,7 @@ static void _selectorVectorUpdateGroupSelected(struct notes_selection* selector)
         return;
     }
 
-    if (selector->notes) free(selector->notes);
-    selector->notes = NULL;
-    selector->capacity = 0;
-    selector->notesNum = 0;
+    sortedVectorDeleteAllElements(selector->notes);
 
     uint8_t rangeKeyMin, rangeKeyMax;
     struct roll_rect rr = _selectorGetRollRect(selector);
@@ -359,19 +219,16 @@ static void _selectorsMergeAndClearNoChecks() {
     struct notes_selection* primary = &(globalStateHandler->selector.primary);
     struct notes_selection* secondary = &(globalStateHandler->selector.secondary);
 
-    if (!(secondary->notesNum)) {
+    if (!(sortedVectorGetSize(secondary->notes))) {
         //printf("Secondary doesn't have any notes\n");
         _selectorVectorReset(secondary);
         return;
     }
 
-    uint32_t num = primary->notesNum + secondary->notesNum;
+    uint32_t num = sortedVectorGetSize(primary->notes)+sortedVectorGetSize(secondary->notes);
     if (!num) return;
 
     if (!(primary->notes)) {
-
-        primary->capacity = secondary->capacity;
-        primary->notesNum = secondary->notesNum;
         primary->notes = secondary->notes;
 
         primary->keyMax = secondary->keyMax;
@@ -381,16 +238,13 @@ static void _selectorsMergeAndClearNoChecks() {
 
         // No sorting needed, since it's supposed to be already sorted in the secondary selector
         secondary->notes = NULL;
-        secondary->notesNum = (secondary->capacity=0);
         _selectorVectorReset(secondary);
         
     } else {
-        Note* arr = malloc(num*sizeof(Note));
-        if (!arr) return;   // Failed
-
-        _mergeSortedVectors(arr, primary->notes, primary->notesNum, secondary->notes, secondary->notesNum);     // In O(n) instead of O(nlog(n)) using qsort
-        
-        if (primary->notesNum) {
+        uint32_t old = sortedVectorGetSize(primary->notes);
+        sortedVectorMerge(primary->notes, secondary->notes);
+      
+        if (old) {
             if (primary->keyMax<secondary->keyMax) primary->keyMax = secondary->keyMax;
             if (primary->keyMin>secondary->keyMin) primary->keyMin = secondary->keyMin;
             if (primary->timestampStart>secondary->timestampStart) primary->timestampStart = secondary->timestampStart;
@@ -402,37 +256,32 @@ static void _selectorsMergeAndClearNoChecks() {
             primary->timestampEnd = secondary->timestampEnd;
         }
 
-        primary->capacity = num;
-        primary->notesNum = num;
-        free(primary->notes);
-        primary->notes = arr;
-
-
         _selectorVectorReset(secondary);
     }
+    _selectorVectorUpdateValues(primary);
 }
 
 static void _selectorVectorMoveByKey(struct notes_selection* selector, int keyOffSet) {
-    if (!selector || !(selector->notes) || !(selector->notesNum) || (keyOffSet+selector->keyMax)>127 || (keyOffSet+selector->keyMin)<0) return;
+    if (!selector || !(selector->notes) || !(sortedVectorGetSize(selector->notes)) || (keyOffSet+selector->keyMax)>127 || (keyOffSet+selector->keyMin)<0) return;
 
     selector->keyMax = (uint8_t)(keyOffSet+selector->keyMax);
     selector->keyMin = (uint8_t)(keyOffSet+selector->keyMin);
 
-    uint32_t n=selector->notesNum;
-    Note* arr = selector->notes;
+    uint32_t n=sortedVectorGetSize(selector->notes);
+    Note* arr = (Note*)sortedVectorGetElements(selector->notes);    // Allowed key edit
     for (uint32_t i=0; i<n; i++) {
         arr[i]->key = (uint8_t)(keyOffSet+arr[i]->key);
     }
 }
 
 static void _selectorVectorMoveByTimestamp(struct notes_selection* selector, int timestampOffSet) {
-    if (!selector || !(selector->notes) || !(selector->notesNum) || (timestampOffSet+(int)(selector->timestampStart))<0) return;
+    if (!selector || !(selector->notes) || !(sortedVectorGetSize(selector->notes)) || (timestampOffSet+(int)(selector->timestampStart))<0) return;
 
     selector->timestampStart = (uint32_t)(timestampOffSet+selector->timestampStart);
     selector->timestampEnd = (uint32_t)(timestampOffSet+selector->timestampEnd);
 
-    uint32_t n=selector->notesNum;
-    Note* arr = selector->notes;
+    uint32_t n=sortedVectorGetSize(selector->notes);
+    Note* arr = (Note*)sortedVectorGetElements(selector->notes);    // Allowed identical edit
     for (uint32_t i=0; i<n; i++) {
         arr[i]->timestamp = (uint32_t)(timestampOffSet+(int64_t)(arr[i]->timestamp));
     }
@@ -470,9 +319,11 @@ static void _selectorMoveHold(struct notes_selection* selector, float fkey, uint
         int dk = tarKey-note->key;
         int64_t dt = (int64_t)tarTimestamp-(int64_t)note->timestamp;
 
-        uint32_t n=selector->notesNum;
+        uint32_t n=sortedVectorGetSize(selector->notes);
+        Note* arr=(Note*)sortedVectorGetElements(selector->notes);      // Allowed identical edits
+
         for (uint32_t i=0; i<n; i++) {
-            Note nt = (selector->notes)[i];
+            Note nt = arr[i];
             if (dk) nt->key = (uint8_t)(dk+nt->key);
             if (dt) nt->timestamp = (uint32_t)(dt+nt->timestamp);
         }
@@ -501,9 +352,10 @@ static void _selectorResizeClick(struct notes_selection* selector, Note note, fl
     selector->noteReference.minPossibleKey = note->key-selector->keyMin;
     selector->noteReference.maxPossibleKey = note->key+(127-selector->keyMax);
 
-    uint32_t n=selector->notesNum, minTst=-1;
+    uint32_t n=sortedVectorGetSize(selector->notes), minTst=-1;
+    Note* arr = (Note*)sortedVectorGetElements(selector->notes);    // Allowed identical edits??
     for (uint32_t i=0; i<n; i++) {
-        Note nt = (selector->notes)[i];
+        Note nt = arr[i];
         if (nt->duration<minTst) minTst=nt->duration;
     }
     selector->noteReference.minPossibleTimestamp += note->timestamp+note->duration-minTst;
@@ -523,9 +375,10 @@ static void _selectorResizeHold(struct notes_selection* selector, float fkey, ui
     if (note->timestamp+note->duration!=tarTimestamp) {
         int64_t dt = (int64_t)tarTimestamp-(int64_t)(note->timestamp+note->duration);
 
-        uint32_t n=selector->notesNum;
+        uint32_t n=sortedVectorGetSize(selector->notes);
+        Note* arr = (Note*)sortedVectorGetElements(selector->notes);    // Allowed identical edits??
         for (uint32_t i=0; i<n; i++) {
-            Note nt = (selector->notes)[i];
+            Note nt = arr[i];
             nt->duration = (uint32_t)(dt+nt->duration);
         }
 
@@ -535,24 +388,23 @@ static void _selectorResizeHold(struct notes_selection* selector, float fkey, ui
 }
 
 static void _selectorVectorSelectAll(struct notes_selection* selector) {
-    if (!selector) return;
-    _selectorVectorReset(selector);
+    if (!selector || _initSelectorVector(selector)) return;
+    
     Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
-    uint32_t n = track->numElements;
+    _selectorVectorReset(selector);
+    sortedVectorCopyElementsFromVector(selector->notes, track->notes);
+
+    uint32_t n = sortedVectorGetSize(selector->notes);
     if (!n) return;
 
-    Note* notes = malloc(n*sizeof(Note));
+    const Note* notes = (const Note*)sortedVectorGetElements(selector->notes);
     if (!notes) return;
-    selector->notes = notes;
-    selector->capacity = n;
-    selector->notesNum = n;
 
     uint8_t minKey=128, maxKey=0;
-    uint32_t startTimestamp=(track->notes)[0]->timestamp, endTimestamp=0;
+    uint32_t startTimestamp=notes[0]->timestamp, endTimestamp=0;
 
     for (uint32_t i=0; i<n; i++) {
-        Note nt = (track->notes)[i];
-        (selector->notes)[i] = nt;
+        Note nt = notes[i];
         if (minKey>nt->key) minKey=nt->key;
         if (maxKey<nt->key) maxKey=nt->key;
         if (endTimestamp<nt->timestamp+nt->duration) endTimestamp=nt->timestamp+nt->duration;
@@ -565,34 +417,10 @@ static void _selectorVectorSelectAll(struct notes_selection* selector) {
 }
 
 static void _selectorDeleteSelected(struct notes_selection* selector) {
-    if (!globalStateHandler || !selector || !(selector->notesNum) || globalStateHandler->selectedTrack<0 || !(globalStateHandler->project->tracks)) return;
-    uint32_t num = selector->notesNum;
-    int* indexes = malloc(num*sizeof(int));
-    if (!indexes) return;
+    if (!globalStateHandler || !selector || !(sortedVectorGetSize(selector->notes)) || globalStateHandler->selectedTrack<0 || !(globalStateHandler->project->tracks)) return;
 
     Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
-
-    for (uint32_t i=0; i<num; i++) {
-        indexes[i] = _tracksVectorFindWhereNoteShouldBe(track, (selector->notes)[i]);
-    }
-    qsort(indexes, num, sizeof(int), _intCompareFunc);
-    uint32_t idx=0;
-    while (idx<num && indexes[idx]<0) idx++;
-    for (uint32_t i=idx; i<num; i++) free((track->notes)[indexes[i]]);
-
-    uint32_t read=0, write=0, delete=idx;
-    while (read<track->numElements) {
-        if (delete<num && indexes[delete]==(int)read) {
-            delete++;
-            read++;
-            continue;
-        }
-        (track->notes)[write++] = (track->notes)[read++];
-    }
-    track->numElements = write;
-
-    free(indexes);
-    trackVectorResizeToFitJustNotes(track);
+    sortedVectorDeleteFromVector(track->notes, selector->notes);
     _selectorVectorReset(selector);
 }
 
@@ -608,29 +436,37 @@ static void _copyNotes(Note* dest, const Note* source, uint32_t size, int64_t ti
     }
 }
 
-static void _selectorVectorCopy(struct notes_selection* dest, struct notes_selection* source, int64_t timestampOffset) {
+static void _selectorVectorCopy(struct notes_selection* dest, struct notes_selection* source, int64_t timestampOffset) {    // Continue from here!!!
     if (!dest || !source || source->timestampStart+timestampOffset<0) return;
     if (&(globalStateHandler->selector.clipboard)==dest) _selectorVectorDeepFree(dest);
     else _selectorVectorReset(dest);
     
-    uint32_t n=source->notesNum;
+    uint32_t n=sortedVectorGetSize(source->notes);
     if (!n) return;
 
     Note* arr = malloc(sizeof(Note)*n);
     if (!arr) return;
 
-    _copyNotes(arr, source->notes, n, timestampOffset);
-    *dest = *source;
+    _copyNotes(arr, (const Note*)sortedVectorGetElements(source->notes), n, timestampOffset);
+    sortedVectorDestroy(dest->notes);
+    dest->notes = sortedVectorCreateFromData(_compareNotes, NULL, n, (void**)arr);
+    free(arr);
+
+    printf("_selectorVectorCopy:  dest.keyMin=%d, dest.keyMax=%d, dest.timestampStart=%u, dest.timestampEnd=%u | source.keyMin=%d, source.keyMax=%d, source.timestampStart=%u, source.timestampEnd=%u  -->  \n", dest->keyMin, dest->keyMax, dest->timestampStart, dest->timestampEnd, source->keyMin, source->keyMax, source->timestampStart, source->timestampEnd);
+
+    dest->keyMin = source->keyMin;
+    dest->keyMax = source->keyMax;
 
     dest->timestampStart = (uint32_t)(timestampOffset+dest->timestampStart);
     dest->timestampEnd = (uint32_t)(timestampOffset+dest->timestampEnd);
-    dest->notes = arr;
+    
+    _selectorVectorUpdateValues(dest);
 }
 
 static void _selectorVectorCut(struct notes_selection* dest, struct notes_selection* source) {
     if (!dest || !source) return;
     _selectorVectorDeepFree(dest);
-    uint32_t n=source->notesNum;
+    uint32_t n=sortedVectorGetSize(source->notes);
     if (!n) return;
 
     _selectorVectorCopy(dest, source, 0);      // Must be a better way of doing that
@@ -641,23 +477,22 @@ static void _selectorVectorPaste(struct notes_selection* dest, struct notes_sele
     if (!dest || !source) return;
     _selectorVectorReset(dest);
 
-    uint32_t n=source->notesNum;
+    uint32_t n=sortedVectorGetSize(source->notes);
     if (!n) return;
     _selectorVectorCopy(dest, source, ((int64_t)firstTimestamp)-source->timestampStart);
-    //_selectorVectorChangeTimestampsBy(dest, ((int64_t)firstTimestamp)-dest->timestampStart);
 
     Track track = globalStateHandler->project->tracks+globalStateHandler->selectedTrack;
-    trackVectorAddNewNotes(track, dest->notes, dest->notesNum);
+    trackVectorAddNewNotes(track, dest->notes);
 }
 
 void globalHandlerAddNoteToSelected(Note note) {
     if (!globalStateHandler || !note) return;
-    _selectorVectorAdd(&(globalStateHandler->selector.primary), note);
+    sortedVectorAdd(globalStateHandler->selector.primary.notes, note);
 }
 
 void globalHandlerRemoveSelectedNote(Note note) {
     if (!globalStateHandler || !note) return;
-    _selectorVectorRemove(&(globalStateHandler->selector.primary), note);
+    sortedVectorDeleteElement(globalStateHandler->selector.primary.notes, note);
 }
 
 void globalHandlerToggleSelectedNote(Note note) {
@@ -667,31 +502,30 @@ void globalHandlerToggleSelectedNote(Note note) {
 
 int globalHandlerIsNoteSelected(Note note) {
     if (!globalStateHandler || !note) return 0;
-    if (_selectorVectorFind(&(globalStateHandler->selector.primary), note)>=0) return 1;
-    if (_selectorVectorFind(&(globalStateHandler->selector.secondary), note)>=0) return 1;
+    if (sortedVectorFindElement(globalStateHandler->selector.primary.notes, note)>=0) return 1;
+    if (sortedVectorFindElement(globalStateHandler->selector.secondary.notes, note)>=0) return 1;
     return 0;
 }
 
 int globalHandlerIsNoteActuallySelected(Note note) {
     if (!globalStateHandler || !note) return 0;
-    if (_selectorVectorFind(&(globalStateHandler->selector.primary), note)>=0) return 1;
+    if (sortedVectorFindElement(globalStateHandler->selector.primary.notes, note)>=0) return 1;
     return 0;
 }
 
 int globalHandlerGetNumberOfActuallySelectedNotes() {
     if (!globalStateHandler) return 0;
-    return globalStateHandler->selector.primary.notesNum;
+    return sortedVectorGetSize(globalStateHandler->selector.primary.notes);
 }
 
 int globalHandlerGetNumberOfVisuallySelectedNotes() {
     if (!globalStateHandler) return 0;
-    return globalStateHandler->selector.primary.notesNum+globalStateHandler->selector.secondary.notesNum;
+    return sortedVectorGetSize(globalStateHandler->selector.primary.notes)+sortedVectorGetSize(globalStateHandler->selector.secondary.notes);
 }
 
 void globalHandlerDeleteSelectedNotes() {
-    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum) || globalStateHandler->selectedTrack<0 || !(globalStateHandler->project->tracks)) return;
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.primary.notes)) || globalStateHandler->selectedTrack<0 || !(globalStateHandler->project->tracks)) return;
     _selectorDeleteSelected(&(globalStateHandler->selector.primary));
-
     projectUpdateStateSomethingChanged();
 }
 
@@ -742,19 +576,22 @@ struct roll_rect globalHandlerGetCroppedRectangleForSelectedNotes() {
 
 uint32_t globalHandlerGetNumberOfSelectedNotes() {
     if (!globalStateHandler) return 0;
-    return globalStateHandler->selector.primary.notesNum;
+    return sortedVectorGetSize(globalStateHandler->selector.primary.notes);
 }
 
 
 void globalHandlerSelectSingleNote(Note note) {
     if (!globalStateHandler || !note) return;
     _selectorVectorReset(&(globalStateHandler->selector.primary));
-    _selectorVectorAdd(&(globalStateHandler->selector.primary), note);
+    sortedVectorAdd(globalStateHandler->selector.primary.notes, note);
 }
 
 void globalHandlerChangeVelocityOfSelectedNotes(uint8_t velocity) {
     if (!globalStateHandler || velocity>127) return;
-    if (globalStateHandler->selector.primary.notesNum==1 && globalStateHandler->selector.primary.notes) (globalStateHandler->selector.primary.notes)[0]->velocity = velocity;
+    if (sortedVectorGetSize(globalStateHandler->selector.primary.notes)==1 && globalStateHandler->selector.primary.notes) {
+        Note* nt = (Note*)sortedVectorGetElements(globalStateHandler->selector.primary.notes);
+        nt[0]->velocity = velocity;
+    }
     // else run a more general function that applies it to all
 }
 
@@ -778,7 +615,7 @@ void globalHandlerMoveSelectedRelease(float fkey, uint32_t timestamp) {
 }
 
 int globalHandlerMoveSelectedIsActive() {
-    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return 0;
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.primary.notes))) return 0;
     return (globalStateHandler->selector.primary.clickHold==1);
 }
 
@@ -804,18 +641,18 @@ uint32_t globalHandlerResizeSelectedRelease(float fkey, uint32_t timestamp) {
 }
 
 int globalHandlerResizeSelectedIsActive() {
-    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return 0;
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.primary.notes))) return 0;
     return (globalStateHandler->selector.primary.clickHold==2);
 }
 
 Note globalHandlerResizeSelectedGetReferenceNote() {
-    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum) || globalStateHandler->selector.primary.clickHold!=2) return NULL;
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.primary.notes)) || globalStateHandler->selector.primary.clickHold!=2) return NULL;
     return globalStateHandler->selector.primary.noteReference.note;
 }
 
-Note* globalHandlerGetSelectedNotes() {
-    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum) || !(globalStateHandler->selector.primary.notes)) return NULL;
-    return globalStateHandler->selector.primary.notes;
+const Note* globalHandlerGetSelectedNotes() {
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.primary.notes)) || !(globalStateHandler->selector.primary.notes)) return NULL;
+    return (const Note*)sortedVectorGetElements(globalStateHandler->selector.primary.notes);
 }
 
 void globalHandlerSelectAllNotes() {
@@ -829,19 +666,19 @@ void globalHandlerClearClipboard() {
 }
 
 void globalHandlerCopySelected() {
-    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return;
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.primary.notes))) return;
     _selectorVectorCopy(&(globalStateHandler->selector.clipboard), &(globalStateHandler->selector.primary), 0);
 }
 
 void globalHandlerCutSelected() {
-    if (!globalStateHandler || !(globalStateHandler->selector.primary.notesNum)) return;
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.primary.notes))) return;
     _selectorVectorCut(&(globalStateHandler->selector.clipboard), &(globalStateHandler->selector.primary));
     projectUpdateStateSomethingChanged();
     updateSelectedTracksValues();
 }
 
 void globalHandlerPasteSelected() {
-    if (!globalStateHandler || !(globalStateHandler->selector.clipboard.notesNum)) return;
+    if (!globalStateHandler || !(sortedVectorGetSize(globalStateHandler->selector.clipboard.notes))) return;
     _selectorVectorPaste(&(globalStateHandler->selector.primary), &(globalStateHandler->selector.clipboard), globalHandlerGetLineTimestamp());
     globalHandlerSetLineTimestamp(globalStateHandler->selector.primary.timestampEnd);
     globalHandlerMoveTimeDivAccordingToTimeLine(0.2, 0.2);

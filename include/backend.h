@@ -125,7 +125,7 @@ int trackGetMaxKey(Track track);
 uint32_t trackGetTimestampEnd(Track track);
 void tracksUpdateAllValues();
 void trackUpdateAllNoteData(Track track);
-
+void tracksDebugPrint(Track track);
 
 /* Handler (backend/stateHandler.c) */
 
@@ -239,7 +239,7 @@ void globalHandlerResizeSelectedPress(Note note, float fkey, uint32_t timestamp)
 void globalHandlerResizeSelectedHold(float fkey, uint32_t timestamp);
 uint32_t globalHandlerResizeSelectedRelease(float fkey, uint32_t timestamp);
 Note globalHandlerResizeSelectedGetReferenceNote();
-Note* globalHandlerGetSelectedNotes();
+const Note* globalHandlerGetSelectedNotes();
 int globalHandlerResizeSelectedIsActive();
 void globalHandlerSelectAllNotes();
 void globalHandlerMoveSelectedPitch(int keyOffset);

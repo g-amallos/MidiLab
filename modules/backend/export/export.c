@@ -1,5 +1,6 @@
 #include "export_internal.h"
 #include <utils.h>
+#include <sortedVector.h>
 
 #define DEFAULT_PROJECT_TITLE "Untitled Project"
 
@@ -168,14 +169,14 @@ static int writeTrackHeader(FILE* fptr, Track track, int trackIdx) {
     int themeIdx = getTrackThemeColorIdx(trackIdx);
     if (themeIdx<0) themeIdx=0;
     writeUint8(fptr, (uint8_t)themeIdx);
-    writeUint32(fptr, track->numElements);
+    writeUint32(fptr, sortedVectorGetSize(track->notes));
 
     return 0;
 }
 
 
 
-static int writeNote(FILE* fptr, Note note) {
+static int writeNote(FILE* fptr, const Note note) {
     /*
     Note Data:
     - u8:       key
@@ -200,7 +201,7 @@ static int writeNote(FILE* fptr, Note note) {
 
 static int readNote(FILE* fptr, Note* note) {
     *note = malloc(sizeof(struct note_data));
-    if (!note) return 1;
+    if (!(*note)) return 1;
 
     int ret=0;
     ret += readUint8(fptr, &((*note)->key));
@@ -223,7 +224,10 @@ static int readTrack(FILE* fptr, Track track, uint8_t* col) {
 
     char* title = malloc((titleLength+1)*sizeof(char));
     ret += readString(fptr, title, titleLength);
-    if (!isStringValidForTitle(title, maxTitleLength)) return 1;
+    if (!isStringValidForTitle(title, maxTitleLength)) {
+        free(title);
+        return 1;
+    }
 
     uint32_t u32volume=0, u32panning=0;
     float fvolume=0, fpanning=0;
@@ -252,18 +256,23 @@ static int readTrack(FILE* fptr, Track track, uint8_t* col) {
         track->sustain = sustain;
         track->velocity = fvolume;
         track->panning = fpanning;
+        
+        Note* arr = NULL;
+        if (numberOfNotes>0) {
+            arr = calloc(numberOfNotes, sizeof(Note));
 
-        track->capacity = numberOfNotes;
-        track->numElements = numberOfNotes;
-
-        track->notes = calloc(track->capacity, sizeof(Note));
-
-        for (uint32_t i=0; i<numberOfNotes; i++) {
-            Note note = NULL;
-            ret += readNote(fptr, &note);
-            (track->notes)[i] = note;
-            if (ret) return ret;
+            for (uint32_t i=0; i<numberOfNotes; i++) {
+                ret += readNote(fptr, arr+i);
+                if (ret) {
+                    free(title);
+                    free(arr);
+                    return ret;
+                }
+            }
         }
+        track->notes = sortedVectorCreateFromData(_compareNotes, _destroyNote, numberOfNotes, (void**)arr);
+        if (arr) free(arr);
+        if (!(track->notes)) return 1;
     }
 
     return ret;
@@ -273,8 +282,9 @@ static int writeTrack(FILE* fptr, Track track, int trackIdx) {
     if (!fptr || !track) return 1;
 
     int ret = writeTrackHeader(fptr, track, trackIdx);
-    uint32_t notes = track->numElements;
-    for (uint32_t i=0; i<notes; i++) ret += writeNote(fptr, (track->notes)[i]);
+    uint32_t notes = sortedVectorGetSize(track->notes);
+    const Note* arr = (const Note*)sortedVectorGetElements(track->notes);
+    for (uint32_t i=0; i<notes; i++) ret += writeNote(fptr, arr[i]);
     
     return ret;
 }
@@ -302,16 +312,13 @@ static void freeInvalidProjectHeader(ProjectData prd) {
 
 static void freeInvalidProjectTrack(Track track) {
     if (!track) return;
-
+    if (track->title) {
+        free(track->title);
+        track->title=NULL;
+    }
     if (track->notes) {
-        uint32_t n = track->numElements;
-        for (uint32_t i=0; i<n; i++) {
-            if ((track->notes)[i]) {
-                free((track->notes)[i]);
-                (track->notes)[i] = NULL;
-            }
-        }
-        free(track->notes);
+        sortedVectorDestroy(track->notes);
+        track->notes = NULL;
     }
 }
 
@@ -399,7 +406,7 @@ int importProjectFrom(const char* filename) {
 uint32_t estimateFileSizeForProject() {
     uint32_t size = 8+strlen(globalProject->title); // Header size
     uint16_t tracks = globalProject->tracksNum;
-    for (uint16_t i=0; i<tracks; i++) size += 17+strlen((globalProject->tracks)[i].title)+12*(globalProject->tracks)[i].numElements;
+    for (uint16_t i=0; i<tracks; i++) size += 17+strlen((globalProject->tracks)[i].title)+12*sortedVectorGetSize((globalProject->tracks)[i].notes);
     return size;
 }
 

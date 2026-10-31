@@ -110,6 +110,7 @@ run: all
 	./$(OUT)
 
 
-mem: run
+mem: all
+	LSAN_OPTIONS=suppressions=lsan.supp ./$(OUT)
 
 .PHONY: all clean mostlyclean run mem

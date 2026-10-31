@@ -6,6 +6,7 @@
 #include <utils.h>
 #include <stdio.h>
 #include <math.h>
+#include <sortedVector.h>
 
 
 #define DEFAULT_VISIBLE_DURATION 10.0
@@ -66,8 +67,6 @@ struct backend_state_handler _globalHandler = {
             .noteReference = {NULL,},
             .timestampStart = 0,
             .timestampEnd = 0,
-            .capacity = 0,
-            .notesNum = 0,
             .notes = NULL
         },
         .secondary = {
@@ -81,8 +80,6 @@ struct backend_state_handler _globalHandler = {
             .noteReference = {NULL,},
             .timestampStart = 0,
             .timestampEnd = 0,
-            .capacity = 0,
-            .notesNum = 0,
             .notes = NULL
         },
         .clipboard = {
@@ -96,8 +93,6 @@ struct backend_state_handler _globalHandler = {
             .noteReference = {NULL,},
             .timestampStart = 0,
             .timestampEnd = 0,
-            .capacity = 0,
-            .notesNum = 0,
             .notes = NULL
         }
     },
@@ -115,6 +110,10 @@ void globalStateHandlerInit() {
     globalStateHandler->time.beatDuration = 60.0/globalStateHandler->time.tempo;
     globalStateHandler->time.measureDuration = globalStateHandler->time.timeSignature.numerator*globalStateHandler->time.beatDuration;
     globalStateHandler->time.ticksPerBeat = (globalStateHandler->time.ppqn*4)/globalStateHandler->time.timeSignature.denominator;
+}
+
+void globalStateHandlerClose() {
+    selectorVectorsClose();
 }
 
 void _globalHandlerUpdateDurations() {
@@ -389,70 +388,38 @@ void _exportSetupSynthTracks() {
 struct array_indices {
     int foundElements;
     uint32_t start;     // Inclusive if foundElements
-    uint32_t end;       // Inclusive if foundElements
+    uint32_t end;       // Exclusive if foundElements
 };
 
 static struct array_indices getArrayIndicesOfTrack(Track track, uint32_t start, uint32_t end) {
     struct array_indices ret = {0,0,0};
-    if (!track || start>end || track->numElements<=0) return ret;
+    if (!track || start>end || sortedVectorGetSize(track->notes)<=0) return ret;
 
 
     uint32_t left=0;
-    uint32_t right=track->numElements;  // Exclusive
+    uint32_t right=sortedVectorGetSize(track->notes);  // Exclusive
+    const Note* arr = (const Note*)sortedVectorGetElements(track->notes);
 
     while (right>left) {
         uint32_t center = left+((right-left)>>1);
-        if ((track->notes)[center]->timestamp<start) left=center+1;
+        if (arr[center]->timestamp<start) left=center+1;
         else right=center;
     }
 
     ret.start = left;
-    right = track->numElements;  // Exclusive
+    right = sortedVectorGetSize(track->notes);  // Exclusive
 
     while (right>left) {
         uint32_t center = left+((right-left)>>1);
-        if ((track->notes)[center]->timestamp>end) right=center;
+        if (arr[center]->timestamp>end) right=center;
         else left=center+1;
     }
 
-    ret.end = right-1;
+    ret.end = right;
     if (right==0 || right<=ret.start) ret.foundElements=0;
     else ret.foundElements=1;
     
     return ret;
-
-
-    /*
-    uint32_t left=0, right=0;
-
-    uint32_t startLeft=0, endRight=track->numElements-1;
-    left=endRight;
-    while (1) {
-        if (track->notes[left]->timestamp<start) break;
-
-        uint32_t tmp = (startLeft+left)>>1;
-        if (track->notes[tmp]->timestamp>=start) left=tmp;
-        else if (track->notes[tmp]->timestamp<start) startLeft=tmp;
-
-        if (left==startLeft) break;
-    }
-
-    while (1) {
-        if (track->notes[right]->timestamp>end) break;
-
-        uint32_t tmp = (endRight+right)>>1;
-        if (track->notes[tmp]->timestamp<=end) right=tmp;
-        else if (track->notes[tmp]->timestamp>end) endRight=tmp;
-
-        if (right==endRight) break;
-    }
-
-    ret.start = left;
-    ret.end = right;
-    if (left>right || track->notes[right]->timestamp>end || track->notes[left]->timestamp<start) ret.foundElements=0;
-    else ret.foundElements = 1;
-
-    return ret;*/
 }
 
 
@@ -471,8 +438,9 @@ static void registerMidiEventsToActionsFrom(uint32_t timestampStart, uint32_t ti
         if (indices.foundElements) {
             //fprintf(stderr, "`registerMidiEventsToActionsFrom`: Indices: Found=%d, start=%u, end=%u\n", indices.foundElements, indices.start, indices.end);
             Track track = globalProject->tracks+tracki;
-            for (uint32_t i=indices.start; i<=indices.end; i++) {
-                Note note = track->notes[i];
+            Note* arr = (Note*)sortedVectorGetElements(track->notes);
+            for (uint32_t i=indices.start; i<indices.end; i++) {
+                Note note = arr[i];
                 note->channel = track->program;
                 note->track = tracki;
                 //printf("Time: %7.4lf | Note On: %u, Velocity=%u, Timestamp=%u | Start=%u, End=%u\n", now, note->key, note->velocity, note->timestamp, timestampStart, timestampEnd);

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <images.h>
 #include <export.h>
+#include <macros.h>
 
 
 
@@ -850,7 +851,7 @@ static void renderWhatMightBeAdded() {
             interior.a = 30;
             mtx = divStartX+(((double)(trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)-divOffset)*measureWidth;
             mtw = ((double)(trect.bottomRight.timestamp-trect.topLeft.timestamp))/(piecesInBeat*beatsInMeasure)*measureWidth;
-            int ft=(int)floor(trect.topLeft.fkey), fb=(int)floor(trect.bottomRight.fkey);
+            int ft=(int)floor(trect.topLeft.fkey-0.5), fb=(int)floor(trect.bottomRight.fkey);
             double mty = pianoRollKeys[ft].rollY+rollKeyHeight*(1-trect.topLeft.fkey+ft);
             double mth = pianoRollKeys[fb].rollY+rollKeyHeight*(1-trect.bottomRight.fkey+fb);
             mth = mth-mty;
@@ -905,7 +906,7 @@ inline static void _fixMouseCursorIfNeeded(int selGroupActive, int selMoveActive
 void renderNotes() {
     Track track = trackGetSelectedTrack();
     uint32_t notesNum = trackGetNumOfNotes(track);
-    Note* notes = trackGetNotes(track);
+    const Note* notes = (const Note*)trackGetNotes(track);
 
     Color colors[2] = {getTrackThemeColorForWhiteKeys(), getTrackThemeColorForBlackKeys()};
     Color tcol={0,0,0,255};
@@ -966,7 +967,7 @@ void renderNotes() {
 
 
     notesNum = globalHandlerGetNumberOfActuallySelectedNotes();
-    notes = globalHandlerGetSelectedNotes();
+    notes = (const Note*)globalHandlerGetSelectedNotes();
 
     if (notesNum>0 && notes) {
         for (uint32_t i=0; i<notesNum; i++) {
@@ -1360,6 +1361,10 @@ static void handlerIntermediateEvents() {
     int mp = IsKeyPressed(KEY_KP_ADD)-IsKeyPressed(KEY_KP_SUBTRACT);
     if (zx && allowedShortcuts && !controlDown) changeControlDuration(zx);
     if (mp && allowedShortcutsWhilePlaying && !controlDown) _keyHeightIncreaseDecrease(mp);
+
+    if (DEBUG && IsKeyPressed(KEY_N)) {
+        tracksDebugPrint(trackGetSelectedTrack());
+    }
 }
 
 static void _selectSingleNote(Note note) {

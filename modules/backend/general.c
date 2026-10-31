@@ -16,6 +16,7 @@ int backendInit() {
 int backendClose() {
     freeProjectContents();
     globalHandlerClearNotesSelected();
+    globalStateHandlerClose();
     projectClose();
     FFTclose();
     return 0;

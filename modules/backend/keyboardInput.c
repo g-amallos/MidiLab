@@ -3,7 +3,7 @@
 
 
 #define TOTAL_KEYS 50   //(26+10+8+8+4+4)
-#define MAX_MAPPING 265
+#define MAX_MAPPING 266
 
 #define KB_DELAY 0.5
 #define KB_INTERVAL 0.05

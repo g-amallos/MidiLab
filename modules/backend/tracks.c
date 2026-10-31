@@ -2,14 +2,27 @@
 #include "backend_internal.h"
 #include <backend.h>
 #include <string.h>
+#include <stdio.h>
 
 
+void _destroyNote(void* note) {
+    free(note);
+}
 
+int _compareNotes(const void* a, const void* b) {   // Passing Note*
+    if (!a && !b) return 0;
+    if (!a || !b) return a?-1:1;
+    
+    const Note na = *(const Note*)a;
+    const Note nb = *(const Note*)b;
 
-void freeTrackNotes(Track track) {
-    if (!track || !(track->notes)) return;
-
-    for (uint32_t i=0; i<track->numElements; i++) if (track->notes[i]) free(track->notes[i]);
+    if (na->timestamp>nb->timestamp) return 1;
+    if (na->timestamp<nb->timestamp) return -1;
+    if (na->key>nb->key) return 1;
+    if (na->key<nb->key) return -1;
+    if (na->duration>nb->duration) return 1;
+    if (na->duration<nb->duration) return -1;
+    return 0;
 }
 
 void freeTrackContents(Track track) {   // Doesn't free self
@@ -20,12 +33,9 @@ void freeTrackContents(Track track) {   // Doesn't free self
     }
     
     if (track->notes) {
-        freeTrackNotes(track);
-        free(track->notes);
+        sortedVectorDestroy(track->notes);
         track->notes = NULL;
     }
-    track->numElements = 0;
-    track->capacity = 0;
     track->keyMax = 0;
     track->keyMin = 0;
     track->timestampStart = 0;
@@ -34,7 +44,9 @@ void freeTrackContents(Track track) {   // Doesn't free self
 
 static void _trackVectorUpdateValues(Track track) {
     if (!track) return;
-    if (!(track->notes) || !(track->numElements)) {
+    uint32_t num=sortedVectorGetSize(track->notes);
+    const Note* arr=(const Note*)sortedVectorGetElements(track->notes);
+    if (!num || !arr) {
         track->keyMin=0;
         track->keyMax=0;
         track->timestampStart=0;
@@ -42,11 +54,11 @@ static void _trackVectorUpdateValues(Track track) {
         return;
     }
 
-    track->timestampStart = (track->notes)[0]->timestamp;
+    track->timestampStart = (arr[0])->timestamp;
     uint8_t keyMin=128, keyMax=0;
-    uint32_t timestampEnd=0, idx=0, num=track->numElements;
+    uint32_t timestampEnd=0, idx=0;
     for (; idx<num; idx++) {
-        Note nt = (track->notes)[idx];
+        Note nt = arr[idx];
         if (nt->timestamp+nt->duration>timestampEnd) timestampEnd=nt->timestamp+nt->duration;
         if (nt->key>keyMax) keyMax=nt->key;
         if (nt->key<keyMin) keyMin=nt->key;
@@ -76,8 +88,9 @@ uint32_t trackGetDurationTimestamp(Track track) {
 }*/
 
 static void _trackVectorUpdateValuesOnNoteAddition(Track track, Note note) {
-    if (!track || !(track->notes)) return;
-    if (!(track->numElements)) {
+    if (!track) return;
+    uint32_t num = sortedVectorGetSize(track->notes);
+    if (!num) {
         track->keyMin = note->key;
         track->keyMax = note->key;
         track->timestampStart = note->timestamp;
@@ -90,23 +103,19 @@ static void _trackVectorUpdateValuesOnNoteAddition(Track track, Note note) {
     }
 }
 
-static void _trackVectorUpdateValuesOnNoteRemoval(Track track, Note note) {
-    if (!track) return;
-    if (!(track->numElements) || note->key<=track->keyMin || note->key>=track->keyMax || note->timestamp<=track->timestampStart || note->timestamp+note->duration>=track->timestampEnd) _trackVectorUpdateValues(track);
-}
 
 int trackGetMinKey(Track track) {
-    if (!track || !(track->numElements)) return -1;
+    if (!track || !sortedVectorGetSize(track->notes)) return -1;
     return track->keyMin;
 }
 
 int trackGetMaxKey(Track track) {
-    if (!track || !(track->numElements)) return -1;
+    if (!track || !sortedVectorGetSize(track->notes)) return -1;
     return track->keyMax;
 }
 
 uint32_t trackGetTimestampEnd(Track track) {
-    if (!track || !(track->numElements)) return 0;
+    if (!track || !sortedVectorGetSize(track->notes)) return 0;
     return track->timestampEnd;
 }
 
@@ -114,7 +123,7 @@ void trackLoadTmpTrack(Track dest, Track src) {
     if (!dest || !src) return;
     freeTrackContents(dest);
     *dest = *src;
-    _trackVectorUpdateValues(dest);
+    _trackVectorUpdateValues(dest);     // Continue from here!!
 }
 
 uint16_t tracksGetMaxTracks() {
@@ -132,40 +141,38 @@ int tracksCanCreateNew() {
 
 
 Track trackCreateNew() {
-    if (!globalProject) return NULL;
+    if (!tracksCanCreateNew()) return NULL;
+
+    struct track_data tmp = {.channel=0, .program=0, .sustain=0, .velocity=0.75, .panning=0.5, .keyMax=0, .keyMin=0, .timestampStart=0, .timestampEnd=0, .title=NULL, .notes=NULL};
+    tmp.title = malloc(11*sizeof(char));
+    if (tmp.title) strncpy(tmp.title, "New Track", 11);
+
+    tmp.notes = sortedVectorCreate(_compareNotes, _destroyNote);
+    if (!(tmp.title) || !(tmp.notes)) {
+        if (tmp.title) free(tmp.title);
+        if (tmp.notes) sortedVectorDestroy(tmp.notes);
+        return NULL;
+    }
 
     if (globalProject->tracks) {
         Track rlc = realloc(globalProject->tracks, (globalProject->tracksNum+1)*sizeof(struct track_data));
-        if (!rlc) return NULL;
+        if (!rlc) {
+            if (tmp.title) free(tmp.title);
+            if (tmp.notes) sortedVectorDestroy(tmp.notes);
+            return NULL;
+        }
         globalProject->tracks = rlc;
     } else {
         globalProject->tracks = malloc(sizeof(struct track_data));
-        if (!(globalProject->tracks)) return NULL;
+        if (!(globalProject->tracks)) {
+            if (tmp.title) free(tmp.title);
+            if (tmp.notes) sortedVectorDestroy(tmp.notes);        
+            return NULL;
+        }
     }
 
-    //globalStateHandler->selectedTrack = (globalProject->tracksNum)++;
     Track ret = globalProject->tracks+(globalProject->tracksNum)++;
-
-    ret->channel = 0;
-    ret->program = 0;
-    ret->sustain = 0;
-
-
-    ret->velocity = 0.75;
-    ret->panning = 0.5;
-
-    ret->keyMax = 0;
-    ret->keyMin = 0;
-    ret->timestampStart = 0;
-    ret->timestampEnd = 0;
-
-    ret->capacity = 32;
-    ret->numElements = 0;
-    ret->notes = calloc((ret->capacity), sizeof(Note));     // Check if failed??
-
-    ret->title = malloc(11*sizeof(char));
-    if (ret->title) strncpy(ret->title, "New Track", 11);
-
+    *ret = tmp;
 
     globalHandlerSelectTrack(globalProject->tracksNum-1);
     globalHandlerUpdateSelectedTrack();
@@ -245,10 +252,7 @@ void trackDeleteAtIdx(int idx) {
     Track old = &(globalProject->tracks)[idx];
     freeTrackContents(old);
 
-    
-    for (int i=idx; i<globalProject->tracksNum-1; i++) {
-        (globalProject->tracks)[i] = (globalProject->tracks)[i+1];
-    }
+    if (idx<globalProject->tracksNum-1) memmove(globalProject->tracks+idx, globalProject->tracks+idx+1, sizeof(struct track_data)*(globalProject->tracksNum-idx-1));
 
     if (globalProject->tracksNum>1) globalProject->tracks = realloc(globalProject->tracks, (--(globalProject->tracksNum))*sizeof(struct track_data));
     else {
@@ -283,98 +287,13 @@ int trackMoveToIndex(Track track, int idx) {
 int trackCanSafelyReplaceContents(Track track) {
     if (!track) return 0;
     if (globalProject->saveState.state==S_STATE_SAVED && globalProject->saveState.filepath) return 1;
-    return track->numElements==0;
+    return sortedVectorGetSize(track->notes)==0;
 }
 
 
 
 void trackSortNotes(Track track);
 
-static int _initTrackVector(Track track) {
-    if (!track) return 1;
-    if (!(track->notes)) {
-        uint32_t cap = 32;
-        track->notes = calloc(cap, sizeof(Note));
-        track->capacity = cap*(!!(track->notes));
-        track->numElements = 0;
-    }
-    return !(track->notes);
-}
-
-static int _trackVectorFindWhereNoteShouldBe(Track track, Note note) {
-    if (!track || !(track->notes) || !note) return -1;
-    uint32_t left=0, right=track->numElements;
-    uint32_t target=note->timestamp;
-    while (right>left) {
-        uint32_t center = left+((right-left)>>1);
-        if ((track->notes)[center]==note) return center;
-        if ((track->notes)[center]->timestamp<target) left=center+1;
-        else right=center;
-    }
-    return right;
-}
-
-static int _trackVectorFindNoteLinearlyAfter(Track track, Note note, int idx) {
-    if (idx<0) return idx;
-    uint32_t target=note->timestamp, nidx=(uint32_t)idx;
-    while (nidx<track->numElements && note!=(track->notes)[nidx] && target<=(track->notes)[nidx]->timestamp) nidx++;
-    if (nidx>=track->numElements || note!=(track->notes)[nidx]) return -1;
-    else return (int)nidx;
-}
-
-static int _trackVectorFind(Track track, Note note) {
-    int idx = _trackVectorFindWhereNoteShouldBe(track, note);
-    return _trackVectorFindNoteLinearlyAfter(track, note, idx);
-}
-
-static int _trackVectorDuplicateCapacity(Track track) {
-    uint32_t oldCap = track->capacity;
-    uint32_t newCap = (oldCap<<1);
-
-    Note* arr = realloc(track->notes, newCap*sizeof(Note));
-    if (!arr) return 1;
-
-    track->capacity = newCap;
-    track->notes = arr;
-    return 0;
-}
-
-static int _trackVectorHalveCapacity(Track track) {
-    uint32_t oldCap = track->capacity;
-    uint32_t newCap = (oldCap>>1);
-    if (newCap<32) newCap=32;
-
-    Note* arr = realloc(track->notes, newCap*sizeof(Note));
-    if (!arr) return 1;
-
-    track->capacity = newCap;
-    track->notes = arr;
-    return 0;
-}
-
-static void _trackVectorAdd(Track track, Note note) {
-    if (_initTrackVector(track) || !note) return;
-    int idx = _trackVectorFindWhereNoteShouldBe(track, note);
-    int existIdx = _trackVectorFindNoteLinearlyAfter(track, note, idx);
-
-    if (existIdx>=0) return;
-    if (track->capacity<=track->numElements && _trackVectorDuplicateCapacity(track)) return;
-    memmove(track->notes+idx+1, track->notes+idx, (track->numElements-idx)*sizeof(Note));
-    (track->notes)[idx]=note;
-    _trackVectorUpdateValuesOnNoteAddition(track, note);
-    (track->numElements)++;
-}
-
-static int _trackVectorRemove(Track track, Note note) {
-    if (_initTrackVector(track) || !note) return 1;
-    int idx=_trackVectorFind(track, note), num=track->numElements;
-    if (idx<0) return 1;
-    (track->notes)[idx]=NULL;
-    if (num-idx-1) memmove(track->notes+idx, track->notes+idx+1, (num-idx-1)*sizeof(Note));
-    if (((track->capacity)>>2)>(--(track->numElements))) _trackVectorHalveCapacity(track);
-    _trackVectorUpdateValuesOnNoteRemoval(track, note);
-    return 0;
-}
 
 
 Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_t timestamp, uint32_t duration) {
@@ -389,123 +308,57 @@ Note trackCreateNoteInTrack(Track track, uint8_t note, uint8_t velocity, uint32_
     mnote->duration = duration;
     mnote->channel = track->channel;
 
-    _trackVectorAdd(track, mnote);              // Improved from O(n*log(n)) (or depending on the implementation of qsort from O(n^2) worst-case) to O(n) worst case
+    _trackVectorUpdateValuesOnNoteAddition(track, mnote);
+    sortedVectorAdd(track->notes, mnote);              // Improved from O(n*log(n)) (or depending on the implementation of qsort from O(n^2) worst-case) to O(n) worst case
     projectUpdateStateSomethingChanged();
     return mnote;
 }
 
-void trackVectorResizeToFitJustNotes(Track track) {
-    if (!track) return;
-    uint32_t cap=32;
-    if (!(track->notes)) {
-        Note* tnotes = malloc(cap*sizeof(Note));
-        if (!tnotes) return;
-        track->notes = tnotes;
-        track->capacity = cap;
-        track->numElements = 0;
-    } else {
-        cap = track->numElements;
-        cap = (cap>32)?cap:32;
-        Note* tnotes = realloc(track->notes, cap*sizeof(Note));
-        if (!tnotes) return;
-        track->capacity = cap;
-        track->notes = tnotes;
-    }
-}
 
-void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size) {   // size is the number of elements in buff
-    if (!track || !buff) return;
-    uint32_t elm=track->numElements;
-    
-    Note* arr = malloc((elm+size)*sizeof(Note));
-    if (!arr) return;
-
-    _mergeSortedVectors(arr, track->notes, elm, buff, size);
-
-    if (track->notes) free(track->notes);
-    track->notes = arr;
-    track->numElements += size;
-    track->capacity = track->numElements;
+void trackVectorAddNewNotes(Track track, SortedVector svec) {
+    if (!track || !svec) return;
+    sortedVectorMerge(track->notes, svec);
     _trackVectorUpdateValues(track);
 }
 
-void trackHalveCapacity(Track track) {
-    if (!track || !(track->notes)) return;
-    if (track->numElements < (track->capacity>>2) && track->capacity>32) {
-        uint32_t tcap = (track->capacity)>>2;
-        tcap = (tcap>32)?tcap:32;
-        Note* tnotes = realloc(track->notes, tcap*sizeof(Note));
-        if (!tnotes) return;
-        track->capacity = tcap;
-        track->notes = tnotes;
-    }
-}
-
 void trackDeleteNoteInTrackByIdx(Track track, uint32_t idx) {
-    if (!track || track->numElements<=idx) return;
-    uint32_t i=idx;
-    while (i+1<track->numElements) {
-        track->notes[i] = track->notes[i+1];
-        i++;
-    }
-    track->notes[(track->numElements)--]=NULL;
-    trackHalveCapacity(track);
-    
+    if (!track) return;
+    sortedVectorDeleteElementAt(track->notes, idx);
+    _trackVectorUpdateValues(track);
     projectUpdateStateSomethingChanged();
 }
 
 
 void trackDeleteNoteInTrack(Track track, Note note) {
     if (!track || !note) return;
-    if (!_trackVectorRemove(track, note)) free(note);
+    sortedVectorDeleteElement(track->notes, note);
     projectUpdateStateSomethingChanged();
 }
 
 
 
 
-int trackNoteCompare(const void* a, const void* b) {
-    if (!a && !b) return 0;
-    if (!a || !b) return a?-1:1;
-    
-    Note na = *(Note*)a;
-    Note nb = *(Note*)b;
-
-    if (na->timestamp>nb->timestamp) return 1;
-    if (na->timestamp<nb->timestamp) return -1;
-    if (na->duration>nb->duration) return 1;
-    if (na->duration<nb->duration) return -1;
-
-    return 0;
-}
 
 void trackSortNotes(Track track) {
-    if (!track || !(track->notes) || !(track->numElements)) return;
-
-    int items = track->numElements;
-    if (!items) return;
-
-    qsort(track->notes, items, sizeof(Note), trackNoteCompare);
+    if (!track || !(track->notes)) return;
+    sortedVectorSort(track->notes);
 }
 
 void sortNoteBuffer(Note* buffer, uint64_t size) {
     if (!buffer || !size) return;
-    qsort(buffer, size, sizeof(Note), trackNoteCompare);
+    qsort(buffer, size, sizeof(Note), _compareNotes);
 }
 
-void trackUpdateNotesFfields(Track track) {
-    if (!track) return;
 
-
-}
 
 void trackUpdateAllNoteData(Track track) {
-    if (!track || !(globalProject) || !(track->notes) || !(track->numElements)) return;
+    if (!track || !(globalProject) || !(track->notes)) return;
 
     uint8_t trackIdx = track-globalProject->tracks;
-    uint32_t n=track->numElements;
+    uint32_t n = sortedVectorGetSize(track->notes);
+    Note* arr = (Note*)sortedVectorGetElements(track->notes);
     for (uint32_t i=0; i<n; i++) {
-        Note nt = (track->notes)[i];
+        Note nt = arr[i];
         nt->track = trackIdx;
         nt->ftimestamp = globalHandlerTimestampToSeconds(nt->timestamp);
         nt->fduration = globalHandlerTimestampToSeconds(nt->duration);
@@ -516,27 +369,23 @@ uint32_t trackPiecesInBeat() {
     return (1<<14);
 }
 
-//Note trackGetFirstVisibleNote(Track track) {
-//    if (!track || !(track->notes)) return NULL;
-//    double divTime = globalHandlerGetTime();
-//    double divDur = globalHandlerGetVisibleDuration();
-//
-//    int upper=track->capacity-1, lower=0;
-//    while (upper!=lower) {
-//
-//    }
-//}
 
 uint32_t trackGetNumOfNotes(Track track) {
     if (!track) return 0;
-    return track->numElements;
+    return sortedVectorGetSize(track->notes);
 }
 
 Note* trackGetNotes(Track track) {
     if (!track) return 0;
-    return track->notes;
+    return (Note*)sortedVectorGetElements(track->notes);
 }
 
-inline int trackIsNoteWithinBounds(Note note) {
-    return 0*note->key;
+void tracksDebugPrint(Track track) {
+    if (!track) return;
+    uint32_t n=sortedVectorGetSize(track->notes);
+    const Note* arr = (const Note*)sortedVectorGetElements(track->notes);
+    printf("Track #%p: %u Notes\n", (void*)track, n);
+    for (uint32_t i=0; i<n; i++) {
+        printf("- %3u: %p\n", i, (void*)arr[i]);
+    }
 }

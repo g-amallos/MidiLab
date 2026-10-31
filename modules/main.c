@@ -7,6 +7,8 @@
 #include <images.h>
 #include <threads.h>
 #include <export.h>
+#include <stdlib.h>
+#include <sortedVector.h>
 
 
 #define APP_NAME "MidiLab"
@@ -15,6 +17,7 @@
 AudioStream stream={.buffer=NULL, .channels=2, .sampleRate=44100};
 static Vector2 windowSize = {800, 600};
 
+int _compareNotes(const void* a, const void* b);
 
 int AppInit() {
     if (dllsSetup()) return 1;
@@ -45,6 +48,11 @@ int AppInit() {
 
     startupScreenRender(screenSize);
     SetWindowState(FLAG_WINDOW_RESIZABLE);
+
+    //SortedVector vec = sortedVectorCreate(_compareNotes, NULL);
+    //sortedVectorAdd(vec, malloc(12));
+    //char* test = malloc(10);
+    //(void)test;
     
     return 0;
 }
@@ -111,5 +119,6 @@ int testIteration() {
 int main() {
     if (!AppInit()) gameLoop(testIteration);
     AppClose();
+    sortedVectorPrintDebug();
     return 0;
 }

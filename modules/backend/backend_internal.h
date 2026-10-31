@@ -2,6 +2,7 @@
 #define BACKEND_INTERNAL_H
 
 #include <backend.h>
+#include <sortedVector.h>
 
 
 
@@ -33,9 +34,7 @@ typedef struct track_data {
     uint32_t timestampStart;
     uint32_t timestampEnd;
 
-    uint32_t capacity;      // Allocating more than needed, for fewer realloc calls
-    uint32_t numElements;      // Number of actual saved note data (the first n in the array)
-    Note* notes;
+    SortedVector notes;
 
 } *Track;
 
@@ -107,10 +106,11 @@ struct notes_selection {
 
     uint32_t timestampStart;
     uint32_t timestampEnd;
-
-    uint32_t capacity;
-    uint32_t notesNum;
-    Note* notes;
+    
+    SortedVector notes;
+    //uint32_t capacity;
+    //uint32_t notesNum;
+    //Note* notes;
 };
 
 struct notes_selector {
@@ -208,6 +208,7 @@ extern struct midi_drum _midiDrums[128];
 
 
 void globalStateHandlerInit();
+void globalStateHandlerClose();
 void _globalHandlerUpdateDurations();
 void _globalStateHandlerUpdateTempo(double tempo);
 void globalHandlerMoveTimeDivAccordingToTimeLine(float startPadding, float endPadding);
@@ -220,13 +221,16 @@ const char* projectGetSavedFilepath();
 void updateWindowProjectTitle();
 void trackLoadTmpTrack(Track dest, Track src);
 
+void _destroyNote(void* note);
+int _compareNotes(const void* a, const void* b);
+
 void trackHalveCapacity(Track track);
-void trackVectorResizeToFitJustNotes(Track track);
+void selectorVectorsClose();
 
 void trackRecalculateValues(Track track);
 void trackSortNotes(Track track);
 void sortNoteBuffer(Note* buffer, uint64_t size);
-void trackVectorAddNewNotes(Track track, Note* buff, uint32_t size);    // buff must have sorted notes
+void trackVectorAddNewNotes(Track track, SortedVector svec);
 void _mergeSortedVectors(Note* dest, const Note* a, uint32_t sa, const Note* b, uint32_t sb);
 
 void _exportSetupSynthTracks();

@@ -61,10 +61,12 @@ void freeProjectContents() {
 }
 
 
-int createNewProject() {
+int createNewProject(int freeUI) {
     char s[] = "New Project";
     char* newTitle = strdup(s);
     if (!newTitle) return 1;
+
+    if (freeUI) freeTrackUIs();
 
     freeProjectContents();
     globalProject->title = newTitle;
@@ -83,7 +85,7 @@ int createNewProject() {
 }
 
 void newProject() {
-    if (createNewProject()) return;
+    if (createNewProject(1)) return;
     
     uint16_t tempo = globalProject->tempo;
     struct time_signature ts = globalProject->timeSignature;
@@ -92,7 +94,6 @@ void newProject() {
     projectSetTempo(tempo);
     globalHandlerSetKeyboardType(T_KEYBOARD_NONE);
 
-    freeTrackUIs();
     updateCLTextboxes();
 }
 
@@ -198,7 +199,7 @@ int projectIsPracticallyEmpty() {
     int totalNotes=0, totalTracks=(int)(globalProject->tracksNum);
 
     for (int i=0; i<totalTracks; i++) {
-        totalNotes += (globalProject->tracks)[i].numElements;
+        totalNotes += trackGetNumOfNotes(globalProject->tracks+i);
         if (totalNotes>0) return 0;
     }
     return 1;
@@ -242,7 +243,7 @@ uint32_t projectGetTotalNumberOfNotes() {
     if (!globalProject) return 0;
     uint32_t ret=0;
     uint16_t i=0, n=globalProject->tracksNum;
-    for (; i<n; i++) ret+=(globalProject->tracks)[i].numElements;
+    for (; i<n; i++) ret+=trackGetNumOfNotes(globalProject->tracks+i);
     return ret;
 }
 
